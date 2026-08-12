@@ -1,0 +1,89 @@
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+  transform: translateY(0);
+}
+
+.card:hover {
+  background-color: var(--surface-hover);
+  border-color: #46515f;
+  transform: translateY(-1px);
+}
+
+.card.selected {
+  border-color: rgba(79, 140, 255, 0.7);
+  background-color: var(--accent-subtle);
+}
+
+.iconWrapper {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.card.selected .iconWrapper {
+  color: var(--accent);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.os {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.card:focus-visible { outline-offset: 3px; }
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot_available {
+  background-color: var(--success);
+}
+.dot_connecting {
+  background-color: var(--warning);
+}
+.dot_busy {
+  background-color: var(--warning);
+}
+.dot_offline {
+  background-color: var(--text-muted);
+}

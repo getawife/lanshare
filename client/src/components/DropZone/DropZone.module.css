@@ -1,0 +1,98 @@
+.dropZone {
+  border: 1px dashed var(--border);
+  background-color: var(--surface);
+  border-radius: var(--radius-lg);
+  min-height: 190px;
+  padding: 28px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.dropZone.dragging {
+  border-color: var(--accent);
+  background-color: var(--accent-subtle);
+  border-style: solid;
+}
+
+.dropZone:not(.dragging):hover { border-color: #46515f; background: var(--surface-hover); }
+
+.dragContent,
+.normalContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dragIcon {
+  color: var(--accent);
+}
+
+.dragTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dragSubtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.prompt {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prompt::after {
+  content: " or select files manually";
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtn,
+.secondaryBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.actionBtn {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.actionBtn:hover {
+  background-color: var(--accent-hover);
+}
+
+.actionBtn:active, .secondaryBtn:active { transform: translateY(1px); }
+
+.secondaryBtn {
+  background-color: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.secondaryBtn:hover {
+  background-color: var(--surface-active);
+}

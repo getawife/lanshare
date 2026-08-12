@@ -56,11 +56,12 @@ export interface AppSettings {
   autoAcceptTrusted: boolean;
   currentNetwork: string;
   theme: "system" | "light" | "dark";
+  clipboardSync?: boolean;
 }
 
 declare global {
   interface Window {
-    electronAPI: {
+    electronAPI?: {
       selectFiles: () => Promise<FileItem[] | null>;
       selectFolder: () => Promise<FileItem | null>;
       getSettings: () => Promise<AppSettings>;
@@ -68,6 +69,10 @@ declare global {
       minimizeWindow: () => void;
       maximizeWindow: () => void;
       closeWindow: () => void;
+      getBackendUrl?: () => Promise<string>;
+      getBackendState?: () => Promise<any>;
+      fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
+      openFolder?: (path: string) => Promise<void>;
     };
-  }
+}
 }

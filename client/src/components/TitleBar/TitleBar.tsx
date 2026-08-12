@@ -10,7 +10,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({ isConnected }) => {
   return (
     <header className={styles.titleBar}>
       <div className={styles.dragRegion}>
-        <span className={styles.appTitle}>LANDrop</span>
+        <span className={styles.appTitle}>Lanshare</span>
         <div className={styles.statusIndicator}>
           <span
             className={`${styles.dot} ${isConnected ? styles.online : styles.offline}`}

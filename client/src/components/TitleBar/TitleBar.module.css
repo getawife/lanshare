@@ -1,11 +1,11 @@
 .titleBar {
   height: var(--titlebar-height);
-  background-color: var(--surface);
+  background-color: #17191e;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 12px;
+  padding-left: 16px;
   user-select: none;
 }
 
@@ -21,7 +21,7 @@
 .appTitle {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text);
   letter-spacing: 0.02em;
 }
 
@@ -58,7 +58,7 @@
 }
 
 .controlBtn {
-  width: 44px;
+  width: 40px;
   height: 100%;
   display: flex;
   align-items: center;

@@ -1,0 +1,122 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.clearBtn:hover {
+  color: var(--text);
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.row:hover { background-color: var(--surface-hover); border-color: #46515f; }
+
+.iconCol {
+  color: var(--text-secondary);
+}
+
+.outgoing {
+  color: var(--accent);
+}
+.incoming {
+  color: var(--success);
+}
+
+.infoCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.statusCol {
+  margin-right: 8px;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+}
+
+.completed {
+  color: var(--success);
+}
+.failed {
+  color: var(--danger);
+}
+.transferring {
+  color: var(--accent);
+}
+
+.actionBtn {
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.actionBtn:hover {
+  background-color: var(--surface-hover);
+  color: var(--text);
+}

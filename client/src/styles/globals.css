@@ -21,7 +21,12 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 28px 36px 32px;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .main-viewport { padding: 24px; }
 }
 
 ::-webkit-scrollbar {
