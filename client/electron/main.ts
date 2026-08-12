@@ -1,11 +1,15 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const settingsPath = path.join(app.getPath("userData"), "lanshare-settings.json");
+const settingsPath = path.join(
+  app.getPath("userData"),
+  "lanshare-settings.json",
+);
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendUrl = "http://127.0.0.1:43821";
 let mainWindow: BrowserWindow | null = null;
@@ -25,7 +29,11 @@ async function writeSettings(settings: unknown) {
 }
 
 function backendBinaryPath() {
-  return path.join(process.resourcesPath, "backend", process.platform === "win32" ? "lanshare-backend.exe" : "lanshare-backend");
+  return path.join(
+    process.resourcesPath,
+    "backend",
+    process.platform === "win32" ? "lanshare-backend.exe" : "lanshare-backend",
+  );
 }
 
 function startBackend() {
@@ -78,6 +86,12 @@ async function stopBackend() {
   proc.kill();
 }
 
+const preloadPath = path.join(__dirname, "preload.cjs");
+console.log("[Electron Init] Target preload path:", preloadPath);
+if (!fsSync.existsSync(preloadPath)) {
+  throw new Error(`Preload script not found: ${preloadPath}`);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1120,
@@ -86,24 +100,57 @@ function createWindow() {
     minHeight: 620,
     frame: false,
     backgroundColor: "#101318",
+    icon: path.join(__dirname, "../src/assets/icon.png"),
+
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, "preload.js"),
+      preload: preloadPath,
     },
+  });
+
+  mainWindow.webContents.on("preload-error", (_event, preloadPath, error) => {
+    console.error("[Electron] PRELOAD ERROR");
+    console.error("[Electron] Path:", preloadPath);
+    console.error("[Electron] Error:", error);
   });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 
-  if (!app.isPackaged) void mainWindow.loadURL("http://127.0.0.1:5173");
-  else void mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  if (!app.isPackaged) {
+    void mainWindow.loadURL("http://127.0.0.1:5173");
+  } else {
+    void mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
 }
 
 ipcMain.handle("backend:get-url", () => backendUrl);
+ipcMain.on("window:minimize", () => {
+  console.log("[Electron] window:minimize received");
+  mainWindow?.minimize();
+});
+
+ipcMain.on("window:maximize", () => {
+  console.log("[Electron] window:maximize received");
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow.maximize();
+  }
+});
+
+ipcMain.on("window:close", () => {
+  console.log("[Electron] window:close received");
+  mainWindow?.close();
+});
+
 ipcMain.handle("files:select", async () => {
-  const result = await dialog.showOpenDialog({ properties: ["openFile", "multiSelections"] });
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile", "multiSelections"],
+  });
   if (result.canceled) return null;
   return result.filePaths.map((filePath) => ({
     name: path.basename(filePath),
@@ -117,7 +164,12 @@ ipcMain.handle("folder:select", async () => {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
   if (result.canceled || !result.filePaths[0]) return null;
   const folderPath = result.filePaths[0];
-  return { name: path.basename(folderPath), path: folderPath, sizeBytes: 0, isDirectory: true };
+  return {
+    name: path.basename(folderPath),
+    path: folderPath,
+    sizeBytes: 0,
+    isDirectory: true,
+  };
 });
 
 ipcMain.handle("settings:get", async () => {
@@ -142,11 +194,14 @@ ipcMain.handle("settings:save", async (_event, settings) => {
   return true;
 });
 
-ipcMain.handle("backend:fetch", async (_event, pathName: string, init?: RequestInit) => {
-  const response = await fetch(`${backendUrl}${pathName}`, init);
-  const text = await response.text();
-  return { ok: response.ok, status: response.status, body: text };
-});
+ipcMain.handle(
+  "backend:fetch",
+  async (_event, pathName: string, init?: RequestInit) => {
+    const response = await fetch(`${backendUrl}${pathName}`, init);
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, body: text };
+  },
+);
 
 ipcMain.handle("backend:state", async () => {
   const response = await fetch(`${backendUrl}/api/state`);
@@ -168,4 +223,3 @@ app.on("before-quit", () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
-

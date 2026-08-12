@@ -7,6 +7,11 @@ interface TitleBarProps {
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({ isConnected }) => {
+  const logAndRun = (action: string, fn: () => void) => {
+    console.log(`[TitleBar] ${action} clicked`);
+    fn();
+  };
+
   return (
     <header className={styles.titleBar}>
       <div className={styles.dragRegion}>
@@ -22,21 +27,33 @@ export const TitleBar: React.FC<TitleBarProps> = ({ isConnected }) => {
       </div>
       <div className={styles.windowControls}>
         <button
-          onClick={() => window.electronAPI?.minimizeWindow()}
+          type="button"
+          draggable={false}
+          onClick={() =>
+            logAndRun("minimize", () => window.electronAPI?.minimizeWindow())
+          }
           className={styles.controlBtn}
           aria-label="Minimize"
         >
           <Minus size={12} />
         </button>
         <button
-          onClick={() => window.electronAPI?.maximizeWindow()}
+          type="button"
+          draggable={false}
+          onClick={() =>
+            logAndRun("maximize", () => window.electronAPI?.maximizeWindow())
+          }
           className={styles.controlBtn}
           aria-label="Maximize"
         >
           <Square size={10} />
         </button>
         <button
-          onClick={() => window.electronAPI?.closeWindow()}
+          type="button"
+          draggable={false}
+          onClick={() =>
+            logAndRun("close", () => window.electronAPI?.closeWindow())
+          }
           className={`${styles.controlBtn} ${styles.closeBtn}`}
           aria-label="Close"
         >

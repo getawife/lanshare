@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
 import { spawn } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,6 +73,11 @@ async function stopBackend() {
     backendProcess = null;
     proc.kill();
 }
+const preloadPath = path.join(__dirname, "preload.cjs");
+console.log("[Electron Init] Target preload path:", preloadPath);
+if (!fsSync.existsSync(preloadPath)) {
+    throw new Error(`Preload script not found: ${preloadPath}`);
+}
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1120,
@@ -80,23 +86,52 @@ function createWindow() {
         minHeight: 620,
         frame: false,
         backgroundColor: "#101318",
+        icon: path.join(__dirname, "../src/assets/icon.png"),
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
-            preload: path.join(__dirname, "preload.js"),
+            preload: preloadPath,
         },
+    });
+    mainWindow.webContents.on("preload-error", (_event, preloadPath, error) => {
+        console.error("[Electron] PRELOAD ERROR");
+        console.error("[Electron] Path:", preloadPath);
+        console.error("[Electron] Error:", error);
     });
     mainWindow.on("closed", () => {
         mainWindow = null;
     });
-    if (!app.isPackaged)
+    if (!app.isPackaged) {
         void mainWindow.loadURL("http://127.0.0.1:5173");
-    else
+    }
+    else {
         void mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    }
 }
 ipcMain.handle("backend:get-url", () => backendUrl);
+ipcMain.on("window:minimize", () => {
+    console.log("[Electron] window:minimize received");
+    mainWindow?.minimize();
+});
+ipcMain.on("window:maximize", () => {
+    console.log("[Electron] window:maximize received");
+    if (!mainWindow)
+        return;
+    if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+    }
+    else {
+        mainWindow.maximize();
+    }
+});
+ipcMain.on("window:close", () => {
+    console.log("[Electron] window:close received");
+    mainWindow?.close();
+});
 ipcMain.handle("files:select", async () => {
-    const result = await dialog.showOpenDialog({ properties: ["openFile", "multiSelections"] });
+    const result = await dialog.showOpenDialog({
+        properties: ["openFile", "multiSelections"],
+    });
     if (result.canceled)
         return null;
     return result.filePaths.map((filePath) => ({
@@ -111,7 +146,12 @@ ipcMain.handle("folder:select", async () => {
     if (result.canceled || !result.filePaths[0])
         return null;
     const folderPath = result.filePaths[0];
-    return { name: path.basename(folderPath), path: folderPath, sizeBytes: 0, isDirectory: true };
+    return {
+        name: path.basename(folderPath),
+        path: folderPath,
+        sizeBytes: 0,
+        isDirectory: true,
+    };
 });
 ipcMain.handle("settings:get", async () => {
     return ((await readSettings()) ?? {
