@@ -161,10 +161,32 @@ func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing peerId or files", http.StatusBadRequest)
 		return
 	}
+	b.state.publish(event{Type: "transfer", Data: map[string]any{
+		"id":       req.TransferID,
+		"peerId":   req.PeerID,
+		"state":    "transferring",
+		"direction": "outgoing",
+		"files":    req.Files,
+	}})
 	if err := b.state.SendFiles(r.Context(), req); err != nil {
+		b.state.publish(event{Type: "transfer", Data: map[string]any{
+			"id":       req.TransferID,
+			"peerId":   req.PeerID,
+			"state":    "failed",
+			"direction": "outgoing",
+			"files":    req.Files,
+			"errorMessage": err.Error(),
+		}})
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	b.state.publish(event{Type: "transfer", Data: map[string]any{
+		"id":       req.TransferID,
+		"peerId":   req.PeerID,
+		"state":    "completed",
+		"direction": "outgoing",
+		"files":    req.Files,
+	}})
 	writeJSON(w, map[string]any{"ok": true})
 }
 
@@ -182,6 +204,12 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing files", http.StatusBadRequest)
 		return
 	}
+	b.state.publish(event{Type: "transfer", Data: map[string]any{
+		"id":       req.TransferID,
+		"state":    "transferring",
+		"direction": "incoming",
+		"files":    req.Files,
+	}})
 	downloads := defaultDownloads()
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -207,12 +235,25 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		if _, err := io.Copy(dst, src); err != nil {
 			dst.Close()
 			_ = os.Remove(tmp)
+			b.state.publish(event{Type: "transfer", Data: map[string]any{
+				"id":       req.TransferID,
+				"state":    "failed",
+				"direction": "incoming",
+				"files":    req.Files,
+				"errorMessage": err.Error(),
+			}})
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
 		_ = dst.Close()
 		_ = os.Rename(tmp, dstPath)
 	}
+	b.state.publish(event{Type: "transfer", Data: map[string]any{
+		"id":       req.TransferID,
+		"state":    "completed",
+		"direction": "incoming",
+		"files":    req.Files,
+	}})
 	writeJSON(w, map[string]any{"ok": true})
 }
 

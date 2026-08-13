@@ -24,6 +24,38 @@ export const App: React.FC = () => {
     clipboardSync: false,
   });
 
+  const upsertTransferRecord = (record: TransferRecord) => {
+    setTransferHistory((prev) => {
+      const next = prev.filter((item) => item.id !== record.id);
+      return [record, ...next];
+    });
+  };
+
+  const recordFromTransferEvent = (payload: any): TransferRecord | null => {
+    if (!payload?.id) return null;
+    const files = Array.isArray(payload.files)
+      ? payload.files.map((file: any) => ({
+          name: file.name ?? "File",
+          path: file.path ?? "",
+          sizeBytes: Number(file.size ?? file.sizeBytes ?? 0),
+          isDirectory: Boolean(file.isDir ?? file.isDirectory),
+        }))
+      : [];
+    const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
+    return {
+      id: String(payload.id),
+      direction: payload.direction === "incoming" ? "incoming" : "outgoing",
+      deviceName: payload.deviceName ?? payload.peerName ?? "Nearby device",
+      files,
+      totalSizeBytes: totalSize,
+      bytesTransferred: payload.state === "completed" ? totalSize : 0,
+      speedBytesPerSec: 0,
+      state: payload.state ?? "pending",
+      timestamp: new Date(),
+      errorMessage: payload.errorMessage,
+    };
+  };
+
   const fetchState = async () => {
     try {
       const state = await window.electronAPI?.getBackendState?.();
@@ -48,14 +80,58 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    let source: EventSource | undefined;
+    let cancelled = false;
+
+    const connectEvents = async () => {
+      const backendUrl = await window.electronAPI?.getBackendUrl?.();
+      if (cancelled || !backendUrl) return;
+      source = new EventSource(`${backendUrl}/api/events`);
+      source.addEventListener("peer", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data);
+          setDevices((prev) => {
+            const next = prev.filter((device) => device.id !== payload?.data?.id);
+            return payload?.data ? [payload.data, ...next] : next;
+          });
+        } catch {
+          void 0;
+        }
+      });
+      source.addEventListener("transfer", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data);
+          const record = recordFromTransferEvent(payload?.data);
+          if (!record) return;
+          upsertTransferRecord(record);
+          if (record.state === "transferring") {
+            setActiveTransfer(record);
+          } else if (record.state === "completed" || record.state === "failed" || record.state === "cancelled") {
+            setActiveTransfer((current) => (current?.id === record.id ? undefined : current));
+          }
+        } catch {
+          void 0;
+        }
+      });
+    };
+
+    void connectEvents();
+    return () => {
+      cancelled = true;
+      source?.close();
+    };
+  }, []);
+
+  useEffect(() => {
     void window.electronAPI?.saveSettings(settings);
   }, [settings]);
 
   const handleInitiateTransfer = async (device: Device, files: FileItem[]) => {
     if (!files.length) return;
     const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
+    const transferId = String(Date.now());
     const record: TransferRecord = {
-      id: String(Date.now()),
+      id: transferId,
       direction: "outgoing",
       deviceName: device.name,
       files,
@@ -71,6 +147,7 @@ export const App: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          transferId,
           peerId: device.id,
           files: files.map((file) => ({
             path: file.path,
@@ -81,13 +158,10 @@ export const App: React.FC = () => {
         }),
       });
       if (!response?.ok) throw new Error(response?.body ?? "transfer failed");
-      const completed = { ...record, bytesTransferred: totalSize, state: "completed" as const };
-      setActiveTransfer(undefined);
-      setTransferHistory((prev) => [completed, ...prev]);
     } catch {
       const failed = { ...record, state: "failed" as const };
       setActiveTransfer(undefined);
-      setTransferHistory((prev) => [failed, ...prev]);
+      upsertTransferRecord(failed);
     }
   };
 

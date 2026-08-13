@@ -30,8 +30,9 @@ type FileItem struct {
 }
 
 type TransferRequest struct {
-	PeerID string     `json:"peerId"`
-	Files  []FileItem `json:"files"`
+	TransferID string     `json:"transferId,omitempty"`
+	PeerID     string     `json:"peerId"`
+	Files      []FileItem `json:"files"`
 }
 
 type ShareRequest struct {
@@ -46,4 +47,3 @@ type AppState struct {
 	HTTPPort int      `json:"httpPort"`
 	Peers    []Device `json:"peers"`
 }
-
