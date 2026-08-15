@@ -161,6 +161,9 @@
 }
 
 .scanBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background-color: var(--accent);
   color: #ffffff;
 }

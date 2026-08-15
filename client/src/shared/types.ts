@@ -59,6 +59,26 @@ export interface AppSettings {
   clipboardSync?: boolean;
 }
 
+export interface NetworkDiagnostics {
+  hasActiveLan: boolean;
+  interfaces: string[];
+  udpDiscoveryBound: boolean;
+  udpPort: number;
+  warnings: string[];
+}
+
+export type BackendState = "starting" | "running" | "error" | "stopped";
+
+export interface BackendStatus {
+  state: BackendState;
+  url: string;
+  code?: "PORT_IN_USE" | "BLOCKED_BY_FIREWALL" | "BINARY_NOT_FOUND" | "HEALTHCHECK_TIMEOUT" | "BACKEND_CRASH" | "UNKNOWN";
+  error?: string;
+  errorDetails?: string;
+  networkWarnings?: string[];
+  diagnostics?: NetworkDiagnostics;
+}
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -70,9 +90,11 @@ declare global {
       maximizeWindow: () => void;
       closeWindow: () => void;
       getBackendUrl?: () => Promise<string>;
+      getBackendStatus?: () => Promise<BackendStatus>;
+      restartBackend?: () => Promise<BackendStatus>;
       getBackendState?: () => Promise<any>;
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
     };
-}
+  }
 }

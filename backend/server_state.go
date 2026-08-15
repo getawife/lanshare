@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,15 +35,18 @@ type shareRecord struct {
 }
 
 type ServerState struct {
-	DeviceID   string
-	DeviceName string
-	Version    string
-	HTTPPort   int
-	LANPort    int
-	Peers      map[string]Device
-	events     map[chan event]struct{}
-	mu         sync.Mutex
-	shares     map[string]shareRecord
+	DeviceID          string
+	DeviceName        string
+	Version           string
+	HTTPPort          int
+	LANPort           int
+	UDPDiscoveryBound bool
+	Peers             map[string]Device
+	events            map[chan event]struct{}
+	mu                sync.Mutex
+	shares            map[string]shareRecord
+	warnings          []string
+	settings          BackendSettings
 }
 
 func NewServerState() (*ServerState, error) {
@@ -50,24 +55,109 @@ func NewServerState() (*ServerState, error) {
 		name = h
 	}
 	return &ServerState{
-		DeviceID:   randomToken(8),
-		DeviceName: name,
-		Version:    "1.0.0",
-		Peers:      map[string]Device{},
-		events:     map[chan event]struct{}{},
-		shares:     map[string]shareRecord{},
+		DeviceID:          randomToken(8),
+		DeviceName:        name,
+		Version:           "1.0.0",
+		UDPDiscoveryBound: false,
+		Peers:             map[string]Device{},
+		events:            map[chan event]struct{}{},
+		shares:            map[string]shareRecord{},
+		warnings:          nil,
+		// Safe defaults: always ask before accepting, use system downloads.
+		settings: BackendSettings{
+			AskBeforeAccepting: true,
+			AutoAcceptTrusted:  false,
+			DownloadFolder:     "",
+		},
 	}, nil
+}
+
+// UpdateSettings atomically replaces the active backend settings.
+func (s *ServerState) UpdateSettings(cfg BackendSettings) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.settings = cfg
+}
+
+// GetSettings returns a snapshot of the current backend settings.
+func (s *ServerState) GetSettings() BackendSettings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings
+}
+
+func (s *ServerState) AddWarning(w string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, existing := range s.warnings {
+		if existing == w {
+			return
+		}
+	}
+	s.warnings = append(s.warnings, w)
+}
+
+func (s *ServerState) GetDiagnostics() NetworkDiagnostics {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var activeIfaces []string
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				ipNet, ok := addr.(*net.IPNet)
+				if ok && ipNet.IP.To4() != nil {
+					activeIfaces = append(activeIfaces, fmt.Sprintf("%s (%s)", iface.Name, ipNet.IP.String()))
+				}
+			}
+		}
+	}
+
+	var allWarnings []string
+	if len(activeIfaces) == 0 {
+		allWarnings = append(allWarnings, "No active local network interface found. Ensure Wi-Fi or Ethernet is connected.")
+	}
+	if s.LANPort > 0 && s.LANPort != discoveryPort {
+		allWarnings = append(allWarnings, fmt.Sprintf("Default UDP discovery port %d was occupied; using port %d. Peer discovery may be limited.", discoveryPort, s.LANPort))
+	}
+	for _, w := range s.warnings {
+		allWarnings = append(allWarnings, w)
+	}
+
+	return NetworkDiagnostics{
+		HasActiveLAN:      len(activeIfaces) > 0,
+		Interfaces:        activeIfaces,
+		UDPDiscoveryBound: s.UDPDiscoveryBound,
+		UDPPort:           s.LANPort,
+		Warnings:          allWarnings,
+	}
 }
 
 func (s *ServerState) Snapshot() AppState {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	peers := make([]Device, 0, len(s.Peers))
 	for _, p := range s.Peers {
 		peers = append(peers, p)
 	}
-	return AppState{Device: s.selfDevice(), Port: s.LANPort, HTTPPort: s.HTTPPort, Peers: peers}
+	s.mu.Unlock()
+
+	return AppState{
+		Device:      s.selfDevice(),
+		Port:        s.LANPort,
+		HTTPPort:    s.HTTPPort,
+		Peers:       peers,
+		Diagnostics: s.GetDiagnostics(),
+	}
 }
+
 
 func (s *ServerState) selfDevice() Device {
 	return Device{
@@ -125,22 +215,30 @@ func (s *ServerState) publish(evt event) {
 }
 
 func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
-	addr := &net.UDPAddr{IP: net.IPv4bcast, Port: discoveryPort}
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
 		payload, _ := json.Marshal(map[string]any{
-			"id":          s.DeviceID,
-			"name":        s.DeviceName,
-			"os":          runtime.GOOS,
-			"type":        deviceType(runtime.GOOS),
-			"version":     s.Version,
-			"port":        s.LANPort,
-			"httpPort":    s.HTTPPort,
-			"protocol":    1,
+			"id":           s.DeviceID,
+			"name":         s.DeviceName,
+			"os":           runtime.GOOS,
+			"type":         deviceType(runtime.GOOS),
+			"version":      s.Version,
+			"port":         s.LANPort,
+			"httpPort":     s.HTTPPort,
+			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
 		})
-		_, _ = conn.WriteTo(payload, addr)
+		for _, bcast := range getBroadcastAddresses(discoveryPort) {
+			if _, err := conn.WriteTo(payload, bcast); err != nil {
+				errStr := strings.ToLower(err.Error())
+				if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+					s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+				} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
+					s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+				}
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -351,6 +449,7 @@ type expandedTransferFile struct {
 	RelativePath string
 	IsDirectory  bool
 	SizeBytes    int64
+	Checksum     string
 }
 
 func (s *ServerState) expandTransferFiles(files []FileItem) ([]expandedTransferFile, error) {
@@ -392,10 +491,12 @@ func (s *ServerState) expandTransferFiles(files []FileItem) ([]expandedTransferF
 					})
 					return nil
 				}
+				cs, _ := computeFileSHA256(path)
 				out = append(out, expandedTransferFile{
 					SourcePath:   path,
 					RelativePath: rel,
 					SizeBytes:    info.Size(),
+					Checksum:     cs,
 				})
 				return nil
 			})
@@ -404,10 +505,12 @@ func (s *ServerState) expandTransferFiles(files []FileItem) ([]expandedTransferF
 			}
 			continue
 		}
+		cs, _ := computeFileSHA256(file.Path)
 		out = append(out, expandedTransferFile{
 			SourcePath:   file.Path,
 			RelativePath: file.Name,
 			SizeBytes:    info.Size(),
+			Checksum:     cs,
 		})
 	}
 	return out, nil
@@ -443,6 +546,7 @@ func (s *ServerState) writeTransferMultipart(mw *multipart.Writer, transferID st
 			"relativePath": entry.RelativePath,
 			"isDir":        entry.IsDirectory,
 			"size":         entry.SizeBytes,
+			"checksum":     entry.Checksum,
 		}); err != nil {
 			return err
 		}
@@ -467,6 +571,7 @@ func manifestToMeta(manifest []expandedTransferFile) []map[string]any {
 			"relativePath": entry.RelativePath,
 			"isDir":        entry.IsDirectory,
 			"size":         entry.SizeBytes,
+			"checksum":     entry.Checksum,
 		})
 	}
 	return out
@@ -569,6 +674,54 @@ func formatOSName(osName string) string {
 	default:
 		return osName
 	}
+}
+
+func getBroadcastAddresses(port int) []*net.UDPAddr {
+	addrs := []*net.UDPAddr{
+		{IP: net.IPv4bcast, Port: port},
+	}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return addrs
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		unicastAddrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range unicastAddrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			ip := ipNet.IP.To4()
+			mask := ipNet.Mask
+			if len(mask) == 4 {
+				bcastIP := net.IP(make([]byte, 4))
+				for i := 0; i < 4; i++ {
+					bcastIP[i] = ip[i] | ^mask[i]
+				}
+				addrs = append(addrs, &net.UDPAddr{IP: bcastIP, Port: port})
+			}
+		}
+	}
+	return addrs
+}
+
+func computeFileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func intFrom(v any) int {

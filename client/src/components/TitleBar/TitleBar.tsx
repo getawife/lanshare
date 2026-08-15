@@ -4,32 +4,52 @@ import styles from "./TitleBar.module.css";
 
 interface TitleBarProps {
   isConnected: boolean;
+  isRestricted?: boolean;
   discoveryStatus: "discovering" | "found" | "empty";
+  statusDetail?: string;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ isConnected, discoveryStatus }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({
+  isConnected,
+  isRestricted = false,
+  discoveryStatus,
+  statusDetail,
+}) => {
   const logAndRun = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();
   };
+
+  const getStatusLabel = () => {
+    if (!isConnected) return "Offline";
+    if (isRestricted) return "Network Restricted";
+    return "Connected";
+  };
+
+  const getStatusSubtext = () => {
+    if (statusDetail) return ` - ${statusDetail}`;
+    if (!isConnected) return " - service unavailable";
+    if (isRestricted) return " - discovery limited";
+    if (discoveryStatus === "discovering") return " - scanning nearby devices";
+    if (discoveryStatus === "found") return " - discovery active";
+    return " - no devices found yet";
+  };
+
+  const dotClass = !isConnected
+    ? styles.offline
+    : isRestricted
+      ? styles.restricted
+      : styles.online;
 
   return (
     <header className={styles.titleBar}>
       <div className={styles.dragRegion}>
         <span className={styles.appTitle}>Lanshare</span>
         <div className={styles.statusIndicator}>
-          <span
-            className={`${styles.dot} ${isConnected ? styles.online : styles.offline}`}
-          />
+          <span className={`${styles.dot} ${dotClass}`} />
           <span className={styles.statusText}>
-            {isConnected ? "Connected" : "Offline"}
-            <span className={styles.statusSubtext}>
-              {discoveryStatus === "discovering"
-                ? " - scanning nearby devices"
-                : discoveryStatus === "found"
-                  ? " - discovery active"
-                  : " - no devices found yet"}
-            </span>
+            {getStatusLabel()}
+            <span className={styles.statusSubtext}>{getStatusSubtext()}</span>
           </span>
         </div>
       </div>

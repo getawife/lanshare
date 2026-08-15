@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getBackendUrl: () => ipcRenderer.invoke("backend:get-url"),
 
+  getBackendStatus: () => ipcRenderer.invoke("backend:status"),
+
+  restartBackend: () => ipcRenderer.invoke("backend:restart"),
+
   getBackendState: () => ipcRenderer.invoke("backend:state"),
 
   fetchBackend: (path: string, init?: RequestInit) =>

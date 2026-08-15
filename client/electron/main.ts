@@ -37,19 +37,163 @@ function backendBinaryPath() {
   );
 }
 
-function startBackend() {
+type BackendErrorCode =
+  | "PORT_IN_USE"
+  | "BLOCKED_BY_FIREWALL"
+  | "BINARY_NOT_FOUND"
+  | "HEALTHCHECK_TIMEOUT"
+  | "BACKEND_CRASH"
+  | "UNKNOWN";
+
+interface BackendStatus {
+  state: "starting" | "running" | "error" | "stopped";
+  url: string;
+  code?: BackendErrorCode;
+  error?: string;
+  errorDetails?: string;
+  networkWarnings?: string[];
+  diagnostics?: any;
+}
+
+let backendStatus: BackendStatus = {
+  state: "stopped",
+  url: `http://127.0.0.1:${backendPort}`,
+};
+
+const backendLogs: string[] = [];
+
+function appendBackendLog(chunk: string) {
+  const lines = chunk.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  for (const line of lines) {
+    console.log(`[Backend Log] ${line}`);
+    backendLogs.push(line);
+    if (backendLogs.length > 100) backendLogs.shift();
+  }
+}
+
+function analyzeBackendError(): { code: BackendErrorCode; error: string } {
+  const fullLog = backendLogs.join("\n").toLowerCase();
+  if (
+    fullLog.includes("address may already be in use") ||
+    fullLog.includes("address already in use") ||
+    fullLog.includes("bind: only one usage of each socket address") ||
+    fullLog.includes("wsaeaddrinuse")
+  ) {
+    return {
+      code: "PORT_IN_USE",
+      error: `Port ${backendPort} is already in use by another instance or application. Close conflicting applications or choose another port.`,
+    };
+  }
+  if (
+    fullLog.includes("permission denied") ||
+    fullLog.includes("access is denied") ||
+    fullLog.includes("wsaeacces") ||
+    fullLog.includes("firewall")
+  ) {
+    return {
+      code: "BLOCKED_BY_FIREWALL",
+      error: "LANShare backend access was blocked by system permissions or security/firewall software.",
+    };
+  }
+  if (
+    fullLog.includes("cannot find") ||
+    fullLog.includes("no such file or directory") ||
+    fullLog.includes("executable file not found")
+  ) {
+    return {
+      code: "BINARY_NOT_FOUND",
+      error: "Backend executable or Go compiler could not be located.",
+    };
+  }
+  return {
+    code: "BACKEND_CRASH",
+    error: "Backend process terminated unexpectedly on startup.",
+  };
+}
+
+async function startBackend(): Promise<BackendStatus> {
+  if (backendProcess && !backendProcess.killed) {
+    return backendStatus;
+  }
+
+  backendLogs.length = 0;
+  backendStatus = {
+    state: "starting",
+    url: `http://127.0.0.1:${backendPort}`,
+  };
+
   const binary = backendBinaryPath();
-  const command = app.isPackaged ? binary : "go";
-  const args = app.isPackaged ? [] : ["run", "."];
+  const isPackaged = app.isPackaged;
+  const command = isPackaged ? binary : "go";
+  const args = isPackaged ? [] : ["run", "."];
   const cwd = path.resolve(__dirname, "../../backend");
-  backendProcess = spawn(command, args, {
-    cwd,
-    windowsHide: true,
-    stdio: "pipe",
-    env: {
-      ...process.env,
-      GOTOOLCHAIN: "local",
-    },
+
+  if (isPackaged && !fsSync.existsSync(binary)) {
+    backendStatus = {
+      state: "error",
+      url: `http://127.0.0.1:${backendPort}`,
+      code: "BINARY_NOT_FOUND",
+      error: `Packaged backend binary was not found at: ${binary}`,
+      errorDetails: `Expected binary path does not exist.`,
+    };
+    return backendStatus;
+  }
+
+  try {
+    backendProcess = spawn(command, args, {
+      cwd,
+      windowsHide: true,
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        GOTOOLCHAIN: "local",
+      },
+    });
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    backendStatus = {
+      state: "error",
+      url: `http://127.0.0.1:${backendPort}`,
+      code: err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL",
+      error: `Failed to spawn backend process: ${errorMsg}`,
+      errorDetails: errorMsg,
+    };
+    return backendStatus;
+  }
+
+  backendProcess.stdout?.on("data", (data) => {
+    appendBackendLog(data.toString());
+  });
+
+  backendProcess.stderr?.on("data", (data) => {
+    appendBackendLog(data.toString());
+  });
+
+  backendProcess.on("error", (err: any) => {
+    console.error("[Backend Process Error]", err);
+    const code: BackendErrorCode = err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL";
+    backendStatus = {
+      state: "error",
+      url: `http://127.0.0.1:${backendPort}`,
+      code,
+      error: `Backend process error: ${err.message}`,
+      errorDetails: backendLogs.join("\n") || err.stack || err.message,
+    };
+  });
+
+  backendProcess.on("exit", (code, signal) => {
+    console.log(`[Backend Exit] code=${code} signal=${signal}`);
+    backendProcess = null;
+    if (backendStatus.state === "starting" || backendStatus.state === "running") {
+      const analyzed = analyzeBackendError();
+      backendStatus = {
+        state: "error",
+        url: `http://127.0.0.1:${backendPort}`,
+        code: analyzed.code,
+        error: analyzed.error,
+        errorDetails: backendLogs.join("\n") || `Process exited with code ${code}, signal ${signal}`,
+      };
+    }
   });
 
   const cleanup = () => {
@@ -57,28 +201,46 @@ function startBackend() {
       backendProcess.kill();
     }
   };
-
-  backendProcess.on("exit", () => {
-    backendProcess = null;
-  });
   app.once("before-quit", cleanup);
-  return waitForBackend().then((url) => {
-    backendUrl = url;
-  });
+
+  return await waitForBackend();
 }
 
-async function waitForBackend() {
-  for (let i = 0; i < 60; i += 1) {
+async function waitForBackend(): Promise<BackendStatus> {
+  const url = `http://127.0.0.1:${backendPort}`;
+  for (let i = 0; i < 40; i += 1) {
+    if (backendStatus.state === "error") {
+      return backendStatus;
+    }
     try {
-      const url = `http://127.0.0.1:${backendPort}`;
       const response = await fetch(`${url}/api/health`);
-      if (response.ok) return url;
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        backendUrl = url;
+        backendStatus = {
+          state: "running",
+          url,
+          diagnostics: data.diagnostics,
+          networkWarnings: data.diagnostics?.warnings ?? [],
+        };
+        return backendStatus;
+      }
     } catch {
       // retry
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  return backendUrl;
+
+  if (backendStatus.state === "starting") {
+    backendStatus = {
+      state: "error",
+      url,
+      code: "HEALTHCHECK_TIMEOUT",
+      error: "Backend service did not respond to local health checks. It may be blocked by firewall or antivirus software.",
+      errorDetails: backendLogs.join("\n") || "No response received on 127.0.0.1 within timeout.",
+    };
+  }
+  return backendStatus;
 }
 
 async function stopBackend() {
@@ -86,6 +248,10 @@ async function stopBackend() {
   const proc = backendProcess;
   backendProcess = null;
   proc.kill();
+  backendStatus = {
+    state: "stopped",
+    url: `http://127.0.0.1:${backendPort}`,
+  };
 }
 
 const preloadPath = path.join(__dirname, "preload.cjs");
@@ -129,6 +295,29 @@ function createWindow() {
 }
 
 ipcMain.handle("backend:get-url", () => backendUrl);
+ipcMain.handle("backend:status", async () => {
+  if (backendStatus.state === "running") {
+    try {
+      const response = await fetch(`${backendUrl}/api/health`);
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        backendStatus.diagnostics = data.diagnostics;
+        backendStatus.networkWarnings = data.diagnostics?.warnings ?? [];
+      } else {
+        backendStatus.state = "error";
+        backendStatus.error = "Backend health check returned an unhealthy response.";
+      }
+    } catch {
+      backendStatus.state = "error";
+      backendStatus.error = "Could not communicate with local backend service.";
+    }
+  }
+  return backendStatus;
+});
+ipcMain.handle("backend:restart", async () => {
+  await stopBackend();
+  return await startBackend();
+});
 ipcMain.on("window:minimize", () => {
   console.log("[Electron] window:minimize received");
   mainWindow?.minimize();

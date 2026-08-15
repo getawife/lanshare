@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -64,6 +65,7 @@ func NewBackend(state *ServerState) *Backend {
 	mux.HandleFunc("/api/transfer", b.transfer)
 	mux.HandleFunc("/api/receive", b.receive)
 	mux.HandleFunc("/api/share", b.share)
+	mux.HandleFunc("/api/settings", b.settingsHandler)
 	mux.HandleFunc("/s/", b.serveShare)
 	b.httpServer = &http.Server{Handler: withCORS(mux)}
 	return b
@@ -76,17 +78,30 @@ func (b *Backend) Start(ctx context.Context) error {
 			httpPort = parsed
 		}
 	}
-	httpLn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", httpPort))
-	if err != nil {
-		return err
+	// Issue 5.1: try the preferred port first, then fall back to a range of
+	// nearby ports so a leftover orphan process doesn't crash the app.
+	var httpLn net.Listener
+	var err error
+	for _, candidate := range candidatePorts(httpPort, 10) {
+		httpLn, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", candidate))
+		if err == nil {
+			httpPort = candidate
+			break
+		}
+	}
+	if httpLn == nil {
+		return fmt.Errorf("failed to bind HTTP server: all candidate ports (%d–%d) are in use", defaultHTTPPort, defaultHTTPPort+9)
 	}
 	b.state.HTTPPort = httpLn.Addr().(*net.TCPAddr).Port
 
 	lanLn, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", discoveryPort))
-	if err != nil {
+	if err == nil {
+		b.state.UDPDiscoveryBound = true
+	} else {
+		b.state.UDPDiscoveryBound = false
 		lanLn, err = net.ListenPacket("udp4", ":0")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to bind UDP discovery packet listener: %w", err)
 		}
 	}
 	b.state.LANPort = lanLn.LocalAddr().(*net.UDPAddr).Port
@@ -129,12 +144,45 @@ func withCORS(next http.Handler) http.Handler {
 }
 
 func (b *Backend) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]any{"ok": true, "platform": runtime.GOOS})
+	writeJSON(w, map[string]any{
+		"ok":          true,
+		"platform":    runtime.GOOS,
+		"diagnostics": b.state.GetDiagnostics(),
+	})
 }
 
 func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, b.state.Snapshot())
 }
+
+// settingsHandler accepts a POST from Electron to push user settings into the backend,
+// and responds to GET with the current settings.  This resolves Issue 2.2.
+func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, b.state.GetSettings())
+	case http.MethodPost:
+		var cfg BackendSettings
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			writeErrorJSON(w, http.StatusBadRequest, "B-S001", "invalid settings payload")
+			return
+		}
+		b.state.UpdateSettings(cfg)
+		writeJSON(w, map[string]any{"ok": true})
+	default:
+		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-S000", "method not allowed")
+	}
+}
+
+// candidatePorts returns [start, start+1, … start+n-1] for port-fallback logic.
+func candidatePorts(start, n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = start + i
+	}
+	return out
+}
+
 
 func (b *Backend) devices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, b.state.PeersSnapshot())
@@ -235,6 +283,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			RelativePath string `json:"relativePath"`
 			IsDir        bool   `json:"isDir"`
 			Size         int64  `json:"size"`
+			Checksum     string `json:"checksum"`
 		} `json:"files"`
 	}
 	if err := json.NewDecoder(metaPart).Decode(&meta); err != nil {
@@ -306,7 +355,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			writeErrorJSON(w, http.StatusInternalServerError, "B-R013", "unable to create destination file")
 			return
 		}
-		written, copyErr := io.Copy(dst, part)
+		hasher := sha256.New()
+		multiWriter := io.MultiWriter(dst, hasher)
+		written, copyErr := io.Copy(multiWriter, part)
 		_ = dst.Close()
 		if copyErr != nil {
 			_ = os.Remove(tmp)
@@ -322,6 +373,23 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 				"totalSizeBytes":   total,
 			}})
 			writeErrorJSON(w, http.StatusBadGateway, "B-R014", "file copy failed")
+			return
+		}
+		computedChecksum := hex.EncodeToString(hasher.Sum(nil))
+		if file.Checksum != "" && computedChecksum != file.Checksum {
+			_ = os.Remove(tmp)
+			b.state.publish(event{Type: "transfer", Data: map[string]any{
+				"id":               meta.TransferID,
+				"peerId":           meta.PeerID,
+				"deviceName":       meta.PeerName,
+				"state":            "failed",
+				"direction":        "incoming",
+				"files":            meta.Files,
+				"errorMessage":     "checksum mismatch (corrupted download)",
+				"bytesTransferred": uploaded,
+				"totalSizeBytes":   total,
+			}})
+			writeErrorJSON(w, http.StatusBadRequest, "B-R016", "checksum mismatch (corrupted download)")
 			return
 		}
 		uploaded += written

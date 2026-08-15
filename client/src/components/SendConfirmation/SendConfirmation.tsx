@@ -1,5 +1,5 @@
-import React from "react";
-import { File, Folder, X } from "lucide-react";
+import React, { useState } from "react";
+import { File, Folder, X, CircleDashed } from "lucide-react";
 import { Device, FileItem } from "../../shared/types";
 import styles from "./SendConfirmation.module.css";
 
@@ -16,10 +16,20 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
   onCancel,
   onSend,
 }) => {
+  const [isSending, setIsSending] = useState(false);
   const totalSizeBytes = files.reduce((acc, f) => acc + f.sizeBytes, 0);
   const formatSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleSend = async () => {
+    setIsSending(true);
+    try {
+      await onSend();
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -27,7 +37,7 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
       <div className={styles.modal}>
         <div className={styles.header}>
           <span className={styles.title}>Send Confirmation</span>
-          <button className={styles.closeBtn} onClick={onCancel}>
+          <button className={styles.closeBtn} onClick={onCancel} disabled={isSending}>
             <X size={14} />
           </button>
         </div>
@@ -54,11 +64,18 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onCancel}>
+          <button className={styles.cancelBtn} onClick={onCancel} disabled={isSending}>
             Cancel
           </button>
-          <button className={styles.sendBtn} onClick={onSend}>
-            Send
+          <button className={styles.sendBtn} onClick={handleSend} disabled={isSending}>
+            {isSending ? (
+              <>
+                <CircleDashed size={14} className={styles.spinning} />
+                <span>Sending…</span>
+              </>
+            ) : (
+              "Send"
+            )}
           </button>
         </div>
       </div>

@@ -2,6 +2,13 @@ package main
 
 import "time"
 
+// BackendSettings mirrors the user-facing settings that affect backend behaviour.
+type BackendSettings struct {
+	AskBeforeAccepting bool   `json:"askBeforeAccepting"`
+	AutoAcceptTrusted  bool   `json:"autoAcceptTrusted"`
+	DownloadFolder     string `json:"downloadFolder"`
+}
+
 type Device struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
@@ -43,9 +50,19 @@ type ShareRequest struct {
 	ExpiresIn int     `json:"expiresIn,omitempty"`
 }
 
-type AppState struct {
-	Device   Device   `json:"device"`
-	Port     int      `json:"port"`
-	HTTPPort int      `json:"httpPort"`
-	Peers    []Device `json:"peers"`
+type NetworkDiagnostics struct {
+	HasActiveLAN       bool     `json:"hasActiveLan"`
+	Interfaces         []string `json:"interfaces"`
+	UDPDiscoveryBound  bool     `json:"udpDiscoveryBound"`
+	UDPPort            int      `json:"udpPort"`
+	Warnings           []string `json:"warnings"`
 }
+
+type AppState struct {
+	Device      Device             `json:"device"`
+	Port        int                `json:"port"`
+	HTTPPort    int                `json:"httpPort"`
+	Peers       []Device           `json:"peers"`
+	Diagnostics NetworkDiagnostics `json:"diagnostics"`
+}
+

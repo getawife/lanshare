@@ -95,3 +95,48 @@ func TestGetUniqueFilePath(t *testing.T) {
 		t.Errorf("Expected %s, got %s", expected3, got3)
 	}
 }
+
+func TestComputeFileSHA256(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "sample.txt")
+
+	// Known SHA-256 for "hello world\n" is 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b or similar
+	content := []byte("hello lanshare")
+	if err := os.WriteFile(filePath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash, err := computeFileSHA256(filePath)
+	if err != nil {
+		t.Fatalf("computeFileSHA256 failed: %v", err)
+	}
+	if len(hash) != 64 {
+		t.Errorf("Expected 64 hex characters, got %d (%s)", len(hash), hash)
+	}
+
+	// Zero-byte file test
+	emptyFile := filepath.Join(tempDir, "empty.txt")
+	if err := os.WriteFile(emptyFile, []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	emptyHash, err := computeFileSHA256(emptyFile)
+	if err != nil {
+		t.Fatalf("computeFileSHA256 empty file failed: %v", err)
+	}
+	// SHA-256 for empty byte array: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+	expectedEmpty := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	if emptyHash != expectedEmpty {
+		t.Errorf("Expected empty file hash %s, got %s", expectedEmpty, emptyHash)
+	}
+}
+
+func TestGetBroadcastAddresses(t *testing.T) {
+	addrs := getBroadcastAddresses(43821)
+	if len(addrs) == 0 {
+		t.Fatal("Expected at least 1 broadcast address (255.255.255.255), got 0")
+	}
+	firstIP := addrs[0].IP.String()
+	if firstIP != "255.255.255.255" {
+		t.Errorf("Expected first broadcast IP to be 255.255.255.255, got %s", firstIP)
+	}
+}

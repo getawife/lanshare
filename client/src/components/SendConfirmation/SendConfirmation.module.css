@@ -126,10 +126,22 @@
 }
 
 .sendBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background-color: var(--accent);
   color: #ffffff;
 }
 
 .sendBtn:hover {
   background-color: var(--accent-hover);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

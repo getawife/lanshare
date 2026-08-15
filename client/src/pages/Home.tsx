@@ -17,21 +17,25 @@ import styles from "./Home.module.css";
 interface HomeProps {
   devices: Device[];
   onRefreshDevices: () => void;
+  isRefreshing?: boolean;
   activeTransfer?: TransferRecord;
   onInitiateTransfer: (device: Device, files: FileItem[]) => void;
   onCancelTransfer: () => void;
   discoveryStatus: "discovering" | "found" | "empty";
   isConnected: boolean;
+  networkWarnings?: string[];
 }
 
 export const Home: React.FC<HomeProps> = ({
   devices,
   onRefreshDevices,
+  isRefreshing = false,
   activeTransfer,
   onInitiateTransfer,
   onCancelTransfer,
   discoveryStatus,
   isConnected,
+  networkWarnings = [],
 }) => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [stagedFiles, setStagedFiles] = useState<FileItem[] | null>(null);
@@ -112,10 +116,11 @@ export const Home: React.FC<HomeProps> = ({
           type="button"
           className={styles.refreshBtn}
           onClick={onRefreshDevices}
+          disabled={isRefreshing}
           title="Scan again"
           aria-label="Scan again"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} className={isRefreshing ? styles.spinning : ""} />
         </button>
       </div>
 
@@ -134,8 +139,13 @@ export const Home: React.FC<HomeProps> = ({
             Make sure Lanshare is open on the other device and both devices are connected to the same network.
           </div>
           <div className={styles.emptyActions}>
-            <button className={styles.scanBtn} onClick={onRefreshDevices}>
-              Scan Again
+            <button
+              className={styles.scanBtn}
+              onClick={onRefreshDevices}
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={14} className={isRefreshing ? styles.spinning : ""} />
+              <span>{isRefreshing ? "Scanning…" : "Scan Again"}</span>
             </button>
             <button
               className={styles.troubleshootBtn}
@@ -148,9 +158,17 @@ export const Home: React.FC<HomeProps> = ({
           </div>
           {showTroubleshooting && (
             <div className={styles.troubleshooting} aria-label="Troubleshooting tips">
+              {networkWarnings.length > 0 && (
+                <div style={{ color: "#fbbf24", fontWeight: 600, marginBottom: "4px" }}>
+                  Active Network Issues:
+                  {networkWarnings.map((w, i) => (
+                    <div key={i} style={{ fontWeight: 400, marginTop: "2px", color: "#fde68a" }}>• {w}</div>
+                  ))}
+                </div>
+              )}
               <div>Confirm both devices are on the same LAN</div>
-              <div>Check firewall permissions</div>
-              <div>Check whether a VPN is interfering</div>
+              <div>Check firewall permissions (allow LANShare on Private Networks)</div>
+              <div>Check whether a VPN or virtual adapter is interfering</div>
               <div>Confirm Lanshare is running on the recipient device</div>
               <div>Check network discovery restrictions</div>
             </div>

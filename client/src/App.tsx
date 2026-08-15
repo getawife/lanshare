@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { TitleBar } from "./components/TitleBar/TitleBar.js";
 import { Navigation, ViewTab } from "./components/Navigation/Navigation.js";
+import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
-import { AppSettings, Device, FileItem, TransferRecord } from "./shared/types.js";
+import { AppSettings, BackendStatus, Device, FileItem, TransferRecord } from "./shared/types.js";
 
 type AppNotice = {
   id: string;
@@ -18,6 +19,8 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
   const [devices, setDevices] = useState<Device[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
+  const [isRestartingBackend, setIsRestartingBackend] = useState(false);
   const [discoveryStatus, setDiscoveryStatus] = useState<"discovering" | "found" | "empty">("discovering");
   const [activeTransfer, setActiveTransfer] = useState<TransferRecord>();
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
@@ -103,8 +106,23 @@ export const App: React.FC = () => {
     };
   };
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshDevices = async () => {
+    setIsRefreshing(true);
+    setDiscoveryStatus("discovering");
+    await fetchState();
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 700);
+  };
+
   const fetchState = async () => {
     try {
+      const status = await window.electronAPI?.getBackendStatus?.();
+      if (status) {
+        setBackendStatus(status);
+      }
       const state = await window.electronAPI?.getBackendState?.();
       const peers = state?.peers ?? [];
       setDevices(peers);
@@ -113,6 +131,26 @@ export const App: React.FC = () => {
     } catch {
       setIsConnected(false);
       setDiscoveryStatus("discovering");
+      const status = await window.electronAPI?.getBackendStatus?.();
+      if (status) setBackendStatus(status);
+    }
+  };
+
+  const handleRestartBackend = async () => {
+    setIsRestartingBackend(true);
+    try {
+      const status = await window.electronAPI?.restartBackend?.();
+      if (status) {
+        setBackendStatus(status);
+      }
+      await fetchState();
+    } catch (err: any) {
+      pushNotice({
+        title: "Restart Failed",
+        details: err?.message || "Failed to restart backend engine.",
+      });
+    } finally {
+      setIsRestartingBackend(false);
     }
   };
 
@@ -244,7 +282,8 @@ export const App: React.FC = () => {
           {activeTab === "devices" && (
             <Home
               devices={devices}
-              onRefreshDevices={fetchState}
+              onRefreshDevices={handleRefreshDevices}
+              isRefreshing={isRefreshing}
               activeTransfer={activeTransfer}
               onInitiateTransfer={handleInitiateTransfer}
               onCancelTransfer={() => setActiveTransfer(undefined)}

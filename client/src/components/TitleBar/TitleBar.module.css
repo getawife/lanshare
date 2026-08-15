@@ -43,6 +43,10 @@
   background-color: var(--success);
 }
 
+.restricted {
+  background-color: var(--warning, #f59e0b);
+}
+
 .offline {
   background-color: var(--danger);
 }
