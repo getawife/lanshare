@@ -51,6 +51,11 @@
   font-weight: 500;
 }
 
+.statusSubtext {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 .windowControls {
   display: flex;
   height: 100%;

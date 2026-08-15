@@ -2,17 +2,18 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: 24px;
+  gap: 18px;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
 .title {
-  font-size: 23px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
@@ -22,9 +23,31 @@
   font-size: 13px;
   color: var(--text-secondary);
   margin-top: 4px;
+  max-width: 760px;
+}
+
+.headerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.discoveryBar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }
 
 .refreshBtn {
+  min-width: 40px;
+  min-height: 40px;
   padding: 7px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -42,10 +65,51 @@
 
 .refreshBtn:active { transform: translateY(1px); }
 
+.deviceSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sectionMeta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.clearSelectionBtn {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background-color: var(--surface);
+}
+
+.clearSelectionBtn:hover {
+  background-color: var(--surface-hover);
+  color: var(--text);
+}
+
 .deviceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 
 .emptyState {
@@ -54,11 +118,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: 28px 24px;
   background-color: var(--surface);
+  text-align: center;
 }
 
 .emptyIcon {
@@ -66,34 +131,125 @@
 }
 
 .emptyTitle {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
 }
 
 .emptyText {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   text-align: center;
-  max-width: 240px;
+  max-width: 480px;
+}
+
+.emptyActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.scanBtn,
+.troubleshootBtn {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .scanBtn {
-  margin-top: 8px;
-  background-color: var(--surface-hover);
-  border: 1px solid var(--border);
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
+  background-color: var(--accent);
+  color: #ffffff;
 }
 
 .scanBtn:hover {
+  background-color: var(--accent-hover);
+}
+
+.troubleshootBtn {
+  background-color: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.troubleshootBtn:hover {
   background-color: var(--surface-active);
 }
 
-.dropZoneWrapper,
-.activeTransferWrapper {
+.chevron {
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  transition: transform var(--transition-fast);
+}
+
+.troubleshooting {
+  margin-top: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  width: min(100%, 460px);
+}
+
+.troubleshooting > div + div {
   margin-top: 4px;
+}
+
+.transferArea {
+  margin-top: auto;
+}
+
+.guidanceState {
+  border: 1px dashed var(--border);
+  background-color: var(--surface);
+  border-radius: var(--radius-lg);
+  min-height: 170px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.guidanceTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guidanceText {
+  font-size: 13px;
+  max-width: 360px;
+}
+
+.dragHint {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

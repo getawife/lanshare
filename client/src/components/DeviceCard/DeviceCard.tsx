@@ -1,5 +1,5 @@
 import React from "react";
-import { Monitor, Laptop, Smartphone } from "lucide-react";
+import { ChevronRight, Monitor, Laptop, Smartphone } from "lucide-react";
 import { Device } from "../../shared/types";
 import styles from "./DeviceCard.module.css";
 
@@ -7,12 +7,14 @@ interface DeviceCardProps {
   device: Device;
   isSelected: boolean;
   onSelect: (device: Device) => void;
+  actionLabel?: string;
 }
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({
   device,
   isSelected,
   onSelect,
+  actionLabel = "Connect",
 }) => {
   const getDeviceIcon = () => {
     switch (device.type) {
@@ -39,26 +41,30 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   };
 
   return (
-    <div
+    <button
+      type="button"
       className={`${styles.card} ${isSelected ? styles.selected : ""} ${styles[device.status]}`}
       onClick={() => onSelect(device)}
-      tabIndex={0}
-      role="button"
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onSelect(device);
-      }}
+      aria-label={`${actionLabel} to ${device.name}`}
     >
-      <div className={styles.iconWrapper}>{getDeviceIcon()}</div>
-      <div className={styles.info}>
-        <div className={styles.name}>{device.name}</div>
-        <div className={styles.os}>{device.os}</div>
+      <div className={styles.primaryRow}>
+        <div className={styles.iconWrapper}>{getDeviceIcon()}</div>
+        <div className={styles.info}>
+          <div className={styles.name}>{device.name}</div>
+          <div className={styles.os}>{device.os}</div>
+        </div>
       </div>
       <div className={styles.statusRow}>
         <span
           className={`${styles.statusDot} ${styles[`dot_${device.status}`]}`}
+          aria-hidden="true"
         />
         <span className={styles.statusText}>{getStatusText()}</span>
       </div>
-    </div>
+      <div className={styles.actionRow}>
+        <span className={styles.actionText}>{actionLabel}</span>
+        <ChevronRight size={14} className={styles.actionIcon} aria-hidden="true" />
+      </div>
+    </button>
   );
 };

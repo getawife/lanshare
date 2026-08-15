@@ -1,5 +1,11 @@
-import React, { useState } from "react";
-import { RefreshCw, MonitorX } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  CircleDashed,
+  RefreshCw,
+  MonitorX,
+  ChevronDown,
+} from "lucide-react";
 import { Device, FileItem, TransferRecord } from "../shared/types";
 import { DeviceCard } from "../components/DeviceCard/DeviceCard";
 import { DropZone } from "../components/DropZone/DropZone";
@@ -13,6 +19,8 @@ interface HomeProps {
   activeTransfer?: TransferRecord;
   onInitiateTransfer: (device: Device, files: FileItem[]) => void;
   onCancelTransfer: () => void;
+  discoveryStatus: "discovering" | "found" | "empty";
+  isConnected: boolean;
 }
 
 export const Home: React.FC<HomeProps> = ({
@@ -21,10 +29,25 @@ export const Home: React.FC<HomeProps> = ({
   activeTransfer,
   onInitiateTransfer,
   onCancelTransfer,
+  discoveryStatus,
+  isConnected,
 }) => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [stagedFiles, setStagedFiles] = useState<FileItem[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  const isSending = Boolean(activeTransfer);
+  const hasDevices = devices.length > 0;
+  const hasRecipient = Boolean(selectedDevice);
+  const dropZoneEnabled = hasRecipient && !isSending;
+
+  const headerLabel = useMemo(() => {
+    if (isSending) return "Transfer in progress";
+    if (!hasDevices) return discoveryStatus === "discovering" ? "Scanning for devices…" : "No nearby devices";
+    if (hasRecipient) return `Send to ${selectedDevice?.name}`;
+    return "Choose a device to continue";
+  }, [discoveryStatus, hasDevices, hasRecipient, isSending, selectedDevice?.name]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -38,6 +61,7 @@ export const Home: React.FC<HomeProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!hasRecipient) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const files: FileItem[] = Array.from(e.dataTransfer.files).map((f) => ({
         name: f.name,
@@ -50,11 +74,13 @@ export const Home: React.FC<HomeProps> = ({
   };
 
   const handleSelectFiles = async () => {
+    if (!hasRecipient) return;
     const files = await window.electronAPI?.selectFiles();
     if (files) setStagedFiles(files);
   };
 
   const handleSelectFolder = async () => {
+    if (!hasRecipient) return;
     const folder = await window.electronAPI?.selectFolder();
     if (folder) setStagedFiles([folder]);
   };
@@ -67,65 +93,128 @@ export const Home: React.FC<HomeProps> = ({
       onDrop={handleDrop}
     >
       <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Nearby Devices</h1>
+        <div className={styles.headerCopy}>
+          <h1 className={styles.title}>{headerLabel}</h1>
           <div className={styles.subtitle}>
-            {devices.length} devices available
+            {isSending
+              ? "The recipient stays visible while the transfer completes."
+              : hasDevices
+                ? hasRecipient
+                  ? "Files and folders can be added now."
+                  : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network.`
+                : discoveryStatus === "discovering"
+                  ? "Checking the local network for nearby Lanshare devices."
+                  : "Open Lanshare on the other device and keep both devices on the same network."}
           </div>
         </div>
         <button
+          type="button"
           className={styles.refreshBtn}
           onClick={onRefreshDevices}
-          title="Rescan network"
+          title="Scan again"
+          aria-label="Scan again"
         >
           <RefreshCw size={14} />
         </button>
       </div>
 
-      {devices.length === 0 ? (
-        <div className={styles.emptyState}>
-          <MonitorX size={32} className={styles.emptyIcon} />
-          <div className={styles.emptyTitle}>No devices found</div>
-          <div className={styles.emptyText}>
-            Make sure both devices are connected to the same network.
-          </div>
-          <button className={styles.scanBtn} onClick={onRefreshDevices}>
-            Scan Again
-          </button>
-        </div>
-      ) : (
-        <div className={styles.deviceGrid}>
-          {devices.map((device) => (
-            <DeviceCard
-              key={device.id}
-              device={device}
-              isSelected={selectedDevice?.id === device.id}
-              onSelect={setSelectedDevice}
-            />
-          ))}
+      {discoveryStatus === "discovering" && !hasDevices && (
+        <div className={styles.discoveryBar} aria-live="polite">
+          <CircleDashed size={14} className={styles.spinning} />
+          <span>Scanning for devices…</span>
         </div>
       )}
 
-      {activeTransfer ? (
-        <div className={styles.activeTransferWrapper}>
-          <TransferProgress
-            transfer={activeTransfer}
-            onCancel={onCancelTransfer}
-          />
-        </div>
+      {!hasDevices ? (
+        <section className={styles.emptyState} aria-label="No nearby devices">
+          <MonitorX size={28} className={styles.emptyIcon} />
+          <div className={styles.emptyTitle}>No nearby devices</div>
+          <div className={styles.emptyText}>
+            Make sure Lanshare is open on the other device and both devices are connected to the same network.
+          </div>
+          <div className={styles.emptyActions}>
+            <button className={styles.scanBtn} onClick={onRefreshDevices}>
+              Scan Again
+            </button>
+            <button
+              className={styles.troubleshootBtn}
+              onClick={() => setShowTroubleshooting((value) => !value)}
+              aria-expanded={showTroubleshooting}
+            >
+              Having trouble?
+              <ChevronDown size={14} className={showTroubleshooting ? styles.chevronOpen : styles.chevron} />
+            </button>
+          </div>
+          {showTroubleshooting && (
+            <div className={styles.troubleshooting} aria-label="Troubleshooting tips">
+              <div>Confirm both devices are on the same LAN</div>
+              <div>Check firewall permissions</div>
+              <div>Check whether a VPN is interfering</div>
+              <div>Confirm Lanshare is running on the recipient device</div>
+              <div>Check network discovery restrictions</div>
+            </div>
+          )}
+        </section>
       ) : (
-        <div className={styles.dropZoneWrapper}>
+        <section className={styles.deviceSection}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <div className={styles.sectionTitle}>Nearby Devices</div>
+              <div className={styles.sectionMeta}>
+                {isConnected ? "Service connected" : "Service offline"}
+                {discoveryStatus === "discovering" && " · discovering"}
+              </div>
+            </div>
+            {hasRecipient && (
+              <button
+                className={styles.clearSelectionBtn}
+                onClick={() => {
+                  setSelectedDevice(null);
+                  setStagedFiles(null);
+                }}
+              >
+                Change device
+              </button>
+            )}
+          </div>
+
+          <div className={styles.deviceGrid}>
+            {devices.map((device) => (
+              <DeviceCard
+                key={device.id}
+                device={device}
+                isSelected={selectedDevice?.id === device.id}
+                onSelect={setSelectedDevice}
+                actionLabel={selectedDevice?.id === device.id ? "Selected" : "Send to this device"}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className={styles.transferArea}>
+        {activeTransfer ? (
+          <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />
+        ) : hasRecipient ? (
           <DropZone
             isDragging={isDragging}
             selectedDeviceName={selectedDevice?.name}
+            hasRecipient={dropZoneEnabled}
             stagedCount={stagedFiles?.length ?? 0}
             onSelectFiles={handleSelectFiles}
             onSelectFolder={handleSelectFolder}
           />
-        </div>
-      )}
+        ) : (
+          <div className={styles.guidanceState}>
+            <div className={styles.guidanceTitle}>Select a device to start sending</div>
+            <div className={styles.guidanceText}>
+              Files and folders can be added once you choose a recipient.
+            </div>
+          </div>
+        )}
+      </section>
 
-      {stagedFiles && selectedDevice && (
+      {stagedFiles && selectedDevice && !activeTransfer && (
         <SendConfirmation
           device={selectedDevice}
           files={stagedFiles}
@@ -136,6 +225,13 @@ export const Home: React.FC<HomeProps> = ({
           }}
         />
       )}
+
+      {isDragging && !hasRecipient && (
+        <div className={styles.dragHint} role="status" aria-live="polite">
+          Select a device first to send files.
+        </div>
+      )}
     </div>
   );
 };
+

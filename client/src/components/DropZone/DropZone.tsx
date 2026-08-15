@@ -1,10 +1,11 @@
 import React from "react";
-import { Upload, File, Folder } from "lucide-react";
+import { Upload, File, Folder, SearchX } from "lucide-react";
 import styles from "./DropZone.module.css";
 
 interface DropZoneProps {
   isDragging: boolean;
   selectedDeviceName?: string;
+  hasRecipient: boolean;
   stagedCount?: number;
   onSelectFiles: () => void;
   onSelectFolder: () => void;
@@ -13,6 +14,7 @@ interface DropZoneProps {
 export const DropZone: React.FC<DropZoneProps> = ({
   isDragging,
   selectedDeviceName,
+  hasRecipient,
   stagedCount = 0,
   onSelectFiles,
   onSelectFolder,
@@ -26,18 +28,26 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <div className={styles.dragSubtitle}>
             {selectedDeviceName
               ? `to send to ${selectedDeviceName}`
-              : "Select a device to complete transfer"}
+              : "Select a device first"}
           </div>
         </div>
       ) : (
         <div className={styles.normalContent}>
-          <div className={styles.prompt}>Drop files to send</div>
-          {stagedCount > 0 && (
+          {!hasRecipient ? (
+            <>
+              <SearchX size={24} className={styles.emptyIcon} />
+              <div className={styles.prompt}>Select a device to start sending</div>
+              <div className={styles.dragSubtitle}>
+                Files and folders can be added once you choose a recipient.
+              </div>
+            </>
+          ) : (
+            <div className={styles.prompt}>Drop files here</div>
+          )}
+          {stagedCount > 0 && hasRecipient && (
             <div className={styles.dragSubtitle}>
               {stagedCount} item{stagedCount === 1 ? "" : "s"} selected
-              {selectedDeviceName
-                ? ` for ${selectedDeviceName}`
-                : " - select a device to continue"}
+              {selectedDeviceName ? ` for ${selectedDeviceName}` : ""}
             </div>
           )}
           <div className={styles.buttonGroup}>

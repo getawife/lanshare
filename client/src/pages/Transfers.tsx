@@ -30,7 +30,12 @@ export const Transfers: React.FC<TransfersProps> = ({
       </div>
 
       {records.length === 0 ? (
-        <div className={styles.emptyState}>No recent file transfers</div>
+        <div className={styles.emptyState}>
+          {" "}
+          <b>No recent file transfers</b>
+          <br />
+          <p>Transfers you send or receive will appear here.</p>
+        </div>
       ) : (
         <div className={styles.list}>
           {records.map((record) => (

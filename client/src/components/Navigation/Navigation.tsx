@@ -20,6 +20,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <button
         className={`${styles.navItem} ${activeTab === "devices" ? styles.active : ""}`}
         onClick={() => onSelectTab("devices")}
+        aria-current={activeTab === "devices" ? "page" : undefined}
       >
         <Monitor size={16} />
         <span>Devices</span>
@@ -28,6 +29,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <button
         className={`${styles.navItem} ${activeTab === "transfers" ? styles.active : ""}`}
         onClick={() => onSelectTab("transfers")}
+        aria-current={activeTab === "transfers" ? "page" : undefined}
       >
         <ArrowLeftRight size={16} />
         <span>Transfers</span>
@@ -39,6 +41,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <button
         className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
         onClick={() => onSelectTab("settings")}
+        aria-current={activeTab === "settings" ? "page" : undefined}
       >
         <Settings size={16} />
         <span>Settings</span>

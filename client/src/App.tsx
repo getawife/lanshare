@@ -10,6 +10,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
   const [devices, setDevices] = useState<Device[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [discoveryStatus, setDiscoveryStatus] = useState<"discovering" | "found" | "empty">("discovering");
   const [activeTransfer, setActiveTransfer] = useState<TransferRecord>();
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
@@ -62,8 +63,10 @@ export const App: React.FC = () => {
       const peers = state?.peers ?? [];
       setDevices(peers);
       setIsConnected(true);
+      setDiscoveryStatus(peers.length > 0 ? "found" : "empty");
     } catch {
       setIsConnected(false);
+      setDiscoveryStatus("discovering");
     }
   };
 
@@ -94,6 +97,7 @@ export const App: React.FC = () => {
             const next = prev.filter((device) => device.id !== payload?.data?.id);
             return payload?.data ? [payload.data, ...next] : next;
           });
+          setDiscoveryStatus("found");
         } catch {
           void 0;
         }
@@ -167,7 +171,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-layout">
-      <TitleBar isConnected={isConnected} />
+      <TitleBar isConnected={isConnected} discoveryStatus={discoveryStatus} />
       <div className="content-container">
         <Navigation
           activeTab={activeTab}
@@ -182,6 +186,8 @@ export const App: React.FC = () => {
               activeTransfer={activeTransfer}
               onInitiateTransfer={handleInitiateTransfer}
               onCancelTransfer={() => setActiveTransfer(undefined)}
+              discoveryStatus={discoveryStatus}
+              isConnected={isConnected}
             />
           )}
           {activeTab === "transfers" && (

@@ -1,12 +1,13 @@
 import React from "react";
-import { Minus, Square, X, Wifi } from "lucide-react";
+import { Minus, Square, X } from "lucide-react";
 import styles from "./TitleBar.module.css";
 
 interface TitleBarProps {
   isConnected: boolean;
+  discoveryStatus: "discovering" | "found" | "empty";
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ isConnected }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({ isConnected, discoveryStatus }) => {
   const logAndRun = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();
@@ -22,6 +23,13 @@ export const TitleBar: React.FC<TitleBarProps> = ({ isConnected }) => {
           />
           <span className={styles.statusText}>
             {isConnected ? "Connected" : "Offline"}
+            <span className={styles.statusSubtext}>
+              {discoveryStatus === "discovering"
+                ? " - scanning nearby devices"
+                : discoveryStatus === "found"
+                  ? " - discovery active"
+                  : " - no devices found yet"}
+            </span>
           </span>
         </div>
       </div>

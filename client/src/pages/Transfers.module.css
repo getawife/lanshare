@@ -32,10 +32,16 @@
 .emptyState {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   font-size: 13px;
+  gap: 6px;
+}
+
+.emptyState p {
+  margin: 0;
 }
 
 .list {
@@ -53,10 +59,15 @@
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-.row:hover { background-color: var(--surface-hover); border-color: #46515f; }
+.row:hover {
+  background-color: var(--surface-hover);
+  border-color: #46515f;
+}
 
 .iconCol {
   color: var(--text-secondary);

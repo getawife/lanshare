@@ -1,16 +1,18 @@
 .card {
+  width: 100%;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 17px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
   transition:
     border-color var(--transition-fast),
     background-color var(--transition-fast);
   transform: translateY(0);
+  text-align: left;
 }
 
 .card:hover {
@@ -22,6 +24,12 @@
 .card.selected {
   border-color: rgba(79, 140, 255, 0.7);
   background-color: var(--accent-subtle);
+}
+
+.primaryRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .iconWrapper {
@@ -65,6 +73,20 @@
   gap: 6px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.actionIcon {
+  color: var(--accent);
 }
 
 .card:focus-visible { outline-offset: 3px; }
