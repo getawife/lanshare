@@ -14,11 +14,14 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
 }) => {
   const percentage = Math.min(
     100,
-    Math.round((transfer.bytesTransferred / transfer.totalSizeBytes) * 100) ||
+    Math.round((transfer.bytesTransferred / Math.max(transfer.totalSizeBytes, 1)) * 100) ||
       0,
   );
 
-  const formatSize = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
+  const formatSize = (bytes: number) =>
+    bytes < 1024 * 1024
+      ? `${(bytes / 1024).toFixed(1)} KB`
+      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   const speedMB = (transfer.speedBytesPerSec / (1024 * 1024)).toFixed(1);
   const fileCount = transfer.files.length;
 
@@ -47,6 +50,12 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
           {transfer.files.length > 1 && ` (+${transfer.files.length - 1} more)`}
         </span>
       </div>
+      {transfer.files.some((file) => file.isDirectory) && (
+        <div className={styles.detailRow}>
+          <FileText size={14} />
+          <span className={styles.fileTarget}>Folder structure will be preserved</span>
+        </div>
+      )}
 
       <div className={styles.progressTrack} aria-hidden="true">
         <div
@@ -57,8 +66,8 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
 
       <div className={styles.progressCopy} aria-label="Transfer status details">
         <span>
-          <Clock3 size={13} /> {formatSize(transfer.bytesTransferred)} MB /{" "}
-          {formatSize(transfer.totalSizeBytes)} MB
+          <Clock3 size={13} /> {formatSize(transfer.bytesTransferred)} /{" "}
+          {formatSize(transfer.totalSizeBytes)}
         </span>
         <span>{speedMB} MB/s</span>
       </div>
@@ -88,4 +97,3 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
     </div>
   );
 };
-

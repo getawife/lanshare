@@ -27,6 +27,7 @@ type FileItem struct {
 	IsDir      bool   `json:"isDir"`
 	Checksum   string `json:"checksum,omitempty"`
 	RelativeTo string `json:"relativeTo,omitempty"`
+	RelativePath string `json:"relativePath,omitempty"`
 }
 
 type TransferRequest struct {

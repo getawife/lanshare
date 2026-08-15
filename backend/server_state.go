@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"mime/multipart"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -217,13 +219,40 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	if peer.ID == "" {
 		return fmt.Errorf("peer not found")
 	}
-	payload, err := json.Marshal(req)
+	manifest, err := s.expandTransferFiles(req.Files)
 	if err != nil {
 		return err
 	}
-	url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, peer.Port)
-	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	httpReq.Header.Set("Content-Type", "application/json")
+	if len(manifest) == 0 {
+		return fmt.Errorf("no transferable files found")
+	}
+		pr, pw := io.Pipe()
+		mw := multipart.NewWriter(pw)
+		url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, peer.Port)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
+	progressPath := func(done int64, total int64) {
+		s.publish(event{Type: "transfer", Data: map[string]any{
+			"id":             req.TransferID,
+			"peerId":         req.PeerID,
+			"deviceName":     peer.Name,
+			"state":          "transferring",
+			"direction":      "outgoing",
+			"files":          req.Files,
+			"bytesTransferred": done,
+			"totalSizeBytes": total,
+		}})
+	}
+	go func() {
+		defer pw.Close()
+		defer mw.Close()
+		if err := writeTransferMultipart(mw, req.TransferID, manifest, progressPath); err != nil {
+			_ = pw.CloseWithError(err)
+		}
+	}()
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return err
@@ -233,6 +262,154 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 		return fmt.Errorf("peer rejected transfer: %s", resp.Status)
 	}
 	return nil
+}
+
+type expandedTransferFile struct {
+	SourcePath   string
+	RelativePath string
+	IsDirectory  bool
+	SizeBytes    int64
+}
+
+func (s *ServerState) expandTransferFiles(files []FileItem) ([]expandedTransferFile, error) {
+	var out []expandedTransferFile
+	for _, file := range files {
+		info, err := os.Stat(file.Path)
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() || file.IsDir {
+			root := file.Path
+			base := filepath.Base(root)
+			out = append(out, expandedTransferFile{
+				SourcePath:   root,
+				RelativePath: base,
+				IsDirectory:  true,
+			})
+			err = filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
+				}
+				if path == root {
+					return nil
+				}
+				rel, err := filepath.Rel(root, path)
+				if err != nil {
+					return err
+				}
+				rel = filepath.ToSlash(filepath.Join(base, rel))
+				info, err := d.Info()
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					out = append(out, expandedTransferFile{
+						SourcePath:   path,
+						RelativePath: rel,
+						IsDirectory:  true,
+					})
+					return nil
+				}
+				out = append(out, expandedTransferFile{
+					SourcePath:   path,
+					RelativePath: rel,
+					SizeBytes:    info.Size(),
+				})
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		out = append(out, expandedTransferFile{
+			SourcePath:   file.Path,
+			RelativePath: file.Name,
+			SizeBytes:    info.Size(),
+		})
+	}
+	return out, nil
+}
+
+func writeTransferMultipart(mw *multipart.Writer, transferID string, manifest []expandedTransferFile, progress func(int64, int64)) error {
+	total := int64(0)
+	for _, entry := range manifest {
+		if !entry.IsDirectory {
+			total += entry.SizeBytes
+		}
+	}
+	meta := map[string]any{
+		"transferId": transferID,
+		"files": manifestToMeta(manifest),
+	}
+	metaPart, err := mw.CreateFormField("metadata")
+	if err != nil {
+		return err
+	}
+	if err := json.NewEncoder(metaPart).Encode(meta); err != nil {
+		return err
+	}
+	var copied int64
+	for idx, entry := range manifest {
+		partHeader, err := mw.CreateFormField(fmt.Sprintf("file-%d", idx))
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(partHeader).Encode(map[string]any{
+			"relativePath": entry.RelativePath,
+			"isDir":        entry.IsDirectory,
+			"size":         entry.SizeBytes,
+		}); err != nil {
+			return err
+		}
+		if entry.IsDirectory {
+			progress(copied, total)
+			continue
+		}
+		if err := copyFileWithProgress(partHeader, entry.SourcePath, func(n int64) {
+			copied += n
+			progress(copied, total)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func manifestToMeta(manifest []expandedTransferFile) []map[string]any {
+	out := make([]map[string]any, 0, len(manifest))
+	for _, entry := range manifest {
+		out = append(out, map[string]any{
+			"relativePath": entry.RelativePath,
+			"isDir":        entry.IsDirectory,
+			"size":         entry.SizeBytes,
+		})
+	}
+	return out
+}
+
+func copyFileWithProgress(dst io.Writer, sourcePath string, onChunk func(int64)) error {
+	src, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	buf := make([]byte, 32*1024)
+	for {
+		n, readErr := src.Read(buf)
+		if n > 0 {
+			if _, err := dst.Write(buf[:n]); err != nil {
+				return err
+			}
+			onChunk(int64(n))
+		}
+		if errors.Is(readErr, io.EOF) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
 }
 
 func (s *ServerState) findPeer(id string) Device {

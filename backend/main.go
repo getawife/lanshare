@@ -7,14 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"mime"
+	"mime/multipart"
 	"os"
 	"os/signal"
-	"io"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -195,64 +198,133 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	var req TransferRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+		http.Error(w, "expected multipart upload", http.StatusBadRequest)
+		return
+	}
+	reader := multipart.NewReader(r.Body, params["boundary"])
+	metaPart, err := reader.NextPart()
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if len(req.Files) == 0 {
+	if metaPart.FormName() != "metadata" {
+		http.Error(w, "missing metadata part", http.StatusBadRequest)
+		return
+	}
+	var meta struct {
+		TransferID string `json:"transferId"`
+		Files []struct {
+			RelativePath string `json:"relativePath"`
+			IsDir        bool   `json:"isDir"`
+			Size         int64  `json:"size"`
+		} `json:"files"`
+	}
+	if err := json.NewDecoder(metaPart).Decode(&meta); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(meta.Files) == 0 {
 		http.Error(w, "missing files", http.StatusBadRequest)
 		return
 	}
+	uploaded := int64(0)
+	total := int64(0)
+	for _, file := range meta.Files {
+		if !file.IsDir {
+			total += file.Size
+		}
+	}
 	b.state.publish(event{Type: "transfer", Data: map[string]any{
-		"id":       req.TransferID,
-		"state":    "transferring",
-		"direction": "incoming",
-		"files":    req.Files,
+		"id":             meta.TransferID,
+		"state":          "transferring",
+		"direction":      "incoming",
+		"files":          meta.Files,
+		"bytesTransferred": uploaded,
+		"totalSizeBytes": total,
 	}})
 	downloads := defaultDownloads()
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	for _, file := range req.Files {
+	for idx, file := range meta.Files {
 		if file.IsDir {
+			targetDir, err := safeDownloadPath(downloads, file.RelativePath)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := os.MkdirAll(targetDir, 0o755); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 			continue
 		}
-		src, err := os.Open(file.Path)
+		part, err := reader.NextPart()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		defer src.Close()
-		dstPath := filepath.Join(downloads, filepath.Base(file.Name))
-		tmp := dstPath + ".part"
+		expectedName := fmt.Sprintf("file-%d", idx)
+		if part.FormName() != expectedName {
+			http.Error(w, "unexpected file order", http.StatusBadRequest)
+			return
+		}
+		targetPath, err := safeDownloadPath(downloads, file.RelativePath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tmp := targetPath + ".part"
 		dst, err := os.Create(tmp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if _, err := io.Copy(dst, src); err != nil {
-			dst.Close()
+		written, copyErr := io.Copy(dst, part)
+		_ = dst.Close()
+		if copyErr != nil {
 			_ = os.Remove(tmp)
 			b.state.publish(event{Type: "transfer", Data: map[string]any{
-				"id":       req.TransferID,
-				"state":    "failed",
-				"direction": "incoming",
-				"files":    req.Files,
-				"errorMessage": err.Error(),
+				"id":             meta.TransferID,
+				"state":          "failed",
+				"direction":      "incoming",
+				"files":          meta.Files,
+				"errorMessage":   copyErr.Error(),
+				"bytesTransferred": uploaded,
+				"totalSizeBytes": total,
 			}})
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			http.Error(w, copyErr.Error(), http.StatusBadGateway)
 			return
 		}
-		_ = dst.Close()
-		_ = os.Rename(tmp, dstPath)
+		uploaded += written
+		b.state.publish(event{Type: "transfer", Data: map[string]any{
+			"id":             meta.TransferID,
+			"state":          "transferring",
+			"direction":      "incoming",
+			"files":          meta.Files,
+			"bytesTransferred": uploaded,
+			"totalSizeBytes": total,
+		}})
+		if err := os.Rename(tmp, targetPath); err != nil {
+			_ = os.Remove(tmp)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	b.state.publish(event{Type: "transfer", Data: map[string]any{
-		"id":       req.TransferID,
-		"state":    "completed",
-		"direction": "incoming",
-		"files":    req.Files,
+		"id":             meta.TransferID,
+		"state":          "completed",
+		"direction":      "incoming",
+		"files":          meta.Files,
+		"bytesTransferred": total,
+		"totalSizeBytes": total,
 	}})
 	writeJSON(w, map[string]any{"ok": true})
 }
@@ -289,4 +361,25 @@ func defaultDownloads() string {
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func safeDownloadPath(baseDir, relativePath string) (string, error) {
+	clean := filepath.Clean(filepath.FromSlash(relativePath))
+	if clean == "." || clean == string(filepath.Separator) {
+		return "", fmt.Errorf("invalid path")
+	}
+	target := filepath.Join(baseDir, clean)
+	baseAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", err
+	}
+	targetAbs, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+	prefix := baseAbs + string(filepath.Separator)
+	if targetAbs != baseAbs && !strings.HasPrefix(targetAbs, prefix) {
+		return "", fmt.Errorf("unsafe path rejected")
+	}
+	return target, nil
 }

@@ -35,22 +35,30 @@ export const App: React.FC = () => {
   const recordFromTransferEvent = (payload: any): TransferRecord | null => {
     if (!payload?.id) return null;
     const files = Array.isArray(payload.files)
-      ? payload.files.map((file: any) => ({
-          name: file.name ?? "File",
+        ? payload.files.map((file: any) => ({
+          name:
+            file.name ??
+            (typeof file.relativePath === "string"
+              ? file.relativePath.split(/[\\/]/).pop() ?? "File"
+              : "File"),
           path: file.path ?? "",
           sizeBytes: Number(file.size ?? file.sizeBytes ?? 0),
           isDirectory: Boolean(file.isDir ?? file.isDirectory),
         }))
       : [];
     const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
+    const totalSizeBytes = Number(payload.totalSizeBytes ?? totalSize);
+    const bytesTransferred = Number(
+      payload.bytesTransferred ?? (payload.state === "completed" ? totalSizeBytes : 0),
+    );
     return {
       id: String(payload.id),
       direction: payload.direction === "incoming" ? "incoming" : "outgoing",
       deviceName: payload.deviceName ?? payload.peerName ?? "Nearby device",
       files,
-      totalSizeBytes: totalSize,
-      bytesTransferred: payload.state === "completed" ? totalSize : 0,
-      speedBytesPerSec: 0,
+      totalSizeBytes,
+      bytesTransferred,
+      speedBytesPerSec: Number(payload.speedBytesPerSec ?? 0),
       state: payload.state ?? "pending",
       timestamp: new Date(),
       errorMessage: payload.errorMessage,
