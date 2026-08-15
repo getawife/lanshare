@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"strconv"
 	"time"
 )
 
@@ -72,10 +73,11 @@ func (s *ServerState) selfDevice() Device {
 	return Device{
 		ID:           s.DeviceID,
 		Name:         s.DeviceName,
-		OS:           runtime.GOOS,
+		OS:           formatOSName(runtime.GOOS),
 		Type:         deviceType(runtime.GOOS),
 		IP:           "127.0.0.1",
 		Port:         s.LANPort,
+		HTTPPort:     s.HTTPPort,
 		Status:       "available",
 		Trusted:      true,
 		Protocol:     1,
@@ -170,16 +172,21 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		name, _ := packet["name"].(string)
 		ip := strings.Split(addr.String(), ":")[0]
 		port := intFrom(packet["port"])
-		if id == "" || id == s.DeviceID || port == 0 {
+		httpPort := intFrom(packet["httpPort"])
+		if httpPort == 0 {
+			httpPort = port
+		}
+		if id == "" || id == s.DeviceID || (port == 0 && httpPort == 0) {
 			continue
 		}
 		peer := Device{
 			ID:           id,
 			Name:         name,
-			OS:           stringFrom(packet["os"]),
-			Type:         stringFrom(packet["type"]),
+			OS:           formatOSName(stringFrom(packet["os"])),
+			Type:         deviceType(stringFrom(packet["os"])),
 			IP:           ip,
 			Port:         port,
+			HTTPPort:     httpPort,
 			Status:       "available",
 			Trusted:      false,
 			Protocol:     intFrom(packet["protocol"]),
@@ -203,15 +210,86 @@ func (s *ServerState) RunExpiredPeerSweep(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
+			var expired []Device
 			for id, peer := range s.Peers {
-				if time.Since(peer.LastSeen) > 12*time.Second {
+				if peer.Status != "offline" && time.Since(peer.LastSeen) > 12*time.Second {
 					peer.Status = "offline"
 					s.Peers[id] = peer
+					expired = append(expired, peer)
 				}
 			}
 			s.mu.Unlock()
+			for _, p := range expired {
+				s.publish(event{Type: "peer", Data: p})
+			}
 		}
 	}
+}
+
+func (s *ServerState) RunLoopbackPeerProbe(ctx context.Context) {
+	peerPort := defaultLoopbackPeerPort
+	if v := os.Getenv("LANSHARE_LOOPBACK_PEER_HTTP_PORT"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			peerPort = parsed
+		}
+	}
+	if peerPort <= 0 {
+		return
+	}
+	targetID := fmt.Sprintf("loopback-%d", peerPort)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		peer, ok := probeLoopbackPeer(peerPort, targetID)
+		s.mu.Lock()
+		if ok {
+			s.Peers[targetID] = peer
+		} else {
+			delete(s.Peers, targetID)
+		}
+		s.mu.Unlock()
+		if ok {
+			s.publish(event{Type: "peer", Data: peer})
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func probeLoopbackPeer(port int, id string) (Device, bool) {
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/health", port)
+	client := &http.Client{Timeout: 750 * time.Millisecond}
+	resp, err := client.Get(url)
+	if err != nil {
+		return Device{}, false
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return Device{}, false
+	}
+	return Device{
+		ID:           id,
+		Name:         fmt.Sprintf("Local Test Peer %d", port),
+		OS:           formatOSName(runtime.GOOS),
+		Type:         deviceType(runtime.GOOS),
+		IP:           "127.0.0.1",
+		Port:         port,
+		HTTPPort:     port,
+		Status:       "available",
+		Trusted:      true,
+		Protocol:     1,
+		Version:      "local-test",
+		Capabilities: []string{"files", "clipboard", "web"},
+		LastSeen:     time.Now(),
+	}, true
 }
 
 func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error {
@@ -228,7 +306,11 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	}
 		pr, pw := io.Pipe()
 		mw := multipart.NewWriter(pw)
-		url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, peer.Port)
+		targetPort := peer.HTTPPort
+		if targetPort == 0 {
+			targetPort = peer.Port
+		}
+		url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
 	if err != nil {
 		return err
@@ -249,7 +331,7 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	go func() {
 		defer pw.Close()
 		defer mw.Close()
-		if err := writeTransferMultipart(mw, req.TransferID, manifest, progressPath); err != nil {
+		if err := s.writeTransferMultipart(mw, req.TransferID, manifest, progressPath); err != nil {
 			_ = pw.CloseWithError(err)
 		}
 	}()
@@ -331,7 +413,7 @@ func (s *ServerState) expandTransferFiles(files []FileItem) ([]expandedTransferF
 	return out, nil
 }
 
-func writeTransferMultipart(mw *multipart.Writer, transferID string, manifest []expandedTransferFile, progress func(int64, int64)) error {
+func (s *ServerState) writeTransferMultipart(mw *multipart.Writer, transferID string, manifest []expandedTransferFile, progress func(int64, int64)) error {
 	total := int64(0)
 	for _, entry := range manifest {
 		if !entry.IsDirectory {
@@ -340,7 +422,9 @@ func writeTransferMultipart(mw *multipart.Writer, transferID string, manifest []
 	}
 	meta := map[string]any{
 		"transferId": transferID,
-		"files": manifestToMeta(manifest),
+		"peerId":     s.DeviceID,
+		"deviceName": s.DeviceName,
+		"files":      manifestToMeta(manifest),
 	}
 	metaPart, err := mw.CreateFormField("metadata")
 	if err != nil {
@@ -461,12 +545,29 @@ func (s *ServerState) ServeShare(w http.ResponseWriter, r *http.Request) {
 
 func deviceType(osName string) string {
 	switch strings.ToLower(osName) {
-	case "darwin":
+	case "darwin", "macos":
 		return "mac"
 	case "windows", "linux":
 		return "pc"
 	default:
 		return "phone"
+	}
+}
+
+func formatOSName(osName string) string {
+	switch strings.ToLower(osName) {
+	case "darwin":
+		return "macOS"
+	case "windows":
+		return "Windows"
+	case "linux":
+		return "Linux"
+	case "android":
+		return "Android"
+	case "ios":
+		return "iOS"
+	default:
+		return osName
 	}
 }
 

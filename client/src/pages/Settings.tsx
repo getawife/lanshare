@@ -38,7 +38,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
             checked={settings.autoStart}
             onChange={(e) => onUpdateSettings({ autoStart: e.target.checked })}
           />
-          <label htmlFor="autoStart">Start with Windows</label>
+          <label htmlFor="autoStart">Start at system login</label>
         </div>
         <div className={styles.checkboxRow}>
           <input
@@ -86,7 +86,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
         <div className={styles.sectionTitle}>About</div>
         <div className={styles.aboutRow}>
           <span>Lanshare Desktop</span>
-          <span className={styles.version}>v1.2.0</span>
+          <span className={styles.version}>v1.0.0</span>
         </div>
       </div>
     </div>

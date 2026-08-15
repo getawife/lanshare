@@ -70,7 +70,11 @@ export const Transfers: React.FC<TransfersProps> = ({
 
               <div className={styles.actionsCol}>
                 {record.state === "completed" && (
-                  <button className={styles.actionBtn} title="Open in folder">
+                  <button
+                    className={styles.actionBtn}
+                    title="Open in folder"
+                    onClick={() => window.electronAPI?.openFolder?.(record.files[0]?.path)}
+                  >
                     <Folder size={14} />
                   </button>
                 )}

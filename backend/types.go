@@ -9,6 +9,7 @@ type Device struct {
 	Type          string    `json:"type"`
 	IP            string    `json:"ip"`
 	Port          int       `json:"port"`
+	HTTPPort      int       `json:"httpPort"`
 	Status        string    `json:"status"`
 	Trusted       bool      `json:"trusted"`
 	Protocol      int       `json:"protocol"`

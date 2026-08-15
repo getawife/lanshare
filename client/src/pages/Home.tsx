@@ -11,6 +11,7 @@ import { DeviceCard } from "../components/DeviceCard/DeviceCard";
 import { DropZone } from "../components/DropZone/DropZone";
 import { SendConfirmation } from "../components/SendConfirmation/SendConfirmation";
 import { TransferProgress } from "../components/TransferProgress/TransferProgress";
+import { IncomingTransfer } from "../components/IncomingTransfer/IncomingTransfer";
 import styles from "./Home.module.css";
 
 interface HomeProps {
@@ -194,7 +195,15 @@ export const Home: React.FC<HomeProps> = ({
 
       <section className={styles.transferArea}>
         {activeTransfer ? (
-          <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />
+          activeTransfer.direction === "incoming" ? (
+            <IncomingTransfer
+              transfer={activeTransfer}
+              onAccept={() => {}}
+              onDecline={onCancelTransfer}
+            />
+          ) : (
+            <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />
+          )
         ) : hasRecipient ? (
           <DropZone
             isDragging={isDragging}

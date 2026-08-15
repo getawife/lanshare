@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
@@ -13,6 +13,7 @@ const settingsPath = path.join(
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendUrl = "http://127.0.0.1:43821";
 let mainWindow: BrowserWindow | null = null;
+const backendPort = Number(process.env.LANSHARE_HTTP_PORT ?? "43821") || 43821;
 
 async function readSettings() {
   try {
@@ -69,8 +70,9 @@ function startBackend() {
 async function waitForBackend() {
   for (let i = 0; i < 60; i += 1) {
     try {
-      const response = await fetch("http://127.0.0.1:43821/api/health");
-      if (response.ok) return "http://127.0.0.1:43821";
+      const url = `http://127.0.0.1:${backendPort}`;
+      const response = await fetch(`${url}/api/health`);
+      if (response.ok) return url;
     } catch {
       // retry
     }
@@ -206,6 +208,21 @@ ipcMain.handle(
 ipcMain.handle("backend:state", async () => {
   const response = await fetch(`${backendUrl}/api/state`);
   return response.json();
+});
+
+ipcMain.handle("folder:open", async (_event, folderPath?: string) => {
+  let target = folderPath && folderPath.trim() !== "" ? folderPath : app.getPath("downloads");
+  try {
+    const stats = await fs.stat(target);
+    if (!stats.isDirectory()) {
+      shell.showItemInFolder(target);
+      return true;
+    }
+  } catch {
+    target = app.getPath("downloads");
+  }
+  await shell.openPath(target);
+  return true;
 });
 
 app.whenReady().then(async () => {

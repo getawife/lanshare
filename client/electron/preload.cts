@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   fetchBackend: (path: string, init?: RequestInit) =>
     ipcRenderer.invoke("backend:fetch", path, init),
 
+  openFolder: (path?: string) =>
+    ipcRenderer.invoke("folder:open", path),
+
   minimizeWindow: () => {
     console.log("[Preload] minimizeWindow called");
     ipcRenderer.send("window:minimize");

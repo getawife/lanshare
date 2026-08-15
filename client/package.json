@@ -8,6 +8,7 @@
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite --host 127.0.0.1",
     "dev:electron": "tsc -p electron/tsconfig.json && wait-on http://127.0.0.1:5173 && set ELECTRON_RUN_AS_NODE=&& electron .",
+    "dev:instance": "tsc -p electron/tsconfig.json && wait-on http://127.0.0.1:5173 && set ELECTRON_RUN_AS_NODE=&& electron .",
     "build": "vite build && tsc -p electron/tsconfig.json",
     "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "lint": "eslint .",

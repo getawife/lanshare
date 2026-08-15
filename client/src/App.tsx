@@ -6,6 +6,14 @@ import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
 import { AppSettings, Device, FileItem, TransferRecord } from "./shared/types.js";
 
+type AppNotice = {
+  id: string;
+  title: string;
+  details: string;
+  code?: string;
+  createdAt: number;
+};
+
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
   const [devices, setDevices] = useState<Device[]>([]);
@@ -13,6 +21,8 @@ export const App: React.FC = () => {
   const [discoveryStatus, setDiscoveryStatus] = useState<"discovering" | "found" | "empty">("discovering");
   const [activeTransfer, setActiveTransfer] = useState<TransferRecord>();
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
+  const [notices, setNotices] = useState<AppNotice[]>([]);
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
     deviceName: "LANShare Desktop",
     autoStart: false,
@@ -30,6 +40,34 @@ export const App: React.FC = () => {
       const next = prev.filter((item) => item.id !== record.id);
       return [record, ...next];
     });
+  };
+
+  const safeText = (value: string) =>
+    value
+      .replace(/https?:\/\/[^\s]+/g, "[redacted-url]")
+      .replace(/[A-Za-z]:\\[^\s]+/g, "[redacted-path]")
+      .replace(/\/(?:[^/\s]+\/)*[^/\s]+/g, "[redacted-path]")
+      .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "[redacted-ip]");
+
+  const pushNotice = (notice: Omit<AppNotice, "id" | "createdAt">) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    setNotices((prev) => [{ id, createdAt: Date.now(), ...notice }, ...prev].slice(0, 3));
+    window.setTimeout(() => {
+      setNotices((prev) => prev.filter((item) => item.id !== id));
+    }, 10000);
+  };
+
+  const parseErrorBody = async (response?: { body?: string }) => {
+    if (!response?.body) return { code: undefined as string | undefined, message: "Something went wrong" };
+    try {
+      const parsed = JSON.parse(response.body) as { code?: string; message?: string };
+      return {
+        code: typeof parsed.code === "string" ? parsed.code : undefined,
+        message: typeof parsed.message === "string" ? parsed.message : "Something went wrong",
+      };
+    } catch {
+      return { code: undefined, message: safeText(response.body || "Something went wrong") };
+    }
   };
 
   const recordFromTransferEvent = (payload: any): TransferRecord | null => {
@@ -169,11 +207,27 @@ export const App: React.FC = () => {
           })),
         }),
       });
-      if (!response?.ok) throw new Error(response?.body ?? "transfer failed");
-    } catch {
+      if (!response?.ok) {
+        const parsed = await parseErrorBody(response);
+        pushNotice({
+          title: parsed.code ? `Something went wrong (${parsed.code})` : "Something went wrong",
+          code: parsed.code,
+          details: parsed.message,
+        });
+        const failed = { ...record, state: "failed" as const, errorMessage: parsed.message };
+        setActiveTransfer(undefined);
+        upsertTransferRecord(failed);
+        return;
+      }
+    } catch (error) {
       const failed = { ...record, state: "failed" as const };
       setActiveTransfer(undefined);
       upsertTransferRecord(failed);
+      const details = error instanceof Error ? safeText(error.message) : "Unknown error";
+      pushNotice({
+        title: "Something went wrong",
+        details,
+      });
     }
   };
 
@@ -208,6 +262,28 @@ export const App: React.FC = () => {
             />
           )}
         </main>
+      </div>
+      <div className="notice-stack" aria-live="polite" aria-relevant="additions">
+        {notices.map((notice) => (
+          <button
+            key={notice.id}
+            type="button"
+            className="notice-card"
+            onClick={() => {
+              setExpandedNoticeId((current) => (current === notice.id ? null : notice.id));
+            }}
+            title="Click to expand or collapse"
+          >
+            <div className="notice-title">{notice.title}</div>
+            <div className="notice-details">
+              {expandedNoticeId === notice.id
+                ? notice.details
+                : notice.code
+                  ? `Error code: ${notice.code}`
+                  : "Click to view details"}
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
