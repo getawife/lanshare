@@ -23,7 +23,8 @@ type AppNotice = {
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
-  const [devices, setDevices] = useState<Device[]>([]);
+  // --- BULLETPROOF: Switch from array to Map to ensure absolute key deduplication ---
+  const [devicesMap, setDevicesMap] = useState<Map<string, Device>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(
     null,
@@ -151,7 +152,15 @@ export const App: React.FC = () => {
       }
       const state = await window.electronAPI?.getBackendState?.();
       const peers = state?.peers ?? [];
-      setDevices(peers);
+
+      // --- BULLETPROOF: Replace Map fully on each poll (ensures stale entries die) ---
+      const newMap = new Map<string, Device>();
+      for (const peer of peers) {
+        newMap.set(peer.name.toLowerCase().trim(), peer);
+      }
+      setDevicesMap(newMap);
+      // ------------------------------------------------------------------------------
+
       setIsConnected(true);
       setDiscoveryStatus(peers.length > 0 ? "found" : "empty");
     } catch {
@@ -192,7 +201,7 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  // --- FIXED EVENT LISTENER ---
+  // --- EVENT LISTENER (BULLETPROOF MAP UPDATE) ---
   useEffect(() => {
     let source: EventSource | undefined;
     let cancelled = false;
@@ -208,24 +217,13 @@ export const App: React.FC = () => {
           const newDevice = payload?.data;
           if (!newDevice) return;
 
-          // Use case‑insensitive name comparison (matches backend dedup)
-          const lowerName = newDevice.name.toLowerCase();
+          const lowerName = newDevice.name.toLowerCase().trim();
 
-          setDevices((prev) => {
-            // Find existing device by lowercased name
-            const existingIndex = prev.findIndex(
-              (d) => d.name.toLowerCase() === lowerName,
-            );
-
-            if (existingIndex >= 0) {
-              // Update in place – preserves order and avoids flicker
-              const updated = [...prev];
-              updated[existingIndex] = newDevice;
-              return updated;
-            } else {
-              // New device – add to the beginning
-              return [newDevice, ...prev];
-            }
+          setDevicesMap((prev) => {
+            // --- BULLETPROOF: Update or insert existing key (never duplicates) ---
+            const newMap = new Map(prev);
+            newMap.set(lowerName, newDevice);
+            return newMap;
           });
 
           setDiscoveryStatus("found");
@@ -263,7 +261,11 @@ export const App: React.FC = () => {
           if (!payload || !payload.transferId) return;
           const files = Array.isArray(payload.files)
             ? payload.files.map((f: any) => ({
-                name: f.name ?? (typeof f.relativePath === "string" ? f.relativePath.split(/[\\/]/).pop() ?? "File" : "File"),
+                name:
+                  f.name ??
+                  (typeof f.relativePath === "string"
+                    ? (f.relativePath.split(/[\\/]/).pop() ?? "File")
+                    : "File"),
                 path: "",
                 sizeBytes: Number(f.size ?? 0),
                 isDirectory: Boolean(f.isDir ?? false),
@@ -294,7 +296,7 @@ export const App: React.FC = () => {
       source?.close();
     };
   }, []);
-  // --- END OF FIX ---
+  // --- END OF EVENT LISTENER ---
 
   useEffect(() => {
     void window.electronAPI?.saveSettings(settings);
@@ -377,7 +379,8 @@ export const App: React.FC = () => {
         <main className="main-viewport">
           {activeTab === "devices" && (
             <Home
-              devices={devices}
+              // --- BULLETPROOF: Convert Map back to array only when rendering ---
+              devices={Array.from(devicesMap.values())}
               onRefreshDevices={handleRefreshDevices}
               isRefreshing={isRefreshing}
               activeTransfer={activeTransfer}
@@ -385,7 +388,9 @@ export const App: React.FC = () => {
               onCancelTransfer={() => setActiveTransfer(undefined)}
               discoveryStatus={discoveryStatus}
               isConnected={isConnected}
-              onNotify={(title, details, code) => pushNotice({ title, details, code })}
+              onNotify={(title, details, code) =>
+                pushNotice({ title, details, code })
+              }
             />
           )}
           {activeTab === "transfers" && (

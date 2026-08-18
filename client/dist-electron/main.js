@@ -4,12 +4,15 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const settingsPath = path.join(app.getPath("userData"), "lanshare-settings.json");
 let backendProcess = null;
 let backendUrl = "http://127.0.0.1:43821";
 let mainWindow = null;
 const backendPort = Number(process.env.LANSHARE_HTTP_PORT ?? "43821") || 43821;
+// Per-run admin token to authenticate privileged local UI calls to the backend.
+let adminToken = null;
 async function readSettings() {
     try {
         const raw = await fs.readFile(settingsPath, "utf8");
@@ -98,6 +101,12 @@ async function startBackend() {
         return backendStatus;
     }
     try {
+        // Ensure an admin token exists for this run and pass it to the backend
+        // as an environment variable. The backend will require this token for
+        // privileged endpoints like /api/settings and /api/respond-transfer.
+        if (!adminToken) {
+            adminToken = crypto.randomBytes(16).toString("hex");
+        }
         backendProcess = spawn(command, args, {
             cwd,
             windowsHide: true,
@@ -105,6 +114,7 @@ async function startBackend() {
             env: {
                 ...process.env,
                 GOTOOLCHAIN: "local",
+                LANSHARE_ADMIN_TOKEN: adminToken,
             },
         });
     }
@@ -196,6 +206,30 @@ async function waitForBackend() {
         };
     }
     return backendStatus;
+}
+async function pushSettingsToBackend() {
+    // Read persisted Electron settings and POST them to the local backend
+    // so the backend can enforce and advertise current preferences where
+    // appropriate. Use the per-run admin token for authentication.
+    try {
+        const s = (await readSettings()) ?? {};
+        const cfg = {
+            askBeforeAccepting: s.askBeforeAccepting ?? true,
+            autoAcceptTrusted: s.autoAcceptTrusted ?? false,
+            downloadFolder: s.downloadFolder ?? "",
+        };
+        const headers = { "Content-Type": "application/json" };
+        if (adminToken)
+            headers["X-Lanshare-Token"] = adminToken;
+        await fetch(`${backendUrl}/api/settings`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(cfg),
+        });
+    }
+    catch (e) {
+        console.warn("pushSettingsToBackend failed:", e);
+    }
 }
 async function stopBackend() {
     if (!backendProcess)
@@ -333,10 +367,37 @@ ipcMain.handle("settings:get", async () => {
 ipcMain.handle("settings:save", async (_event, settings) => {
     await writeSettings(settings);
     nativeTheme.themeSource = settings.theme ?? "system";
+    // Push updated settings to the backend so discovery broadcasts include the
+    // current effective preferences (askBeforeAccepting, autoAcceptTrusted).
+    try {
+        await pushSettingsToBackend();
+    }
+    catch (e) {
+        console.warn("Failed to push settings to backend:", e);
+    }
     return true;
 });
 ipcMain.handle("backend:fetch", async (_event, pathName, init) => {
-    const response = await fetch(`${backendUrl}${pathName}`, init);
+    const headers = {};
+    if (init?.headers) {
+        // merge provided headers
+        Object.assign(headers, init.headers);
+    }
+    if (adminToken)
+        headers["X-Lanshare-Token"] = adminToken;
+    const response = await fetch(`${backendUrl}${pathName}`, { ...init, headers });
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, body: text };
+});
+ipcMain.handle("transfer:respond", async (_event, transferId, accept) => {
+    const headers = { "Content-Type": "application/json" };
+    if (adminToken)
+        headers["X-Lanshare-Token"] = adminToken;
+    const response = await fetch(`${backendUrl}/api/respond-transfer`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ transferId, accept }),
+    });
     const text = await response.text();
     return { ok: response.ok, status: response.status, body: text };
 });
@@ -363,6 +424,14 @@ ipcMain.handle("folder:open", async (_event, folderPath) => {
 });
 app.whenReady().then(async () => {
     await startBackend();
+    // After backend is running, push the current Electron settings so the backend
+    // will advertise them in its discovery packets.
+    try {
+        await pushSettingsToBackend();
+    }
+    catch (e) {
+        console.warn("Failed to push settings to backend:", e);
+    }
     createWindow();
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0)

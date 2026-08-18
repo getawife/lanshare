@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 )
 
 const discoveryPort = 43821
@@ -190,8 +191,8 @@ func (s *ServerState) selfDevice() Device {
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
 		DeviceHash:   s.DeviceID,
-			Settings:     s.settings,
-		}
+		Settings:     s.settings,
+	}
 }
 
 func (s *ServerState) PeersSnapshot() []Device {
@@ -369,6 +370,12 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		}
 		id, _ := packet["id"].(string)
 		name, _ := packet["name"].(string)
+
+		// --- BULLETPROOF FIX: Trim spaces, newlines, and most importantly NULL bytes ---
+		name = strings.TrimSpace(name)
+		name = strings.Trim(name, "\x00")
+		// ------------------------------------------------------------------------------
+
 		ip := strings.Split(addr.String(), ":")[0]
 		port := intFrom(packet["port"])
 		httpPort := intFrom(packet["httpPort"])
@@ -507,8 +514,6 @@ func probeLoopbackPeer(port int, id string) (Device, bool) {
 		LastSeen:     time.Now(),
 		Settings:     BackendSettings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
 	}, true
-}
-
 }
 
 func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error {
