@@ -95,6 +95,13 @@ func (b *Backend) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to bind HTTP server: all candidate ports (%d–%d) are in use", defaultHTTPPort, defaultHTTPPort+9)
 	}
 	b.state.HTTPPort = httpLn.Addr().(*net.TCPAddr).Port
+	// Harden admin token policy: require the LANSHARE_ADMIN_TOKEN to be set by the
+	// Electron host. If not set, privileged endpoints will reject requests.
+	b.state.AdminToken = os.Getenv("LANSHARE_ADMIN_TOKEN")
+	if b.state.AdminToken == "" {
+		// Log a warning — by default we will deny privileged actions when token is missing.
+		log.Printf("[Security] no LANSHARE_ADMIN_TOKEN provided; privileged endpoints will be disabled")
+	}
 
 	lanLn, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", discoveryPort))
 	if err == nil {
@@ -263,7 +270,11 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 	// Require admin token to ensure only the local UI can respond.
 	header := r.Header.Get("X-Lanshare-Token")
-	if b.state.AdminToken != "" && header != b.state.AdminToken {
+	if b.state.AdminToken == "" {
+		writeErrorJSON(w, http.StatusUnauthorized, "B-RP004", "admin token not configured on server")
+		return
+	}
+	if header != b.state.AdminToken {
 		writeErrorJSON(w, http.StatusUnauthorized, "B-RP001", "invalid admin token")
 		return
 	}
@@ -306,10 +317,14 @@ func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
 // settingsHandler accepts a POST from Electron to push user settings into the backend,
 // and responds to GET with the current settings.  This resolves Issue 2.2.
 func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
-	// Require the admin token for POST (privileged) operations when configured.
+	// Require the admin token for POST (privileged) operations.
 	if r.Method == http.MethodPost {
 		header := r.Header.Get("X-Lanshare-Token")
-		if b.state.AdminToken != "" && header != b.state.AdminToken {
+		if b.state.AdminToken == "" {
+			writeErrorJSON(w, http.StatusUnauthorized, "B-S003", "admin token not configured on server")
+			return
+		}
+		if header != b.state.AdminToken {
 			writeErrorJSON(w, http.StatusUnauthorized, "B-S002", "invalid admin token")
 			return
 		}

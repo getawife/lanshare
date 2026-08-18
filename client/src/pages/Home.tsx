@@ -216,8 +216,22 @@ export const Home: React.FC<HomeProps> = ({
           activeTransfer.direction === "incoming" ? (
             <IncomingTransfer
               transfer={activeTransfer}
-              onAccept={() => {}}
-              onDecline={onCancelTransfer}
+              onAccept={async () => {
+                if (!activeTransfer) return;
+                // Tell backend that user accepted; main process will send admin token
+                const resp = await window.electronAPI?.transferRespond?.(activeTransfer.id, true);
+                if (resp?.ok) {
+                  // keep waiting for transfer 'transferring' events
+                } else {
+                  // show error and clear prompt
+                  onCancelTransfer();
+                }
+              }}
+              onDecline={async () => {
+                if (!activeTransfer) return;
+                await window.electronAPI?.transferRespond?.(activeTransfer.id, false);
+                onCancelTransfer();
+              }}
             />
           ) : (
             <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />

@@ -428,11 +428,29 @@ ipcMain.handle("settings:save", async (_event, settings) => {
 ipcMain.handle(
   "backend:fetch",
   async (_event, pathName: string, init?: RequestInit) => {
-    const response = await fetch(`${backendUrl}${pathName}`, init);
+    const headers: Record<string, string> = {};
+    if (init?.headers) {
+      // merge provided headers
+      Object.assign(headers, init.headers as Record<string, string>);
+    }
+    if (adminToken) headers["X-Lanshare-Token"] = adminToken;
+    const response = await fetch(`${backendUrl}${pathName}`, { ...init, headers });
     const text = await response.text();
     return { ok: response.ok, status: response.status, body: text };
   },
 );
+
+ipcMain.handle("transfer:respond", async (_event, transferId: string, accept: boolean) => {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (adminToken) headers["X-Lanshare-Token"] = adminToken;
+  const response = await fetch(`${backendUrl}/api/respond-transfer`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ transferId, accept }),
+  });
+  const text = await response.text();
+  return { ok: response.ok, status: response.status, body: text };
+});
 
 ipcMain.handle("backend:state", async () => {
   const response = await fetch(`${backendUrl}/api/state`);
