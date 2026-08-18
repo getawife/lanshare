@@ -24,7 +24,6 @@ interface HomeProps {
   discoveryStatus: "discovering" | "found" | "empty";
   isConnected: boolean;
   networkWarnings?: string[];
-  // Optional notification callback: title, details, optional code
   onNotify?: (title: string, details: string, code?: string) => void;
 }
 
@@ -38,8 +37,18 @@ export const Home: React.FC<HomeProps> = ({
   discoveryStatus,
   isConnected,
   networkWarnings = [],
+  onNotify,
 }) => {
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  // --- BULLETPROOF FIX: Store ID instead of object ---
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+
+  // Derive the actual object from the latest devices array
+  const selectedDevice = useMemo(
+    () => devices.find((d) => d.id === selectedDeviceId) ?? null,
+    [devices, selectedDeviceId],
+  );
+  // ------------------------------------------------
+
   const [stagedFiles, setStagedFiles] = useState<FileItem[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
@@ -51,10 +60,19 @@ export const Home: React.FC<HomeProps> = ({
 
   const headerLabel = useMemo(() => {
     if (isSending) return "Transfer in progress";
-    if (!hasDevices) return discoveryStatus === "discovering" ? "Scanning for devices…" : "No nearby devices";
+    if (!hasDevices)
+      return discoveryStatus === "discovering"
+        ? "Scanning for devices…"
+        : "No nearby devices";
     if (hasRecipient) return `Send to ${selectedDevice?.name}`;
     return "Choose a device to continue";
-  }, [discoveryStatus, hasDevices, hasRecipient, isSending, selectedDevice?.name]);
+  }, [
+    discoveryStatus,
+    hasDevices,
+    hasRecipient,
+    isSending,
+    selectedDevice?.name,
+  ]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -92,6 +110,11 @@ export const Home: React.FC<HomeProps> = ({
     if (folder) setStagedFiles([folder]);
   };
 
+  const clearSelection = () => {
+    setSelectedDeviceId(null);
+    setStagedFiles(null);
+  };
+
   return (
     <div
       className={styles.container}
@@ -122,7 +145,10 @@ export const Home: React.FC<HomeProps> = ({
           title="Scan again"
           aria-label="Scan again"
         >
-          <RefreshCw size={14} className={isRefreshing ? styles.spinning : ""} />
+          <RefreshCw
+            size={14}
+            className={isRefreshing ? styles.spinning : ""}
+          />
         </button>
       </div>
 
@@ -138,7 +164,8 @@ export const Home: React.FC<HomeProps> = ({
           <MonitorX size={28} className={styles.emptyIcon} />
           <div className={styles.emptyTitle}>No nearby devices</div>
           <div className={styles.emptyText}>
-            Make sure Lanshare is open on the other device and both devices are connected to the same network.
+            Make sure Lanshare is open on the other device and both devices are
+            connected to the same network.
           </div>
           <div className={styles.emptyActions}>
             <button
@@ -146,7 +173,10 @@ export const Home: React.FC<HomeProps> = ({
               onClick={onRefreshDevices}
               disabled={isRefreshing}
             >
-              <RefreshCw size={14} className={isRefreshing ? styles.spinning : ""} />
+              <RefreshCw
+                size={14}
+                className={isRefreshing ? styles.spinning : ""}
+              />
               <span>{isRefreshing ? "Scanning…" : "Scan Again"}</span>
             </button>
             <button
@@ -155,21 +185,46 @@ export const Home: React.FC<HomeProps> = ({
               aria-expanded={showTroubleshooting}
             >
               Having trouble?
-              <ChevronDown size={14} className={showTroubleshooting ? styles.chevronOpen : styles.chevron} />
+              <ChevronDown
+                size={14}
+                className={
+                  showTroubleshooting ? styles.chevronOpen : styles.chevron
+                }
+              />
             </button>
           </div>
           {showTroubleshooting && (
-            <div className={styles.troubleshooting} aria-label="Troubleshooting tips">
+            <div
+              className={styles.troubleshooting}
+              aria-label="Troubleshooting tips"
+            >
               {networkWarnings.length > 0 && (
-                <div style={{ color: "#fbbf24", fontWeight: 600, marginBottom: "4px" }}>
+                <div
+                  style={{
+                    color: "#fbbf24",
+                    fontWeight: 600,
+                    marginBottom: "4px",
+                  }}
+                >
                   Active Network Issues:
                   {networkWarnings.map((w, i) => (
-                    <div key={i} style={{ fontWeight: 400, marginTop: "2px", color: "#fde68a" }}>• {w}</div>
+                    <div
+                      key={i}
+                      style={{
+                        fontWeight: 400,
+                        marginTop: "2px",
+                        color: "#fde68a",
+                      }}
+                    >
+                      • {w}
+                    </div>
                   ))}
                 </div>
               )}
               <div>Confirm both devices are on the same LAN</div>
-              <div>Check firewall permissions (allow LANShare on Private Networks)</div>
+              <div>
+                Check firewall permissions (allow LANShare on Private Networks)
+              </div>
               <div>Check whether a VPN or virtual adapter is interfering</div>
               <div>Confirm Lanshare is running on the recipient device</div>
               <div>Check network discovery restrictions</div>
@@ -189,10 +244,7 @@ export const Home: React.FC<HomeProps> = ({
             {hasRecipient && (
               <button
                 className={styles.clearSelectionBtn}
-                onClick={() => {
-                  setSelectedDevice(null);
-                  setStagedFiles(null);
-                }}
+                onClick={clearSelection}
               >
                 Change device
               </button>
@@ -204,9 +256,13 @@ export const Home: React.FC<HomeProps> = ({
               <DeviceCard
                 key={device.id}
                 device={device}
-                isSelected={selectedDevice?.id === device.id}
-                onSelect={setSelectedDevice}
-                actionLabel={selectedDevice?.id === device.id ? "Selected" : "Send to this device"}
+                isSelected={selectedDeviceId === device.id}
+                onSelect={(dev) => setSelectedDeviceId(dev.id)}
+                actionLabel={
+                  selectedDeviceId === device.id
+                    ? "Selected"
+                    : "Send to this device"
+                }
               />
             ))}
           </div>
@@ -221,7 +277,10 @@ export const Home: React.FC<HomeProps> = ({
               onAccept={async () => {
                 if (!activeTransfer) return;
                 // Tell backend that user accepted; main process will send admin token
-                const resp = await window.electronAPI?.transferRespond?.(activeTransfer.id, true);
+                const resp = await window.electronAPI?.transferRespond?.(
+                  activeTransfer.id,
+                  true,
+                );
                 if (resp?.ok) {
                   // keep waiting for transfer 'transferring' events
                 } else {
@@ -229,36 +288,60 @@ export const Home: React.FC<HomeProps> = ({
                   try {
                     const body = resp?.body || "";
                     let parsed = null as any;
-                    try { parsed = JSON.parse(body); } catch {}
+                    try {
+                      parsed = JSON.parse(body);
+                    } catch {}
                     const code = parsed?.code ?? undefined;
-                    const message = parsed?.message ?? (body ? String(body) : "Failed to accept transfer");
-                    if (onNotify) onNotify("Failed to accept transfer", message, code);
+                    const message =
+                      parsed?.message ??
+                      (body ? String(body) : "Failed to accept transfer");
+                    if (onNotify)
+                      onNotify("Failed to accept transfer", message, code);
                   } catch (e) {
-                    if (onNotify) onNotify("Failed to accept transfer", "An unknown error occurred");
+                    if (onNotify)
+                      onNotify(
+                        "Failed to accept transfer",
+                        "An unknown error occurred",
+                      );
                   }
                   onCancelTransfer();
                 }
               }}
               onDecline={async () => {
                 if (!activeTransfer) return;
-                const resp = await window.electronAPI?.transferRespond?.(activeTransfer.id, false);
+                const resp = await window.electronAPI?.transferRespond?.(
+                  activeTransfer.id,
+                  false,
+                );
                 if (resp && !resp.ok) {
                   try {
                     const body = resp?.body || "";
                     let parsed = null as any;
-                    try { parsed = JSON.parse(body); } catch {}
+                    try {
+                      parsed = JSON.parse(body);
+                    } catch {}
                     const code = parsed?.code ?? undefined;
-                    const message = parsed?.message ?? (body ? String(body) : "Failed to decline transfer");
-                    if (onNotify) onNotify("Failed to decline transfer", message, code);
+                    const message =
+                      parsed?.message ??
+                      (body ? String(body) : "Failed to decline transfer");
+                    if (onNotify)
+                      onNotify("Failed to decline transfer", message, code);
                   } catch (e) {
-                    if (onNotify) onNotify("Failed to decline transfer", "An unknown error occurred");
+                    if (onNotify)
+                      onNotify(
+                        "Failed to decline transfer",
+                        "An unknown error occurred",
+                      );
                   }
                 }
                 onCancelTransfer();
               }}
             />
           ) : (
-            <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />
+            <TransferProgress
+              transfer={activeTransfer}
+              onCancel={onCancelTransfer}
+            />
           )
         ) : hasRecipient ? (
           <DropZone
@@ -271,7 +354,9 @@ export const Home: React.FC<HomeProps> = ({
           />
         ) : (
           <div className={styles.guidanceState}>
-            <div className={styles.guidanceTitle}>Select a device to start sending</div>
+            <div className={styles.guidanceTitle}>
+              Select a device to start sending
+            </div>
             <div className={styles.guidanceText}>
               Files and folders can be added once you choose a recipient.
             </div>
@@ -299,4 +384,3 @@ export const Home: React.FC<HomeProps> = ({
     </div>
   );
 };
-

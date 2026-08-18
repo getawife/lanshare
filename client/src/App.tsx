@@ -153,13 +153,19 @@ export const App: React.FC = () => {
       const state = await window.electronAPI?.getBackendState?.();
       const peers = state?.peers ?? [];
 
-      // --- BULLETPROOF: Replace Map fully on each poll (ensures stale entries die) ---
-      const newMap = new Map<string, Device>();
-      for (const peer of peers) {
-        newMap.set(peer.name.toLowerCase().trim(), peer);
-      }
-      setDevicesMap(newMap);
-      // ------------------------------------------------------------------------------
+      // --- BULLETPROOF MERGE: Never wipe the map fully ---
+      setDevicesMap((prevMap) => {
+        const newMap = new Map(prevMap);
+        for (const peer of peers) {
+          const key = peer.name.toLowerCase().trim();
+          if (newMap.has(key)) {
+            newMap.set(key, { ...newMap.get(key), ...peer });
+          } else {
+            newMap.set(key, peer);
+          }
+        }
+        return newMap;
+      });
 
       setIsConnected(true);
       setDiscoveryStatus(peers.length > 0 ? "found" : "empty");
