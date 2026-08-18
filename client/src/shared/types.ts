@@ -94,6 +94,7 @@ declare global {
       restartBackend?: () => Promise<BackendStatus>;
       getBackendState?: () => Promise<any>;
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
+      transferRespond?: (transferId: string, accept: boolean) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
     };
   }

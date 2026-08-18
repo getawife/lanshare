@@ -47,6 +47,24 @@ type ServerState struct {
 	shares            map[string]shareRecord
 	warnings          []string
 	settings          BackendSettings
+	// AdminToken is an optional per-run secret used to authenticate privileged
+	// local requests from the Electron host (X-Lanshare-Token header).
+	AdminToken        string
+	// pendingTransfers holds channels that wait for local user acceptance for
+	// a transfer. Keyed by transferID.
+	pendingTransfers  map[string]chan transferDecision
+	// allowedTransferTokens maps transfer tokens to the transfer ID and expiry.
+	allowedTransferTokens map[string]allowedToken
+}
+
+type transferDecision struct {
+	Accepted bool
+	Token    string
+}
+
+type allowedToken struct {
+	TransferID string
+	ExpiresAt  time.Time
 }
 
 func NewServerState() (*ServerState, error) {
@@ -69,6 +87,8 @@ func NewServerState() (*ServerState, error) {
 			AutoAcceptTrusted:  false,
 			DownloadFolder:     "",
 		},
+		pendingTransfers:     map[string]chan transferDecision{},
+		allowedTransferTokens: map[string]allowedToken{},
 	}, nil
 }
 
@@ -175,7 +195,8 @@ func (s *ServerState) selfDevice() Device {
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
 		DeviceHash:   s.DeviceID,
-	}
+			Settings:     s.settings,
+		}
 }
 
 func (s *ServerState) PeersSnapshot() []Device {
@@ -228,23 +249,108 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 			"httpPort":     s.HTTPPort,
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
+			"settings":     s.settings,
 		})
+
+		// 1) Send using per-interface sockets to their calculated broadcast addresses.
+		for _, pair := range getInterfaceBroadcastPairs(discoveryPort) {
+			if pair.Local == nil || pair.Bcast == nil {
+				continue
+			}
+			// Try to bind a UDP socket to the interface local IP and write to its
+			// broadcast address. This ensures the packet is emitted on that
+			// interface rather than only the system default.
+			func() {
+				laddr := &net.UDPAddr{IP: pair.Local.IP, Port: 0}
+				raddr := &net.UDPAddr{IP: pair.Bcast.IP, Port: pair.Bcast.Port}
+				conn, err := net.DialUDP("udp4", laddr, raddr)
+				if err != nil {
+					// best-effort: record a warning and continue
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					}
+					return
+				}
+				defer conn.Close()
+				_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
+				if _, err := conn.Write(payload); err != nil {
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
+						s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+					}
+				}
+			}()
+		}
+
+		// 2) Fallback: send to global IPv4 broadcast using the provided conn.
 		for _, bcast := range getBroadcastAddresses(discoveryPort) {
-			if _, err := conn.WriteTo(payload, bcast); err != nil {
-				errStr := strings.ToLower(err.Error())
-				if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
-					s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
-				} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
-					s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+			if bcast.IP.Equal(net.IPv4bcast) {
+				if _, err := conn.WriteTo(payload, bcast); err != nil {
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
+						s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+					}
 				}
 			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 	}
+}
+
+// interfaceBroadcastPair ties a local interface unicast address to its
+// calculated broadcast address (for IPv4 only).
+type interfaceBroadcastPair struct {
+	Local *net.UDPAddr
+	Bcast *net.UDPAddr
+}
+
+// getInterfaceBroadcastPairs returns local IP / broadcast pairs for each
+// active non-loopback IPv4 interface.
+func getInterfaceBroadcastPairs(port int) []interfaceBroadcastPair {
+	out := []interfaceBroadcastPair{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return out
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			ip := ipNet.IP.To4()
+			mask := ipNet.Mask
+			if len(mask) != 4 {
+				continue
+			}
+			bcastIP := net.IP(make([]byte, 4))
+			for i := 0; i < 4; i++ {
+				bcastIP[i] = ip[i] | ^mask[i]
+			}
+			out = append(out, interfaceBroadcastPair{
+				Local: &net.UDPAddr{IP: ip, Port: 0},
+				Bcast: &net.UDPAddr{IP: bcastIP, Port: port},
+			})
+		}
+	}
+	return out
 }
 
 func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketConn) error {
@@ -277,25 +383,33 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		if id == "" || id == s.DeviceID || (port == 0 && httpPort == 0) {
 			continue
 		}
-		peer := Device{
-			ID:           id,
-			Name:         name,
-			OS:           formatOSName(stringFrom(packet["os"])),
-			Type:         deviceType(stringFrom(packet["os"])),
-			IP:           ip,
-			Port:         port,
-			HTTPPort:     httpPort,
-			Status:       "available",
-			Trusted:      false,
-			Protocol:     intFrom(packet["protocol"]),
-			Version:      stringFrom(packet["version"]),
-			Capabilities: stringSlice(packet["capabilities"]),
-			LastSeen:     time.Now(),
-		}
-		s.mu.Lock()
-		s.Peers[id] = peer
-		s.mu.Unlock()
-		s.publish(event{Type: "peer", Data: peer})
+			// Parse optional settings object if present in discovery packet.
+			var peerSettings BackendSettings
+			if rawSettings, ok := packet["settings"]; ok {
+				if b, err := json.Marshal(rawSettings); err == nil {
+					_ = json.Unmarshal(b, &peerSettings)
+				}
+			}
+			peer := Device{
+				ID:           id,
+				Name:         name,
+				OS:           formatOSName(stringFrom(packet["os"])),
+				Type:         deviceType(stringFrom(packet["os"])),
+				IP:           ip,
+				Port:         port,
+				HTTPPort:     httpPort,
+				Status:       "available",
+				Trusted:      false,
+				Protocol:     intFrom(packet["protocol"]),
+				Version:      stringFrom(packet["version"]),
+				Capabilities: stringSlice(packet["capabilities"]),
+				LastSeen:     time.Now(),
+				Settings:     peerSettings,
+			}
+			s.mu.Lock()
+			s.Peers[id] = peer
+			s.mu.Unlock()
+			s.publish(event{Type: "peer", Data: peer})
 	}
 }
 
@@ -387,6 +501,7 @@ func probeLoopbackPeer(port int, id string) (Device, bool) {
 		Version:      "local-test",
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
+		Settings:     BackendSettings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
 	}, true
 }
 

@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   fetchBackend: (path: string, init?: RequestInit) =>
     ipcRenderer.invoke("backend:fetch", path, init),
+  transferRespond: (transferId: string, accept: boolean) =>
+    ipcRenderer.invoke("transfer:respond", transferId, accept),
 
   openFolder: (path?: string) =>
     ipcRenderer.invoke("folder:open", path),
