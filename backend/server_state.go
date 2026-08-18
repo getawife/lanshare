@@ -47,6 +47,24 @@ type ServerState struct {
 	shares            map[string]shareRecord
 	warnings          []string
 	settings          BackendSettings
+	// AdminToken is an optional per-run secret used to authenticate privileged
+	// local requests from the Electron host (X-Lanshare-Token header).
+	AdminToken        string
+	// pendingTransfers holds channels that wait for local user acceptance for
+	// a transfer. Keyed by transferID.
+	pendingTransfers  map[string]chan transferDecision
+	// allowedTransferTokens maps transfer tokens to the transfer ID and expiry.
+	allowedTransferTokens map[string]allowedToken
+}
+
+type transferDecision struct {
+	Accepted bool
+	Token    string
+}
+
+type allowedToken struct {
+	TransferID string
+	ExpiresAt  time.Time
 }
 
 func NewServerState() (*ServerState, error) {
@@ -69,6 +87,8 @@ func NewServerState() (*ServerState, error) {
 			AutoAcceptTrusted:  false,
 			DownloadFolder:     "",
 		},
+		pendingTransfers:     map[string]chan transferDecision{},
+		allowedTransferTokens: map[string]allowedToken{},
 	}, nil
 }
 

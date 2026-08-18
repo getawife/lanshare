@@ -4,6 +4,7 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const settingsPath = path.join(
@@ -14,6 +15,8 @@ let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendUrl = "http://127.0.0.1:43821";
 let mainWindow: BrowserWindow | null = null;
 const backendPort = Number(process.env.LANSHARE_HTTP_PORT ?? "43821") || 43821;
+// Per-run admin token to authenticate privileged local UI calls to the backend.
+let adminToken: string | null = null;
 
 async function readSettings() {
   try {
@@ -140,6 +143,12 @@ async function startBackend(): Promise<BackendStatus> {
   }
 
   try {
+    // Ensure an admin token exists for this run and pass it to the backend
+    // as an environment variable. The backend will require this token for
+    // privileged endpoints like /api/settings and /api/respond-transfer.
+    if (!adminToken) {
+      adminToken = crypto.randomBytes(16).toString("hex");
+    }
     backendProcess = spawn(command, args, {
       cwd,
       windowsHide: true,
@@ -147,6 +156,7 @@ async function startBackend(): Promise<BackendStatus> {
       env: {
         ...process.env,
         GOTOOLCHAIN: "local",
+        LANSHARE_ADMIN_TOKEN: adminToken,
       },
     });
   } catch (err: any) {
@@ -245,7 +255,8 @@ async function waitForBackend(): Promise<BackendStatus> {
 
 async function pushSettingsToBackend() {
   // Read persisted Electron settings and POST them to the local backend
-  // so discovery advertisements include the user's current preferences.
+  // so the backend can enforce and advertise current preferences where
+  // appropriate. Use the per-run admin token for authentication.
   try {
     const s = (await readSettings()) ?? {};
     const cfg = {
@@ -253,9 +264,11 @@ async function pushSettingsToBackend() {
       autoAcceptTrusted: s.autoAcceptTrusted ?? false,
       downloadFolder: s.downloadFolder ?? "",
     };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (adminToken) headers["X-Lanshare-Token"] = adminToken;
     await fetch(`${backendUrl}/api/settings`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(cfg),
     });
   } catch (e) {

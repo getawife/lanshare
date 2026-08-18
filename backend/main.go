@@ -63,6 +63,8 @@ func NewBackend(state *ServerState) *Backend {
 	mux.HandleFunc("/api/devices", b.devices)
 	mux.HandleFunc("/api/events", b.events)
 	mux.HandleFunc("/api/transfer", b.transfer)
+	mux.HandleFunc("/api/prepare-transfer", b.prepareTransfer)
+	mux.HandleFunc("/api/respond-transfer", b.respondTransfer)
 	mux.HandleFunc("/api/receive", b.receive)
 	mux.HandleFunc("/api/share", b.share)
 	mux.HandleFunc("/api/settings", b.settingsHandler)
@@ -131,13 +133,33 @@ func (b *Backend) Start(ctx context.Context) error {
 }
 
 func withCORS(next http.Handler) http.Handler {
+	// Restrict CORS to known renderer origins. Do not use wildcard in production.
+	allowedOrigins := map[string]bool{
+		"http://127.0.0.1:5173": true,
+		"http://localhost:5173": true,
+		// Some Electron environments may send Origin: "null" (file://), allow if needed.
+		"null": true,
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Lanshare-Token")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			if !allowedOrigins[origin] {
+				// For preflight requests from disallowed origins, deny.
+				if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+				// For non-preflight, continue without CORS headers (browser will block).
+				next.ServeHTTP(w, r)
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Lanshare-Token")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -151,6 +173,132 @@ func (b *Backend) health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// prepareTransfer handles an initial sender request to initiate a transfer.
+// The request is held until the local user accepts or rejects (or a timeout
+// occurs). On acceptance the backend responds with a short-lived transfer
+// token that the sender must present when POSTing file content to /api/receive.
+func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
+		return
+	}
+	var req TransferRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "B-P001", "invalid prepare transfer payload")
+		return
+	}
+	if req.PeerID == "" || len(req.Files) == 0 {
+		writeErrorJSON(w, http.StatusBadRequest, "B-P002", "missing peer or files")
+		return
+	}
+	transferID := req.TransferID
+	if transferID == "" {
+		transferID = randomToken(8)
+	}
+
+	// Enforce local policy: if AskBeforeAccepting is false, accept automatically.
+	settings := b.state.GetSettings()
+	if !settings.AskBeforeAccepting {
+		// Auto-accept; generate a token and return immediately.
+		token := randomToken(16)
+		b.state.mu.Lock()
+		b.state.allowedTransferTokens[token] = allowedToken{TransferID: transferID, ExpiresAt: time.Now().Add(30 * time.Second)}
+		b.state.mu.Unlock()
+		writeJSON(w, map[string]any{"ok": true, "token": token})
+		return
+	}
+
+	// If peer is trusted and autoAcceptTrusted is set, accept automatically.
+	peer := b.state.findPeer(req.PeerID)
+	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted {
+		token := randomToken(16)
+		b.state.mu.Lock()
+		b.state.allowedTransferTokens[token] = allowedToken{TransferID: transferID, ExpiresAt: time.Now().Add(30 * time.Second)}
+		b.state.mu.Unlock()
+		writeJSON(w, map[string]any{"ok": true, "token": token})
+		return
+	}
+
+	// Otherwise, notify UI and wait for a user decision.
+	ch := make(chan transferDecision, 1)
+	b.state.mu.Lock()
+	b.state.pendingTransfers[transferID] = ch
+	b.state.mu.Unlock()
+	// publish an event so UI can show prompt
+	b.state.publish(event{Type: "incoming-transfer-request", Data: map[string]any{
+		"transferId": transferID,
+		"peerId":     req.PeerID,
+		"deviceName": req.PeerID, // receiver can correlate
+		"files":      req.Files,
+	}})
+
+	select {
+	case dec := <-ch:
+		if dec.Accepted {
+			// ensure token is valid briefly
+			b.state.mu.Lock()
+			b.state.allowedTransferTokens[dec.Token] = allowedToken{TransferID: transferID, ExpiresAt: time.Now().Add(30 * time.Second)}
+			b.state.mu.Unlock()
+			writeJSON(w, map[string]any{"ok": true, "token": dec.Token})
+			return
+		}
+		writeErrorJSON(w, http.StatusForbidden, "B-P003", "transfer rejected by user")
+		return
+	case <-time.After(30 * time.Second):
+		// timeout
+		b.state.mu.Lock()
+		delete(b.state.pendingTransfers, transferID)
+		b.state.mu.Unlock()
+		writeErrorJSON(w, http.StatusRequestTimeout, "B-P004", "user did not respond to transfer request in time")
+		return
+	}
+}
+
+// respondTransfer is a privileged endpoint called by the local UI (Electron)
+// to accept/reject a pending incoming transfer.
+func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-RP000", "method not allowed")
+		return
+	}
+	// Require admin token to ensure only the local UI can respond.
+	header := r.Header.Get("X-Lanshare-Token")
+	if b.state.AdminToken != "" && header != b.state.AdminToken {
+		writeErrorJSON(w, http.StatusUnauthorized, "B-RP001", "invalid admin token")
+		return
+	}
+	var req struct {
+		TransferID string `json:"transferId"`
+		Accept     bool   `json:"accept"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "B-RP002", "invalid payload")
+		return
+	}
+	b.state.mu.Lock()
+	ch, ok := b.state.pendingTransfers[req.TransferID]
+	if !ok {
+		b.state.mu.Unlock()
+		writeErrorJSON(w, http.StatusNotFound, "B-RP003", "no pending transfer")
+		return
+	}
+	if req.Accept {
+		token := randomToken(16)
+		// send acceptance
+		ch <- transferDecision{Accepted: true, Token: token}
+		// cleanup
+		delete(b.state.pendingTransfers, req.TransferID)
+		b.state.mu.Unlock()
+		writeJSON(w, map[string]any{"ok": true})
+		return
+	}
+	// reject
+	ch <- transferDecision{Accepted: false}
+	delete(b.state.pendingTransfers, req.TransferID)
+	b.state.mu.Unlock()
+	writeJSON(w, map[string]any{"ok": true})
+}
+
 func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, b.state.Snapshot())
 }
@@ -158,6 +306,14 @@ func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
 // settingsHandler accepts a POST from Electron to push user settings into the backend,
 // and responds to GET with the current settings.  This resolves Issue 2.2.
 func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
+	// Require the admin token for POST (privileged) operations when configured.
+	if r.Method == http.MethodPost {
+		header := r.Header.Get("X-Lanshare-Token")
+		if b.state.AdminToken != "" && header != b.state.AdminToken {
+			writeErrorJSON(w, http.StatusUnauthorized, "B-S002", "invalid admin token")
+			return
+		}
+	}
 	switch r.Method {
 	case http.MethodGet:
 		writeJSON(w, b.state.GetSettings())
@@ -260,6 +416,23 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-R000", "method not allowed")
 		return
 	}
+	// Require a valid transfer token to prevent unsolicited uploads.
+	token := r.Header.Get("X-Lanshare-Transfer-Token")
+	if token == "" {
+		writeErrorJSON(w, http.StatusUnauthorized, "B-R020", "missing transfer token")
+		return
+	}
+	b.state.mu.Lock()
+	at, ok := b.state.allowedTransferTokens[token]
+	if !ok || time.Now().After(at.ExpiresAt) {
+		b.state.mu.Unlock()
+		writeErrorJSON(w, http.StatusForbidden, "B-R021", "invalid or expired transfer token")
+		return
+	}
+	// token is valid for the expected transfer; consume it (single-use)
+	delete(b.state.allowedTransferTokens, token)
+	b.state.mu.Unlock()
+
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
 		writeErrorJSON(w, http.StatusBadRequest, "B-R001", "expected multipart upload")
