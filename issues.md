@@ -22,12 +22,14 @@ This document tracks identified architectural issues, bugs, logic mismatches, an
 
 ### Issue 1.3: Single-Interface Broadcast Limitation
 
-- **Status**: Open
+- **Status**: Resolved
 - **Severity**: Medium
 - **Files**: `backend/server_state.go`
-- **Description**:
-  - `conn.WriteTo(payload, &net.UDPAddr{IP: net.IPv4bcast, Port: discoveryPort})` only broadcasts on the default interface.
-  - **Planned Fix**: Enumerate active network interfaces and send broadcast/multicast packets on all non-loopback IPv4 interfaces.
+- **Resolution**:
+  - Implemented per-interface discovery broadcasting in `RunDiscovery`. The backend now computes local/broadcast address pairs for each active non-loopback IPv4 interface and binds a UDP socket to each interface's unicast IP to send discovery payloads to that interface's broadcast address. This ensures discovery packets are emitted on each NIC (including VPNs) rather than only the system default.
+  - Added helper `getInterfaceBroadcastPairs` and best-effort sending with diagnostics warnings when sends fail (firewall/permission/network errors).
+  - Retains a fallback to global IPv4 broadcast for environments where per-interface sends cannot be performed.
+  - Validation: existing backend tests run successfully; recommend manual integration testing across multiple NICs/VPNs to confirm discovery reachability.
 
 ---
 
@@ -42,11 +44,22 @@ This document tracks identified architectural issues, bugs, logic mismatches, an
 
 ### Issue 2.2: Backend Unaware of User Settings
 
-- **Status**: Open
+- **Status**: Resolved
 - **Severity**: High
-- **Files**: `backend/main.go`, `client/electron/main.ts`
-- **Description**:
-  - Electron manages settings such as `askBeforeAccepting` and `autoAcceptTrusted`.
+- **Files**: `backend/main.go`, `backend/server_state.go`, `backend/types.go`, `client/electron/main.ts`
+- **Resolution**:
+  - Added `BackendSettings` support throughout the backend and client.
+  - Backend changes:
+    - `Device` now contains a `Settings BackendSettings` field so peer records can include advertised preferences.
+    - `/api/settings` endpoint accepts POST from the Electron client and stores the server-side settings via `UpdateSettings`.
+    - Discovery payloads include the backend's current `s.settings` so other peers can see advertised preferences.
+    - `RunDiscoveryListener` parses an optional `settings` object from incoming discovery packets and populates `peer.Settings` when present.
+  - Electron client changes:
+    - Added `pushSettingsToBackend()` and now POSTs the persisted Electron settings to `/api/settings` on startup and whenever settings are saved. This causes the backend to advertise the current settings in its discovery packets.
+  - Security/behavior notes:
+    - Settings advertised by peers are treated as advisory; the local node's effective policy (local settings) must still be enforced and should not be overridden by remote advertising.
+    - Backward compatibility: discovery packets without a `settings` object are handled gracefully and default values are used.
+  - Validation: backend unit tests ran successfully; manual cross-instance testing is recommended to verify discovery and transfer behaviors honor settings as intended.
 
 ### Issue 2.3: Unused Frontend `IncomingTransfer` Component
 
