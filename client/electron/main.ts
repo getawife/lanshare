@@ -243,6 +243,26 @@ async function waitForBackend(): Promise<BackendStatus> {
   return backendStatus;
 }
 
+async function pushSettingsToBackend() {
+  // Read persisted Electron settings and POST them to the local backend
+  // so discovery advertisements include the user's current preferences.
+  try {
+    const s = (await readSettings()) ?? {};
+    const cfg = {
+      askBeforeAccepting: s.askBeforeAccepting ?? true,
+      autoAcceptTrusted: s.autoAcceptTrusted ?? false,
+      downloadFolder: s.downloadFolder ?? "",
+    };
+    await fetch(`${backendUrl}/api/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cfg),
+    });
+  } catch (e) {
+    console.warn("pushSettingsToBackend failed:", e);
+  }
+}
+
 async function stopBackend() {
   if (!backendProcess) return;
   const proc = backendProcess;
@@ -382,6 +402,13 @@ ipcMain.handle("settings:get", async () => {
 ipcMain.handle("settings:save", async (_event, settings) => {
   await writeSettings(settings);
   nativeTheme.themeSource = settings.theme ?? "system";
+  // Push updated settings to the backend so discovery broadcasts include the
+  // current effective preferences (askBeforeAccepting, autoAcceptTrusted).
+  try {
+    await pushSettingsToBackend();
+  } catch (e) {
+    console.warn("Failed to push settings to backend:", e);
+  }
   return true;
 });
 
@@ -416,6 +443,13 @@ ipcMain.handle("folder:open", async (_event, folderPath?: string) => {
 
 app.whenReady().then(async () => {
   await startBackend();
+  // After backend is running, push the current Electron settings so the backend
+  // will advertise them in its discovery packets.
+  try {
+    await pushSettingsToBackend();
+  } catch (e) {
+    console.warn("Failed to push settings to backend:", e);
+  }
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

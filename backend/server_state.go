@@ -175,7 +175,8 @@ func (s *ServerState) selfDevice() Device {
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
 		DeviceHash:   s.DeviceID,
-	}
+			Settings:     s.settings,
+		}
 }
 
 func (s *ServerState) PeersSnapshot() []Device {
@@ -228,6 +229,7 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 			"httpPort":     s.HTTPPort,
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
+			"settings":     s.settings,
 		})
 		for _, bcast := range getBroadcastAddresses(discoveryPort) {
 			if _, err := conn.WriteTo(payload, bcast); err != nil {
@@ -277,25 +279,33 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		if id == "" || id == s.DeviceID || (port == 0 && httpPort == 0) {
 			continue
 		}
-		peer := Device{
-			ID:           id,
-			Name:         name,
-			OS:           formatOSName(stringFrom(packet["os"])),
-			Type:         deviceType(stringFrom(packet["os"])),
-			IP:           ip,
-			Port:         port,
-			HTTPPort:     httpPort,
-			Status:       "available",
-			Trusted:      false,
-			Protocol:     intFrom(packet["protocol"]),
-			Version:      stringFrom(packet["version"]),
-			Capabilities: stringSlice(packet["capabilities"]),
-			LastSeen:     time.Now(),
-		}
-		s.mu.Lock()
-		s.Peers[id] = peer
-		s.mu.Unlock()
-		s.publish(event{Type: "peer", Data: peer})
+			// Parse optional settings object if present in discovery packet.
+			var peerSettings BackendSettings
+			if rawSettings, ok := packet["settings"]; ok {
+				if b, err := json.Marshal(rawSettings); err == nil {
+					_ = json.Unmarshal(b, &peerSettings)
+				}
+			}
+			peer := Device{
+				ID:           id,
+				Name:         name,
+				OS:           formatOSName(stringFrom(packet["os"])),
+				Type:         deviceType(stringFrom(packet["os"])),
+				IP:           ip,
+				Port:         port,
+				HTTPPort:     httpPort,
+				Status:       "available",
+				Trusted:      false,
+				Protocol:     intFrom(packet["protocol"]),
+				Version:      stringFrom(packet["version"]),
+				Capabilities: stringSlice(packet["capabilities"]),
+				LastSeen:     time.Now(),
+				Settings:     peerSettings,
+			}
+			s.mu.Lock()
+			s.Peers[id] = peer
+			s.mu.Unlock()
+			s.publish(event{Type: "peer", Data: peer})
 	}
 }
 
@@ -387,6 +397,7 @@ func probeLoopbackPeer(port int, id string) (Device, bool) {
 		Version:      "local-test",
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
+		Settings:     BackendSettings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
 	}, true
 }
 
