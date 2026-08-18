@@ -1,4 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+  shell,
+} from "electron";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
@@ -92,7 +99,8 @@ function analyzeBackendError(): { code: BackendErrorCode; error: string } {
   ) {
     return {
       code: "BLOCKED_BY_FIREWALL",
-      error: "LANShare backend access was blocked by system permissions or security/firewall software.",
+      error:
+        "LANShare backend access was blocked by system permissions or security/firewall software.",
     };
   }
   if (
@@ -171,7 +179,8 @@ async function startBackend(): Promise<BackendStatus> {
 
   backendProcess.on("error", (err: any) => {
     console.error("[Backend Process Error]", err);
-    const code: BackendErrorCode = err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL";
+    const code: BackendErrorCode =
+      err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL";
     backendStatus = {
       state: "error",
       url: `http://127.0.0.1:${backendPort}`,
@@ -184,14 +193,19 @@ async function startBackend(): Promise<BackendStatus> {
   backendProcess.on("exit", (code, signal) => {
     console.log(`[Backend Exit] code=${code} signal=${signal}`);
     backendProcess = null;
-    if (backendStatus.state === "starting" || backendStatus.state === "running") {
+    if (
+      backendStatus.state === "starting" ||
+      backendStatus.state === "running"
+    ) {
       const analyzed = analyzeBackendError();
       backendStatus = {
         state: "error",
         url: `http://127.0.0.1:${backendPort}`,
         code: analyzed.code,
         error: analyzed.error,
-        errorDetails: backendLogs.join("\n") || `Process exited with code ${code}, signal ${signal}`,
+        errorDetails:
+          backendLogs.join("\n") ||
+          `Process exited with code ${code}, signal ${signal}`,
       };
     }
   });
@@ -236,8 +250,11 @@ async function waitForBackend(): Promise<BackendStatus> {
       state: "error",
       url,
       code: "HEALTHCHECK_TIMEOUT",
-      error: "Backend service did not respond to local health checks. It may be blocked by firewall or antivirus software.",
-      errorDetails: backendLogs.join("\n") || "No response received on 127.0.0.1 within timeout.",
+      error:
+        "Backend service did not respond to local health checks. It may be blocked by firewall or antivirus software.",
+      errorDetails:
+        backendLogs.join("\n") ||
+        "No response received on 127.0.0.1 within timeout.",
     };
   }
   return backendStatus;
@@ -305,7 +322,8 @@ ipcMain.handle("backend:status", async () => {
         backendStatus.networkWarnings = data.diagnostics?.warnings ?? [];
       } else {
         backendStatus.state = "error";
-        backendStatus.error = "Backend health check returned an unhealthy response.";
+        backendStatus.error =
+          "Backend health check returned an unhealthy response.";
       }
     } catch {
       backendStatus.state = "error";
@@ -342,13 +360,18 @@ ipcMain.handle("files:select", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openFile", "multiSelections"],
   });
+
   if (result.canceled) return null;
-  return result.filePaths.map((filePath) => ({
-    name: path.basename(filePath),
-    path: filePath,
-    sizeBytes: 0,
-    isDirectory: false,
-  }));
+
+  return result.filePaths.map((filePath) => {
+    const stats = fsSync.statSync(filePath);
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+      sizeBytes: stats.size,
+      isDirectory: stats.isDirectory(),
+    };
+  });
 });
 
 ipcMain.handle("folder:select", async () => {
@@ -400,7 +423,10 @@ ipcMain.handle("backend:state", async () => {
 });
 
 ipcMain.handle("folder:open", async (_event, folderPath?: string) => {
-  let target = folderPath && folderPath.trim() !== "" ? folderPath : app.getPath("downloads");
+  let target =
+    folderPath && folderPath.trim() !== ""
+      ? folderPath
+      : app.getPath("downloads");
   try {
     const stats = await fs.stat(target);
     if (!stats.isDirectory()) {

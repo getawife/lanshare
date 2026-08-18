@@ -17,10 +17,19 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
   onSend,
 }) => {
   const [isSending, setIsSending] = useState(false);
-  const totalSizeBytes = files.reduce((acc, f) => acc + f.sizeBytes, 0);
+
+  const totalSizeBytes = files.reduce(
+    (acc, f) => acc + (Number(f.sizeBytes) || 0),
+    0,
+  );
+
   const formatSize = (bytes: number) => {
+    if (bytes <= 0 || isNaN(bytes)) return "0 B";
+    if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
   const handleSend = async () => {
@@ -37,7 +46,11 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
       <div className={styles.modal}>
         <div className={styles.header}>
           <span className={styles.title}>Send Confirmation</span>
-          <button className={styles.closeBtn} onClick={onCancel} disabled={isSending}>
+          <button
+            className={styles.closeBtn}
+            onClick={onCancel}
+            disabled={isSending}
+          >
             <X size={14} />
           </button>
         </div>
@@ -64,10 +77,18 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onCancel} disabled={isSending}>
+          <button
+            className={styles.cancelBtn}
+            onClick={onCancel}
+            disabled={isSending}
+          >
             Cancel
           </button>
-          <button className={styles.sendBtn} onClick={handleSend} disabled={isSending}>
+          <button
+            className={styles.sendBtn}
+            onClick={handleSend}
+            disabled={isSending}
+          >
             {isSending ? (
               <>
                 <CircleDashed size={14} className={styles.spinning} />

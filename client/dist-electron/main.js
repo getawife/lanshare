@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, } from "electron";
 import { spawn } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
@@ -139,14 +139,16 @@ async function startBackend() {
     backendProcess.on("exit", (code, signal) => {
         console.log(`[Backend Exit] code=${code} signal=${signal}`);
         backendProcess = null;
-        if (backendStatus.state === "starting" || backendStatus.state === "running") {
+        if (backendStatus.state === "starting" ||
+            backendStatus.state === "running") {
             const analyzed = analyzeBackendError();
             backendStatus = {
                 state: "error",
                 url: `http://127.0.0.1:${backendPort}`,
                 code: analyzed.code,
                 error: analyzed.error,
-                errorDetails: backendLogs.join("\n") || `Process exited with code ${code}, signal ${signal}`,
+                errorDetails: backendLogs.join("\n") ||
+                    `Process exited with code ${code}, signal ${signal}`,
             };
         }
     });
@@ -189,7 +191,8 @@ async function waitForBackend() {
             url,
             code: "HEALTHCHECK_TIMEOUT",
             error: "Backend service did not respond to local health checks. It may be blocked by firewall or antivirus software.",
-            errorDetails: backendLogs.join("\n") || "No response received on 127.0.0.1 within timeout.",
+            errorDetails: backendLogs.join("\n") ||
+                "No response received on 127.0.0.1 within timeout.",
         };
     }
     return backendStatus;
@@ -252,7 +255,8 @@ ipcMain.handle("backend:status", async () => {
             }
             else {
                 backendStatus.state = "error";
-                backendStatus.error = "Backend health check returned an unhealthy response.";
+                backendStatus.error =
+                    "Backend health check returned an unhealthy response.";
             }
         }
         catch {
@@ -291,12 +295,15 @@ ipcMain.handle("files:select", async () => {
     });
     if (result.canceled)
         return null;
-    return result.filePaths.map((filePath) => ({
-        name: path.basename(filePath),
-        path: filePath,
-        sizeBytes: 0,
-        isDirectory: false,
-    }));
+    return result.filePaths.map((filePath) => {
+        const stats = fsSync.statSync(filePath);
+        return {
+            name: path.basename(filePath),
+            path: filePath,
+            sizeBytes: stats.size,
+            isDirectory: stats.isDirectory(),
+        };
+    });
 });
 ipcMain.handle("folder:select", async () => {
     const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
@@ -338,7 +345,9 @@ ipcMain.handle("backend:state", async () => {
     return response.json();
 });
 ipcMain.handle("folder:open", async (_event, folderPath) => {
-    let target = folderPath && folderPath.trim() !== "" ? folderPath : app.getPath("downloads");
+    let target = folderPath && folderPath.trim() !== ""
+        ? folderPath
+        : app.getPath("downloads");
     try {
         const stats = await fs.stat(target);
         if (!stats.isDirectory()) {

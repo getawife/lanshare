@@ -5,7 +5,13 @@ import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendSta
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
-import { AppSettings, BackendStatus, Device, FileItem, TransferRecord } from "./shared/types.js";
+import {
+  AppSettings,
+  BackendStatus,
+  Device,
+  FileItem,
+  TransferRecord,
+} from "./shared/types.js";
 
 type AppNotice = {
   id: string;
@@ -19,9 +25,13 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
   const [devices, setDevices] = useState<Device[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(
+    null,
+  );
   const [isRestartingBackend, setIsRestartingBackend] = useState(false);
-  const [discoveryStatus, setDiscoveryStatus] = useState<"discovering" | "found" | "empty">("discovering");
+  const [discoveryStatus, setDiscoveryStatus] = useState<
+    "discovering" | "found" | "empty"
+  >("discovering");
   const [activeTransfer, setActiveTransfer] = useState<TransferRecord>();
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
   const [notices, setNotices] = useState<AppNotice[]>([]);
@@ -54,33 +64,48 @@ export const App: React.FC = () => {
 
   const pushNotice = (notice: Omit<AppNotice, "id" | "createdAt">) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    setNotices((prev) => [{ id, createdAt: Date.now(), ...notice }, ...prev].slice(0, 3));
+    setNotices((prev) =>
+      [{ id, createdAt: Date.now(), ...notice }, ...prev].slice(0, 3),
+    );
     window.setTimeout(() => {
       setNotices((prev) => prev.filter((item) => item.id !== id));
     }, 10000);
   };
 
   const parseErrorBody = async (response?: { body?: string }) => {
-    if (!response?.body) return { code: undefined as string | undefined, message: "Something went wrong" };
+    if (!response?.body)
+      return {
+        code: undefined as string | undefined,
+        message: "Something went wrong",
+      };
     try {
-      const parsed = JSON.parse(response.body) as { code?: string; message?: string };
+      const parsed = JSON.parse(response.body) as {
+        code?: string;
+        message?: string;
+      };
       return {
         code: typeof parsed.code === "string" ? parsed.code : undefined,
-        message: typeof parsed.message === "string" ? parsed.message : "Something went wrong",
+        message:
+          typeof parsed.message === "string"
+            ? parsed.message
+            : "Something went wrong",
       };
     } catch {
-      return { code: undefined, message: safeText(response.body || "Something went wrong") };
+      return {
+        code: undefined,
+        message: safeText(response.body || "Something went wrong"),
+      };
     }
   };
 
   const recordFromTransferEvent = (payload: any): TransferRecord | null => {
     if (!payload?.id) return null;
     const files = Array.isArray(payload.files)
-        ? payload.files.map((file: any) => ({
+      ? payload.files.map((file: any) => ({
           name:
             file.name ??
             (typeof file.relativePath === "string"
-              ? file.relativePath.split(/[\\/]/).pop() ?? "File"
+              ? (file.relativePath.split(/[\\/]/).pop() ?? "File")
               : "File"),
           path: file.path ?? "",
           sizeBytes: Number(file.size ?? file.sizeBytes ?? 0),
@@ -90,7 +115,8 @@ export const App: React.FC = () => {
     const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
     const totalSizeBytes = Number(payload.totalSizeBytes ?? totalSize);
     const bytesTransferred = Number(
-      payload.bytesTransferred ?? (payload.state === "completed" ? totalSizeBytes : 0),
+      payload.bytesTransferred ??
+        (payload.state === "completed" ? totalSizeBytes : 0),
     );
     return {
       id: String(payload.id),
@@ -166,6 +192,7 @@ export const App: React.FC = () => {
     });
   }, []);
 
+  // --- FIXED EVENT LISTENER ---
   useEffect(() => {
     let source: EventSource | undefined;
     let cancelled = false;
@@ -174,18 +201,39 @@ export const App: React.FC = () => {
       const backendUrl = await window.electronAPI?.getBackendUrl?.();
       if (cancelled || !backendUrl) return;
       source = new EventSource(`${backendUrl}/api/events`);
+
       source.addEventListener("peer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);
+          const newDevice = payload?.data;
+          if (!newDevice) return;
+
+          // Use case‑insensitive name comparison (matches backend dedup)
+          const lowerName = newDevice.name.toLowerCase();
+
           setDevices((prev) => {
-            const next = prev.filter((device) => device.id !== payload?.data?.id);
-            return payload?.data ? [payload.data, ...next] : next;
+            // Find existing device by lowercased name
+            const existingIndex = prev.findIndex(
+              (d) => d.name.toLowerCase() === lowerName,
+            );
+
+            if (existingIndex >= 0) {
+              // Update in place – preserves order and avoids flicker
+              const updated = [...prev];
+              updated[existingIndex] = newDevice;
+              return updated;
+            } else {
+              // New device – add to the beginning
+              return [newDevice, ...prev];
+            }
           });
+
           setDiscoveryStatus("found");
         } catch {
-          void 0;
+          // ignore parse errors
         }
       });
+
       source.addEventListener("transfer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);
@@ -194,8 +242,14 @@ export const App: React.FC = () => {
           upsertTransferRecord(record);
           if (record.state === "transferring") {
             setActiveTransfer(record);
-          } else if (record.state === "completed" || record.state === "failed" || record.state === "cancelled") {
-            setActiveTransfer((current) => (current?.id === record.id ? undefined : current));
+          } else if (
+            record.state === "completed" ||
+            record.state === "failed" ||
+            record.state === "cancelled"
+          ) {
+            setActiveTransfer((current) =>
+              current?.id === record.id ? undefined : current,
+            );
           }
         } catch {
           void 0;
@@ -209,6 +263,7 @@ export const App: React.FC = () => {
       source?.close();
     };
   }, []);
+  // --- END OF FIX ---
 
   useEffect(() => {
     void window.electronAPI?.saveSettings(settings);
@@ -231,28 +286,37 @@ export const App: React.FC = () => {
     };
     setActiveTransfer(record);
     try {
-      const response = await window.electronAPI?.fetchBackend?.("/api/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transferId,
-          peerId: device.id,
-          files: files.map((file) => ({
-            path: file.path,
-            name: file.name,
-            size: file.sizeBytes,
-            isDir: file.isDirectory,
-          })),
-        }),
-      });
+      const response = await window.electronAPI?.fetchBackend?.(
+        "/api/transfer",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transferId,
+            peerId: device.id,
+            files: files.map((file) => ({
+              path: file.path,
+              name: file.name,
+              size: file.sizeBytes,
+              isDir: file.isDirectory,
+            })),
+          }),
+        },
+      );
       if (!response?.ok) {
         const parsed = await parseErrorBody(response);
         pushNotice({
-          title: parsed.code ? `Something went wrong (${parsed.code})` : "Something went wrong",
+          title: parsed.code
+            ? `Something went wrong (${parsed.code})`
+            : "Something went wrong",
           code: parsed.code,
           details: parsed.message,
         });
-        const failed = { ...record, state: "failed" as const, errorMessage: parsed.message };
+        const failed = {
+          ...record,
+          state: "failed" as const,
+          errorMessage: parsed.message,
+        };
         setActiveTransfer(undefined);
         upsertTransferRecord(failed);
         return;
@@ -261,7 +325,8 @@ export const App: React.FC = () => {
       const failed = { ...record, state: "failed" as const };
       setActiveTransfer(undefined);
       upsertTransferRecord(failed);
-      const details = error instanceof Error ? safeText(error.message) : "Unknown error";
+      const details =
+        error instanceof Error ? safeText(error.message) : "Unknown error";
       pushNotice({
         title: "Something went wrong",
         details,
@@ -292,24 +357,35 @@ export const App: React.FC = () => {
             />
           )}
           {activeTab === "transfers" && (
-            <Transfers records={transferHistory} onClearHistory={() => setTransferHistory([])} />
+            <Transfers
+              records={transferHistory}
+              onClearHistory={() => setTransferHistory([])}
+            />
           )}
           {activeTab === "settings" && (
             <SettingsPage
               settings={settings}
-              onUpdateSettings={(updates) => setSettings((prev) => ({ ...prev, ...updates }))}
+              onUpdateSettings={(updates) =>
+                setSettings((prev) => ({ ...prev, ...updates }))
+              }
             />
           )}
         </main>
       </div>
-      <div className="notice-stack" aria-live="polite" aria-relevant="additions">
+      <div
+        className="notice-stack"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {notices.map((notice) => (
           <button
             key={notice.id}
             type="button"
             className="notice-card"
             onClick={() => {
-              setExpandedNoticeId((current) => (current === notice.id ? null : notice.id));
+              setExpandedNoticeId((current) =>
+                current === notice.id ? null : notice.id,
+              );
             }}
             title="Click to expand or collapse"
           >

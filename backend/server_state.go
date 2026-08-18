@@ -8,15 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
-	"mime/multipart"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
-	"strconv"
 	"time"
 )
 
@@ -41,7 +40,7 @@ type ServerState struct {
 	HTTPPort          int
 	LANPort           int
 	UDPDiscoveryBound bool
-	Peers             map[string]Device
+	Peers             map[string]Device // Keyed by Name (lowercased) to guarantee zero duplicate cards
 	events            map[chan event]struct{}
 	mu                sync.Mutex
 	shares            map[string]shareRecord
@@ -55,7 +54,7 @@ func NewServerState() (*ServerState, error) {
 		name = h
 	}
 	return &ServerState{
-		DeviceID:          randomToken(8),
+		DeviceID:          randomToken(8), // Unique ID per running process instance
 		DeviceName:        name,
 		Version:           "1.0.0",
 		UDPDiscoveryBound: false,
@@ -63,7 +62,6 @@ func NewServerState() (*ServerState, error) {
 		events:            map[chan event]struct{}{},
 		shares:            map[string]shareRecord{},
 		warnings:          nil,
-		// Safe defaults: always ask before accepting, use system downloads.
 		settings: BackendSettings{
 			AskBeforeAccepting: true,
 			AutoAcceptTrusted:  false,
@@ -72,14 +70,12 @@ func NewServerState() (*ServerState, error) {
 	}, nil
 }
 
-// UpdateSettings atomically replaces the active backend settings.
 func (s *ServerState) UpdateSettings(cfg BackendSettings) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.settings = cfg
 }
 
-// GetSettings returns a snapshot of the current backend settings.
 func (s *ServerState) GetSettings() BackendSettings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -157,7 +153,6 @@ func (s *ServerState) Snapshot() AppState {
 		Diagnostics: s.GetDiagnostics(),
 	}
 }
-
 
 func (s *ServerState) selfDevice() Device {
 	return Device{
@@ -274,9 +269,12 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		if httpPort == 0 {
 			httpPort = port
 		}
-		if id == "" || id == s.DeviceID || (port == 0 && httpPort == 0) {
+
+		// Filter out invalid, empty, or self packets
+		if name == "" || strings.EqualFold(name, s.DeviceName) || id == s.DeviceID {
 			continue
 		}
+
 		peer := Device{
 			ID:           id,
 			Name:         name,
@@ -292,8 +290,12 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 			Capabilities: stringSlice(packet["capabilities"]),
 			LastSeen:     time.Now(),
 		}
+
+		// Use lowercased name as map key to force exact 1 entry per physical device name
+		key := strings.ToLower(name)
+
 		s.mu.Lock()
-		s.Peers[id] = peer
+		s.Peers[key] = peer
 		s.mu.Unlock()
 		s.publish(event{Type: "peer", Data: peer})
 	}
@@ -309,10 +311,10 @@ func (s *ServerState) RunExpiredPeerSweep(ctx context.Context) {
 		case <-ticker.C:
 			s.mu.Lock()
 			var expired []Device
-			for id, peer := range s.Peers {
+			for key, peer := range s.Peers {
 				if peer.Status != "offline" && time.Since(peer.LastSeen) > 12*time.Second {
 					peer.Status = "offline"
-					s.Peers[id] = peer
+					s.Peers[key] = peer
 					expired = append(expired, peer)
 				}
 			}
@@ -325,69 +327,7 @@ func (s *ServerState) RunExpiredPeerSweep(ctx context.Context) {
 }
 
 func (s *ServerState) RunLoopbackPeerProbe(ctx context.Context) {
-	peerPort := defaultLoopbackPeerPort
-	if v := os.Getenv("LANSHARE_LOOPBACK_PEER_HTTP_PORT"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			peerPort = parsed
-		}
-	}
-	if peerPort <= 0 {
-		return
-	}
-	targetID := fmt.Sprintf("loopback-%d", peerPort)
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		peer, ok := probeLoopbackPeer(peerPort, targetID)
-		s.mu.Lock()
-		if ok {
-			s.Peers[targetID] = peer
-		} else {
-			delete(s.Peers, targetID)
-		}
-		s.mu.Unlock()
-		if ok {
-			s.publish(event{Type: "peer", Data: peer})
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-func probeLoopbackPeer(port int, id string) (Device, bool) {
-	url := fmt.Sprintf("http://127.0.0.1:%d/api/health", port)
-	client := &http.Client{Timeout: 750 * time.Millisecond}
-	resp, err := client.Get(url)
-	if err != nil {
-		return Device{}, false
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return Device{}, false
-	}
-	return Device{
-		ID:           id,
-		Name:         fmt.Sprintf("Local Test Peer %d", port),
-		OS:           formatOSName(runtime.GOOS),
-		Type:         deviceType(runtime.GOOS),
-		IP:           "127.0.0.1",
-		Port:         port,
-		HTTPPort:     port,
-		Status:       "available",
-		Trusted:      true,
-		Protocol:     1,
-		Version:      "local-test",
-		Capabilities: []string{"files", "clipboard", "web"},
-		LastSeen:     time.Now(),
-	}, true
+	// Disabled loopback mock peer probing to prevent test peer cards from generating
 }
 
 func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error {
@@ -402,13 +342,13 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	if len(manifest) == 0 {
 		return fmt.Errorf("no transferable files found")
 	}
-		pr, pw := io.Pipe()
-		mw := multipart.NewWriter(pw)
-		targetPort := peer.HTTPPort
-		if targetPort == 0 {
-			targetPort = peer.Port
-		}
-		url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	targetPort := peer.HTTPPort
+	if targetPort == 0 {
+		targetPort = peer.Port
+	}
+	url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
 	if err != nil {
 		return err
@@ -416,14 +356,14 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
 	progressPath := func(done int64, total int64) {
 		s.publish(event{Type: "transfer", Data: map[string]any{
-			"id":             req.TransferID,
-			"peerId":         req.PeerID,
-			"deviceName":     peer.Name,
-			"state":          "transferring",
-			"direction":      "outgoing",
-			"files":          req.Files,
+			"id":               req.TransferID,
+			"peerId":           req.PeerID,
+			"deviceName":       peer.Name,
+			"state":            "transferring",
+			"direction":        "outgoing",
+			"files":            req.Files,
 			"bytesTransferred": done,
-			"totalSizeBytes": total,
+			"totalSizeBytes":   total,
 		}})
 	}
 	go func() {
@@ -604,7 +544,12 @@ func copyFileWithProgress(dst io.Writer, sourcePath string, onChunk func(int64))
 func (s *ServerState) findPeer(id string) Device {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.Peers[id]
+	for _, p := range s.Peers {
+		if p.ID == id {
+			return p
+		}
+	}
+	return Device{}
 }
 
 func (s *ServerState) CreateShare(req ShareRequest) (map[string]any, error) {
