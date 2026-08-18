@@ -17,8 +17,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -117,9 +117,16 @@ func (b *Backend) Start(ctx context.Context) error {
 
 	go b.state.RunDiscovery(ctx, lanLn)
 	go b.state.RunExpiredPeerSweep(ctx)
-	// go b.state.RunLoopbackPeerProbe(ctx)
+	// Removed RunLoopbackPeerProbe for production
 
 	log.Printf("LANShare backend ready: http=127.0.0.1:%d lan=%d", b.state.HTTPPort, b.state.LANPort)
+
+	// Force close if context is cancelled
+	go func() {
+		<-ctx.Done()
+		_ = httpLn.Close()
+		_ = lanLn.Close()
+	}()
 
 	errCh := make(chan error, 2)
 	go func() { errCh <- b.httpServer.Serve(httpLn) }()
@@ -268,6 +275,7 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-RP000", "method not allowed")
 		return
 	}
+	
 	// Require admin token to ensure only the local UI can respond.
 	header := r.Header.Get("X-Lanshare-Token")
 	if b.state.AdminToken == "" {
@@ -278,6 +286,7 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusUnauthorized, "B-RP001", "invalid admin token")
 		return
 	}
+		
 	var req struct {
 		TransferID string `json:"transferId"`
 		Accept     bool   `json:"accept"`
@@ -286,6 +295,7 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusBadRequest, "B-RP002", "invalid payload")
 		return
 	}
+		
 	b.state.mu.Lock()
 	ch, ok := b.state.pendingTransfers[req.TransferID]
 	if !ok {

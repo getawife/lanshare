@@ -18,7 +18,7 @@ This document tracks identified architectural issues, bugs, logic mismatches, an
 - **Status**: Resolved
 - **Severity**: Critical
 - **Files**: `backend/main.go`, `backend/server_state.go`
-- **Resolution**: Updated `main.go` to bind `lanLn` to fixed UDP port `43821` (with fallback to dynamic port `:0` if port 43821 is already occupied by a local secondary test instance).
+- **Resolution**: Updated `main.go` to bind `lanLn` to fixed UDP port `43821` (with fallback to dynamic port `:0` if port 43821 is already occupied). Additionally, the `RunLoopbackPeerProbe` goroutine is permanently removed in production builds to prevent "Local Test Peer" clutter on the device list.
 
 ### Issue 1.3: Single-Interface Broadcast Limitation
 
@@ -67,6 +67,18 @@ This document tracks identified architectural issues, bugs, logic mismatches, an
 - **Severity**: Medium
 - **Files**: `client/src/components/IncomingTransfer/IncomingTransfer.tsx`, `client/src/pages/Home.tsx`
 - **Resolution**: Imported and wired `IncomingTransfer` into `Home.tsx` to present incoming file prompts.
+
+### Issue 2.4: Local API Lacks Admin Token Authentication
+
+- **Status**: Resolved
+- **Severity**: Critical / Security
+- **Files**: `backend/main.go`, `client/electron/main.ts`, `client/electron/preload.cts`
+- **Resolution**:
+  - Electron Main (`main.ts`) generates a cryptographically secure `adminToken` using `crypto.randomBytes(16).toString("hex")` on every app launch.
+  - Electron Main injects `LANSHARE_ADMIN_TOKEN` into the Go backend environment variables when spawning the subprocess.
+  - Go Backend (`main.go`) reads `LANSHARE_ADMIN_TOKEN` into `b.state.AdminToken` and strictly verifies the `X-Lanshare-Token` header against it on all privileged endpoints (`/api/respond-transfer`, `/api/settings` POST).
+  - Electron Preload (`preload.cts`) and IPC handlers (`backend:fetch`, `transfer:respond`) automatically inject the `X-Lanshare-Token` header into all local API requests, keeping the React renderer completely unaware of the secret.
+  - This prevents arbitrary local processes or malicious websites from triggering file transfers or changing app settings without authorization.
 
 ---
 

@@ -328,9 +328,11 @@ export const App: React.FC = () => {
       timestamp: new Date(),
     };
     setActiveTransfer(record);
+
     try {
-      const response = await window.electronAPI?.fetchBackend?.(
-        "/api/transfer",
+      // --- STEP 1: Prepare the transfer to get a token ---
+      const prepResponse = await window.electronAPI?.fetchBackend?.(
+        "/api/prepare-transfer",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -346,6 +348,62 @@ export const App: React.FC = () => {
           }),
         },
       );
+
+      if (!prepResponse?.ok) {
+        const parsed = await parseErrorBody(prepResponse);
+        pushNotice({
+          title: parsed.code
+            ? `Something went wrong (${parsed.code})`
+            : "Something went wrong",
+          code: parsed.code,
+          details: parsed.message,
+        });
+        const failed = {
+          ...record,
+          state: "failed" as const,
+          errorMessage: parsed.message,
+        };
+        setActiveTransfer(undefined);
+        upsertTransferRecord(failed);
+        return;
+      }
+
+      // --- FIX: Parse the string body directly ---
+      let token = "";
+      try {
+        const parsedBody = JSON.parse(prepResponse.body || "{}");
+        token = parsedBody?.token;
+      } catch {
+        // If parsing fails, token remains ""
+      }
+
+      if (!token) {
+        throw new Error("Failed to obtain transfer token");
+      }
+
+      // --- STEP 2: Execute the actual file transfer with the token ---
+      // IMPORTANT: The body is EXACTLY the same as Step 1!
+      const response = await window.electronAPI?.fetchBackend?.(
+        "/api/transfer",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Lanshare-Transfer-Token": token,
+          },
+          body: JSON.stringify({
+            transferId,
+            peerId: device.id,
+            files: files.map((file) => ({
+              path: file.path, // <-- INCLUDE PATH HERE!
+              name: file.name,
+              size: file.sizeBytes,
+              isDir: file.isDirectory,
+            })),
+          }),
+        },
+      );
+
       if (!response?.ok) {
         const parsed = await parseErrorBody(response);
         pushNotice({
