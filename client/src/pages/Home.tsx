@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   AlertCircle,
   CircleDashed,
@@ -39,15 +39,32 @@ export const Home: React.FC<HomeProps> = ({
   networkWarnings = [],
   onNotify,
 }) => {
-  // --- BULLETPROOF FIX: Store ID instead of object ---
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
-  // Derive the actual object from the latest devices array
   const selectedDevice = useMemo(
     () => devices.find((d) => d.id === selectedDeviceId) ?? null,
     [devices, selectedDeviceId],
   );
-  // ------------------------------------------------
+
+  // --- BULLETPROOF FIX: Reselect device when it restarts ---
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
+    // 1. If the current ID is invalid, try to find a device with the SAME NAME
+    // and automatically promote it to the selected device.
+    const deviceExists = devices.some((d) => d.id === selectedDeviceId);
+    if (!deviceExists) {
+      const oldDevice = devices.find((d) => d.name === selectedDevice?.name);
+      if (oldDevice) {
+        setSelectedDeviceId(oldDevice.id);
+      } else {
+        // If we can't find the name either, clear the selection.
+        setSelectedDeviceId(null);
+        setStagedFiles(null);
+      }
+    }
+  }, [devices, selectedDeviceId, selectedDevice?.name]);
+  // -------------------------------------------------------
 
   const [stagedFiles, setStagedFiles] = useState<FileItem[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -254,7 +271,7 @@ export const Home: React.FC<HomeProps> = ({
           <div className={styles.deviceGrid}>
             {devices.map((device) => (
               <DeviceCard
-                key={device.id}
+                key={`${device.name.toLowerCase().trim()}-${device.ip}`}
                 device={device}
                 isSelected={selectedDeviceId === device.id}
                 onSelect={(dev) => setSelectedDeviceId(dev.id)}
@@ -276,15 +293,12 @@ export const Home: React.FC<HomeProps> = ({
               transfer={activeTransfer}
               onAccept={async () => {
                 if (!activeTransfer) return;
-                // Tell backend that user accepted; main process will send admin token
                 const resp = await window.electronAPI?.transferRespond?.(
                   activeTransfer.id,
                   true,
                 );
                 if (resp?.ok) {
-                  // keep waiting for transfer 'transferring' events
                 } else {
-                  // show error and clear prompt
                   try {
                     const body = resp?.body || "";
                     let parsed = null as any;

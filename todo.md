@@ -31,19 +31,40 @@
 
 ## What is still missing
 
-- Proper authenticated device pairing / trust handshake (TLS / PIN exchange).
-- mDNS / DNS-SD discovery.
-- Transfer cancellation and retry flows.
-- Resume support for interrupted transfers.
-- Clipboard sync across devices.
+### Security & Transport
+
+- **Upgrade local Electron-to-Backend API from HTTP to HTTPS (self-signed TLS) to prevent localhost attack vectors.**
+- Proper authenticated device pairing / trust handshake (TLS / PIN exchange / QR code) for peer-to-peer communication.
+- Tokenized permission scopes for browser/share endpoints.
+
+### Networking & Discovery
+
+- mDNS / DNS-SD discovery (multicast support for cross-subnet / VLAN visibility).
+- Browser upload mode with password/token expiration.
+
+### User Experience & OS Integration
+
 - System tray menu and background mode behavior.
 - Native desktop notifications.
-- QR code generation for browser sharing.
-- Browser upload mode & tokenized permissions.
+- Clipboard sync across devices.
+- QR code generation for web-share access.
+
+### Transfer Resilience
+
+- Transfer cancellation and retry flows.
+- Resume support for interrupted transfers.
+
+### Production Lifecycle & Distribution
+
+- **Backend watchdog timer:** Electron should monitor the Go PID and forcefully kill/restart it if it hangs or crashes unexpectedly.
+- Auto-updater integration (`electron-updater`).
+- Code signing and notarization (macOS) / Authenticode signing (Windows) for store distribution.
 
 ## Recommended next steps
 
-1. Add trust/pairing and encrypted (TLS) LAN transport.
-2. Finish browser share support and secure tokenized permissions.
+1. **Critical:** Migrate local API to HTTPS with a dynamically generated self-signed TLS certificate.
+2. Add trust/pairing and encrypted (TLS) LAN transport between devices.
 3. Add tray, native notifications, and clipboard sync.
-4. Add cancellation, retry, and resume support.
+4. Finish browser share support and secure tokenized permissions.
+5. Add cancellation, retry, and resume support.
+6. Implement the backend watchdog and build pipeline auto-updater.

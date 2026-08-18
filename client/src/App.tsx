@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { TitleBar } from "./components/TitleBar/TitleBar.js";
 import { Navigation, ViewTab } from "./components/Navigation/Navigation.js";
-import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
@@ -23,7 +22,6 @@ type AppNotice = {
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>("devices");
-  // --- BULLETPROOF: Switch from array to Map to ensure absolute key deduplication ---
   const [devicesMap, setDevicesMap] = useState<Map<string, Device>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(
@@ -153,18 +151,29 @@ export const App: React.FC = () => {
       const state = await window.electronAPI?.getBackendState?.();
       const peers = state?.peers ?? [];
 
-      // --- BULLETPROOF MERGE: Never wipe the map fully ---
       setDevicesMap((prevMap) => {
-        const newMap = new Map(prevMap);
+        if (prevMap.size === 0) {
+          const newMap = new Map<string, Device>();
+          for (const peer of peers) {
+            newMap.set(peer.name.toLowerCase().trim(), peer);
+          }
+          return newMap;
+        }
+
+        const currentKeys = new Set<string>();
         for (const peer of peers) {
           const key = peer.name.toLowerCase().trim();
-          if (newMap.has(key)) {
-            newMap.set(key, { ...newMap.get(key), ...peer });
-          } else {
-            newMap.set(key, peer);
+          currentKeys.add(key);
+          prevMap.set(key, peer);
+        }
+
+        for (const key of prevMap.keys()) {
+          if (!currentKeys.has(key)) {
+            prevMap.delete(key);
           }
         }
-        return newMap;
+
+        return prevMap;
       });
 
       setIsConnected(true);
@@ -207,7 +216,6 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  // --- EVENT LISTENER (BULLETPROOF MAP UPDATE) ---
   useEffect(() => {
     let source: EventSource | undefined;
     let cancelled = false;
@@ -225,11 +233,9 @@ export const App: React.FC = () => {
 
           const lowerName = newDevice.name.toLowerCase().trim();
 
-          setDevicesMap((prev) => {
-            // --- BULLETPROOF: Update or insert existing key (never duplicates) ---
-            const newMap = new Map(prev);
-            newMap.set(lowerName, newDevice);
-            return newMap;
+          setDevicesMap((prevMap) => {
+            prevMap.set(lowerName, newDevice);
+            return prevMap;
           });
 
           setDiscoveryStatus("found");
@@ -259,8 +265,7 @@ export const App: React.FC = () => {
           void 0;
         }
       });
-      // Listen for explicit incoming-transfer-request events emitted by the backend
-      // which indicate a sender has prepared a transfer and awaits local user decision.
+
       source.addEventListener("incoming-transfer-request", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data)?.data;
@@ -302,7 +307,6 @@ export const App: React.FC = () => {
       source?.close();
     };
   }, []);
-  // --- END OF EVENT LISTENER ---
 
   useEffect(() => {
     void window.electronAPI?.saveSettings(settings);
@@ -385,7 +389,6 @@ export const App: React.FC = () => {
         <main className="main-viewport">
           {activeTab === "devices" && (
             <Home
-              // --- BULLETPROOF: Convert Map back to array only when rendering ---
               devices={Array.from(devicesMap.values())}
               onRefreshDevices={handleRefreshDevices}
               isRefreshing={isRefreshing}
