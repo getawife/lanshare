@@ -320,6 +320,7 @@ export const App: React.FC = () => {
               onCancelTransfer={() => setActiveTransfer(undefined)}
               discoveryStatus={discoveryStatus}
               isConnected={isConnected}
+              onNotify={(title, details, code) => pushNotice({ title, details, code })}
             />
           )}
           {activeTab === "transfers" && (
