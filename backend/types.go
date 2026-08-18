@@ -26,6 +26,10 @@ type Device struct {
 	DeviceHash    string    `json:"deviceHash"`
 	AdvertiseName  string    `json:"advertiseName"`
 	DiscoverableAt time.Time `json:"discoverableAt"`
+	// Settings represents the peer's user-configurable preferences as advertised
+	// over discovery (e.g., askBeforeAccepting, autoAcceptTrusted). These are
+	// advisory and the local node should still enforce its own effective policy.
+	Settings      BackendSettings `json:"settings,omitempty"`
 }
 
 type FileItem struct {

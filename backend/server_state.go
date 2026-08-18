@@ -46,6 +46,24 @@ type ServerState struct {
 	shares            map[string]shareRecord
 	warnings          []string
 	settings          BackendSettings
+	// AdminToken is an optional per-run secret used to authenticate privileged
+	// local requests from the Electron host (X-Lanshare-Token header).
+	AdminToken        string
+	// pendingTransfers holds channels that wait for local user acceptance for
+	// a transfer. Keyed by transferID.
+	pendingTransfers  map[string]chan transferDecision
+	// allowedTransferTokens maps transfer tokens to the transfer ID and expiry.
+	allowedTransferTokens map[string]allowedToken
+}
+
+type transferDecision struct {
+	Accepted bool
+	Token    string
+}
+
+type allowedToken struct {
+	TransferID string
+	ExpiresAt  time.Time
 }
 
 func NewServerState() (*ServerState, error) {
@@ -67,6 +85,8 @@ func NewServerState() (*ServerState, error) {
 			AutoAcceptTrusted:  false,
 			DownloadFolder:     "",
 		},
+		pendingTransfers:     map[string]chan transferDecision{},
+		allowedTransferTokens: map[string]allowedToken{},
 	}, nil
 }
 
@@ -170,7 +190,8 @@ func (s *ServerState) selfDevice() Device {
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
 		DeviceHash:   s.DeviceID,
-	}
+			Settings:     s.settings,
+		}
 }
 
 func (s *ServerState) PeersSnapshot() []Device {
@@ -223,23 +244,108 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 			"httpPort":     s.HTTPPort,
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
+			"settings":     s.settings,
 		})
+
+		// 1) Send using per-interface sockets to their calculated broadcast addresses.
+		for _, pair := range getInterfaceBroadcastPairs(discoveryPort) {
+			if pair.Local == nil || pair.Bcast == nil {
+				continue
+			}
+			// Try to bind a UDP socket to the interface local IP and write to its
+			// broadcast address. This ensures the packet is emitted on that
+			// interface rather than only the system default.
+			func() {
+				laddr := &net.UDPAddr{IP: pair.Local.IP, Port: 0}
+				raddr := &net.UDPAddr{IP: pair.Bcast.IP, Port: pair.Bcast.Port}
+				conn, err := net.DialUDP("udp4", laddr, raddr)
+				if err != nil {
+					// best-effort: record a warning and continue
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					}
+					return
+				}
+				defer conn.Close()
+				_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
+				if _, err := conn.Write(payload); err != nil {
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
+						s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+					}
+				}
+			}()
+		}
+
+		// 2) Fallback: send to global IPv4 broadcast using the provided conn.
 		for _, bcast := range getBroadcastAddresses(discoveryPort) {
-			if _, err := conn.WriteTo(payload, bcast); err != nil {
-				errStr := strings.ToLower(err.Error())
-				if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
-					s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
-				} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
-					s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+			if bcast.IP.Equal(net.IPv4bcast) {
+				if _, err := conn.WriteTo(payload, bcast); err != nil {
+					errStr := strings.ToLower(err.Error())
+					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
+						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
+					} else if strings.Contains(errStr, "unreachable") || strings.Contains(errStr, "network is down") {
+						s.AddWarning("Local network is unreachable. Peer discovery is restricted.")
+					}
 				}
 			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 	}
+}
+
+// interfaceBroadcastPair ties a local interface unicast address to its
+// calculated broadcast address (for IPv4 only).
+type interfaceBroadcastPair struct {
+	Local *net.UDPAddr
+	Bcast *net.UDPAddr
+}
+
+// getInterfaceBroadcastPairs returns local IP / broadcast pairs for each
+// active non-loopback IPv4 interface.
+func getInterfaceBroadcastPairs(port int) []interfaceBroadcastPair {
+	out := []interfaceBroadcastPair{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return out
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			ip := ipNet.IP.To4()
+			mask := ipNet.Mask
+			if len(mask) != 4 {
+				continue
+			}
+			bcastIP := net.IP(make([]byte, 4))
+			for i := 0; i < 4; i++ {
+				bcastIP[i] = ip[i] | ^mask[i]
+			}
+			out = append(out, interfaceBroadcastPair{
+				Local: &net.UDPAddr{IP: ip, Port: 0},
+				Bcast: &net.UDPAddr{IP: bcastIP, Port: port},
+			})
+		}
+	}
+	return out
 }
 
 func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketConn) error {
@@ -275,6 +381,13 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 			continue
 		}
 
+		// Parse optional settings object if present in discovery packet.
+		var peerSettings BackendSettings
+		if rawSettings, ok := packet["settings"]; ok {
+			if b, err := json.Marshal(rawSettings); err == nil {
+				_ = json.Unmarshal(b, &peerSettings)
+			}
+		}
 		peer := Device{
 			ID:           id,
 			Name:         name,
@@ -289,6 +402,7 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 			Version:      stringFrom(packet["version"]),
 			Capabilities: stringSlice(packet["capabilities"]),
 			LastSeen:     time.Now(),
+			Settings:     peerSettings,
 		}
 
 		// Use lowercased name as map key to force exact 1 entry per physical device name
@@ -298,6 +412,7 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		s.Peers[key] = peer
 		s.mu.Unlock()
 		s.publish(event{Type: "peer", Data: peer})
+
 	}
 }
 
@@ -327,7 +442,73 @@ func (s *ServerState) RunExpiredPeerSweep(ctx context.Context) {
 }
 
 func (s *ServerState) RunLoopbackPeerProbe(ctx context.Context) {
-	// Disabled loopback mock peer probing to prevent test peer cards from generating
+
+	peerPort := defaultLoopbackPeerPort
+	if v := os.Getenv("LANSHARE_LOOPBACK_PEER_HTTP_PORT"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			peerPort = parsed
+		}
+	}
+	if peerPort <= 0 {
+		return
+	}
+	targetID := fmt.Sprintf("loopback-%d", peerPort)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		peer, ok := probeLoopbackPeer(peerPort, targetID)
+		s.mu.Lock()
+		if ok {
+			s.Peers[targetID] = peer
+		} else {
+			delete(s.Peers, targetID)
+		}
+		s.mu.Unlock()
+		if ok {
+			s.publish(event{Type: "peer", Data: peer})
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func probeLoopbackPeer(port int, id string) (Device, bool) {
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/health", port)
+	client := &http.Client{Timeout: 750 * time.Millisecond}
+	resp, err := client.Get(url)
+	if err != nil {
+		return Device{}, false
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return Device{}, false
+	}
+	return Device{
+		ID:           id,
+		Name:         fmt.Sprintf("Local Test Peer %d", port),
+		OS:           formatOSName(runtime.GOOS),
+		Type:         deviceType(runtime.GOOS),
+		IP:           "127.0.0.1",
+		Port:         port,
+		HTTPPort:     port,
+		Status:       "available",
+		Trusted:      true,
+		Protocol:     1,
+		Version:      "local-test",
+		Capabilities: []string{"files", "clipboard", "web"},
+		LastSeen:     time.Now(),
+		Settings:     BackendSettings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
+	}, true
+}
+
 }
 
 func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error {

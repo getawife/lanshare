@@ -24,6 +24,8 @@ interface HomeProps {
   discoveryStatus: "discovering" | "found" | "empty";
   isConnected: boolean;
   networkWarnings?: string[];
+  // Optional notification callback: title, details, optional code
+  onNotify?: (title: string, details: string, code?: string) => void;
 }
 
 export const Home: React.FC<HomeProps> = ({
@@ -216,8 +218,44 @@ export const Home: React.FC<HomeProps> = ({
           activeTransfer.direction === "incoming" ? (
             <IncomingTransfer
               transfer={activeTransfer}
-              onAccept={() => {}}
-              onDecline={onCancelTransfer}
+              onAccept={async () => {
+                if (!activeTransfer) return;
+                // Tell backend that user accepted; main process will send admin token
+                const resp = await window.electronAPI?.transferRespond?.(activeTransfer.id, true);
+                if (resp?.ok) {
+                  // keep waiting for transfer 'transferring' events
+                } else {
+                  // show error and clear prompt
+                  try {
+                    const body = resp?.body || "";
+                    let parsed = null as any;
+                    try { parsed = JSON.parse(body); } catch {}
+                    const code = parsed?.code ?? undefined;
+                    const message = parsed?.message ?? (body ? String(body) : "Failed to accept transfer");
+                    if (onNotify) onNotify("Failed to accept transfer", message, code);
+                  } catch (e) {
+                    if (onNotify) onNotify("Failed to accept transfer", "An unknown error occurred");
+                  }
+                  onCancelTransfer();
+                }
+              }}
+              onDecline={async () => {
+                if (!activeTransfer) return;
+                const resp = await window.electronAPI?.transferRespond?.(activeTransfer.id, false);
+                if (resp && !resp.ok) {
+                  try {
+                    const body = resp?.body || "";
+                    let parsed = null as any;
+                    try { parsed = JSON.parse(body); } catch {}
+                    const code = parsed?.code ?? undefined;
+                    const message = parsed?.message ?? (body ? String(body) : "Failed to decline transfer");
+                    if (onNotify) onNotify("Failed to decline transfer", message, code);
+                  } catch (e) {
+                    if (onNotify) onNotify("Failed to decline transfer", "An unknown error occurred");
+                  }
+                }
+                onCancelTransfer();
+              }}
             />
           ) : (
             <TransferProgress transfer={activeTransfer} onCancel={onCancelTransfer} />

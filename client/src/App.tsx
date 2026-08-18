@@ -255,6 +255,37 @@ export const App: React.FC = () => {
           void 0;
         }
       });
+      // Listen for explicit incoming-transfer-request events emitted by the backend
+      // which indicate a sender has prepared a transfer and awaits local user decision.
+      source.addEventListener("incoming-transfer-request", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data)?.data;
+          if (!payload || !payload.transferId) return;
+          const files = Array.isArray(payload.files)
+            ? payload.files.map((f: any) => ({
+                name: f.name ?? (typeof f.relativePath === "string" ? f.relativePath.split(/[\\/]/).pop() ?? "File" : "File"),
+                path: "",
+                sizeBytes: Number(f.size ?? 0),
+                isDirectory: Boolean(f.isDir ?? false),
+              }))
+            : [];
+          const record: TransferRecord = {
+            id: String(payload.transferId),
+            direction: "incoming",
+            deviceName: payload.deviceName ?? payload.peerId ?? "Nearby device",
+            files,
+            totalSizeBytes: files.reduce((s, f) => s + f.sizeBytes, 0),
+            bytesTransferred: 0,
+            speedBytesPerSec: 0,
+            state: "pending",
+            timestamp: new Date(),
+          };
+          upsertTransferRecord(record);
+          setActiveTransfer(record);
+        } catch {
+          void 0;
+        }
+      });
     };
 
     void connectEvents();
@@ -354,6 +385,7 @@ export const App: React.FC = () => {
               onCancelTransfer={() => setActiveTransfer(undefined)}
               discoveryStatus={discoveryStatus}
               isConnected={isConnected}
+              onNotify={(title, details, code) => pushNotice({ title, details, code })}
             />
           )}
           {activeTab === "transfers" && (
