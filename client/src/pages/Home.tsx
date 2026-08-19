@@ -147,7 +147,7 @@ export const Home: React.FC<HomeProps> = ({
               : hasDevices
                 ? hasRecipient
                   ? "Files and folders can be added now."
-                  : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network[cite: 18].`
+                  : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network.`
                 : discoveryStatus === "discovering"
                   ? "Checking the local network for nearby Lanshare devices."
                   : "Open Lanshare on the other device and keep both devices on the same network."}
@@ -237,7 +237,7 @@ export const Home: React.FC<HomeProps> = ({
                   ))}
                 </div>
               )}
-              <div>Confirm both devices are on the same LAN[cite: 18]</div>
+              <div>Confirm both devices are on the same LAN</div>
               <div>
                 Check firewall permissions (allow LANShare on Private Networks)
               </div>
