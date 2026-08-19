@@ -1,100 +1,107 @@
 .dropZone {
-  border: 1px dashed var(--border);
-  background-color: var(--surface);
-  border-radius: var(--radius-lg);
-  min-height: 190px;
-  padding: 28px 20px;
+  border: 2px dashed rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: 16px;
+  min-height: 200px;
+  padding: 32px 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dropZone.dragging {
-  border-color: var(--accent);
-  background-color: var(--accent-subtle);
+  border-color: #007aff;
+  background-color: rgba(0, 122, 255, 0.06);
   border-style: solid;
 }
 
-.dropZone:not(.dragging):hover { border-color: #46515f; background: var(--surface-hover); }
+.dropZone:not(.dragging):hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.04);
+}
 
 .dragContent,
 .normalContent {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-align: center;
+  width: 100%;
 }
 
 .dragIcon {
-  color: var(--accent);
+  color: #007aff;
 }
 
 .dragTitle {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+  color: #f0f2f5;
+  letter-spacing: -0.01em;
 }
 
 .dragSubtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 14px;
+  color: #7a8291;
   max-width: 420px;
 }
 
 .prompt {
   font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
+  font-weight: 500;
+  color: #f0f2f5;
+  letter-spacing: -0.01em;
+}
+
+.emptyIcon {
+  color: #484f5e;
 }
 
 .buttonGroup {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
-}
-
-.emptyIcon {
-  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .actionBtn,
 .secondaryBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
+  transition: all 0.15s ease;
+  cursor: pointer;
 }
 
 .actionBtn {
-  background-color: var(--accent);
+  background-color: #007aff;
   color: #ffffff;
+  border: none;
 }
 
 .actionBtn:hover {
-  background-color: var(--accent-hover);
+  background-color: #0066d6;
 }
 
-.actionBtn:active, .secondaryBtn:active { transform: translateY(1px); }
+.actionBtn:active,
+.secondaryBtn:active {
+  transform: scale(0.97);
+}
 
 .secondaryBtn {
-  background-color: var(--surface-hover);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f0f2f5;
 }
 
 .secondaryBtn:hover {
-  background-color: var(--surface-active);
+  background-color: rgba(255, 255, 255, 0.1);
 }

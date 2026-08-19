@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, FileText } from "lucide-react";
 import { TransferRecord } from "../../shared/types";
 import styles from "./IncomingTransfer.module.css";
 
@@ -19,34 +19,59 @@ export const IncomingTransfer: React.FC<IncomingTransferProps> = ({
   const formatSize = (bytes: number) =>
     `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
+  const fileName = transfer.files[0]?.name || "Unknown File";
+  const additionalFilesCount = transfer.files.length - 1;
+
   return (
-    <div className={styles.overlay}>
+    <div
+      className={styles.overlay}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="incoming-transfer-title"
+      aria-describedby="incoming-transfer-desc"
+    >
       <div className={styles.card}>
         <div className={styles.titleRow}>
-          <span className={styles.badge}>Incoming File</span>
+          <span className={styles.sender} id="incoming-transfer-title">
+            <strong>{transfer.deviceName}</strong>
+            wants to share a file
+          </span>
           {isTrusted && (
-            <span className={styles.trusted}>
-              <ShieldCheck size={12} /> Trusted device
+            <span className={styles.trusted} title="Verified local device">
+              <ShieldCheck size={12} strokeWidth={2.5} />
+              Trusted
             </span>
           )}
         </div>
 
-        <div className={styles.sender}>
-          <strong>{transfer.deviceName}</strong> wants to send:
-        </div>
-
-        <div className={styles.payloadBox}>
-          <div className={styles.fileName}>{transfer.files[0]?.name}</div>
-          <div className={styles.fileSize}>
-            {formatSize(transfer.totalSizeBytes)}
+        <div className={styles.payloadBox} id="incoming-transfer-desc">
+          <div className={styles.fileIconWrapper} aria-hidden="true">
+            <FileText size={18} strokeWidth={2} />
+          </div>
+          <div className={styles.fileDetails}>
+            <span className={styles.fileName}>
+              {fileName}
+              {additionalFilesCount > 0 && ` + ${additionalFilesCount} more`}
+            </span>
+            <span className={styles.fileSize}>
+              {formatSize(transfer.totalSizeBytes)}
+            </span>
           </div>
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.declineBtn} onClick={onDecline}>
+          <button
+            className={styles.declineBtn}
+            onClick={onDecline}
+            aria-label={`Decline transfer from ${transfer.deviceName}`}
+          >
             Decline
           </button>
-          <button className={styles.acceptBtn} onClick={onAccept}>
+          <button
+            className={styles.acceptBtn}
+            onClick={onAccept}
+            aria-label={`Accept transfer from ${transfer.deviceName}`}
+          >
             Accept
           </button>
         </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, Monitor, Laptop, Smartphone } from "lucide-react";
+import { Monitor, Laptop, Smartphone } from "lucide-react";
 import { Device } from "../../shared/types";
 import styles from "./DeviceCard.module.css";
 
@@ -14,16 +14,16 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   device,
   isSelected,
   onSelect,
-  actionLabel = "Connect",
+  actionLabel = "Send",
 }) => {
   const getDeviceIcon = () => {
     switch (device.type) {
       case "pc":
-        return <Monitor size={20} />;
+        return <Monitor size={28} strokeWidth={1.5} />;
       case "mac":
-        return <Laptop size={20} />;
+        return <Laptop size={28} strokeWidth={1.5} />;
       case "phone":
-        return <Smartphone size={20} />;
+        return <Smartphone size={28} strokeWidth={1.5} />;
     }
   };
 
@@ -43,27 +43,33 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   return (
     <button
       type="button"
-      className={`${styles.card} ${isSelected ? styles.selected : ""} ${styles[device.status]}`}
+      className={`${styles.card} ${isSelected ? styles.selected : ""}`}
       onClick={() => onSelect(device)}
-      aria-label={`${actionLabel} to ${device.name}`}
+      aria-label={`${actionLabel} to ${device.name}. Status: ${getStatusText()}`}
+      aria-pressed={isSelected}
     >
-      <div className={styles.primaryRow}>
-        <div className={styles.iconWrapper}>{getDeviceIcon()}</div>
-        <div className={styles.info}>
-          <div className={styles.name}>{device.name}</div>
-          <div className={styles.os}>{device.os}</div>
+      <div className={styles.avatarContainer}>
+        <div className={styles.iconWrapper} aria-hidden="true">
+          {getDeviceIcon()}
         </div>
-      </div>
-      <div className={styles.statusRow}>
         <span
-          className={`${styles.statusDot} ${styles[`dot_${device.status}`]}`}
+          className={`${styles.statusBadge} ${styles[`dot_${device.status}`]}`}
+          title={getStatusText()}
           aria-hidden="true"
         />
-        <span className={styles.statusText}>{getStatusText()}</span>
       </div>
-      <div className={styles.actionRow}>
-        <span className={styles.actionText}>{actionLabel}</span>
-        <ChevronRight size={14} className={styles.actionIcon} aria-hidden="true" />
+
+      <div className={styles.info}>
+        <span className={styles.name}>{device.name}</span>
+        <span className={styles.os}>
+          {device.os} • {getStatusText()}
+        </span>
+      </div>
+
+      <div className={styles.actionRow} aria-hidden="true">
+        <span className={styles.actionText}>
+          {isSelected ? "Selected" : actionLabel}
+        </span>
       </div>
     </button>
   );

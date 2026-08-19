@@ -29,7 +29,8 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
   if (!status) return null;
 
   const isError = status.state === "error" || status.state === "stopped";
-  const hasWarnings = (status.networkWarnings && status.networkWarnings.length > 0) || false;
+  const hasWarnings =
+    (status.networkWarnings && status.networkWarnings.length > 0) || false;
 
   if (!isError && !hasWarnings) return null;
   if (!isError && isDismissed) return null;
@@ -39,8 +40,8 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
       switch (status.code) {
         case "PORT_IN_USE":
           return {
-            title: "Port Conflict: Backend Service Blocked",
-            icon: <AlertOctagon size={18} />,
+            title: "Port Conflict Detected",
+            icon: <AlertOctagon size={20} strokeWidth={2} />,
             message:
               status.error ||
               "Port 43821 is already occupied by another application or an existing LANShare process.",
@@ -52,8 +53,8 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
           };
         case "BLOCKED_BY_FIREWALL":
           return {
-            title: "Firewall / Security Restriction Detected",
-            icon: <ShieldAlert size={18} />,
+            title: "Firewall / Security Restriction",
+            icon: <ShieldAlert size={20} strokeWidth={2} />,
             message:
               status.error ||
               "LANShare was blocked from starting by system security, Windows Firewall, or antivirus software.",
@@ -66,7 +67,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
         case "BINARY_NOT_FOUND":
           return {
             title: "Backend Executable Not Found",
-            icon: <AlertTriangle size={18} />,
+            icon: <AlertTriangle size={20} strokeWidth={2} />,
             message:
               status.error ||
               "The local Go backend engine or binary could not be found.",
@@ -78,7 +79,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
         case "HEALTHCHECK_TIMEOUT":
           return {
             title: "Backend Health Check Timed Out",
-            icon: <AlertTriangle size={18} />,
+            icon: <AlertTriangle size={20} strokeWidth={2} />,
             message:
               status.error ||
               "The backend started but did not respond to local health checks. Localhost connections may be filtered.",
@@ -90,7 +91,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
         default:
           return {
             title: "Backend Service Unavailable",
-            icon: <AlertOctagon size={18} />,
+            icon: <AlertOctagon size={20} strokeWidth={2} />,
             message:
               status.error ||
               "The local communication engine is offline. Device discovery and file transfers are disabled.",
@@ -104,7 +105,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
 
     return {
       title: "Network Restrictions Detected",
-      icon: <WifiOff size={18} />,
+      icon: <WifiOff size={20} strokeWidth={2} />,
       message:
         "Local network discovery may be limited due to current network adapter or firewall settings.",
       tips: [
@@ -128,6 +129,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
             className={`${styles.iconWrapper} ${
               isError ? styles.errorIcon : styles.warningIcon
             }`}
+            aria-hidden="true"
           >
             {icon}
           </div>
@@ -143,7 +145,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
                   title="Dismiss warning"
                   aria-label="Dismiss warning"
                 >
-                  <X size={14} />
+                  <X size={16} strokeWidth={2.5} />
                 </button>
               )}
             </div>
@@ -167,12 +169,16 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
                   className={styles.restartBtn}
                   onClick={onRestart}
                   disabled={isRestarting}
+                  aria-busy={isRestarting}
                 >
                   <RefreshCw
-                    size={13}
+                    size={14}
+                    strokeWidth={2.5}
                     className={isRestarting ? styles.spinning : ""}
                   />
-                  <span>{isRestarting ? "Restarting…" : "Restart Service"}</span>
+                  <span>
+                    {isRestarting ? "Restarting…" : "Restart Service"}
+                  </span>
                 </button>
               )}
 
@@ -181,9 +187,16 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
                   type="button"
                   className={styles.detailsToggleBtn}
                   onClick={() => setShowDetails((prev) => !prev)}
+                  aria-expanded={showDetails}
                 >
-                  <span>{showDetails ? "Hide Details" : "Troubleshooting & Logs"}</span>
-                  {showDetails ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  <span>
+                    {showDetails ? "Hide Details" : "Troubleshooting & Logs"}
+                  </span>
+                  {showDetails ? (
+                    <ChevronUp size={14} strokeWidth={2} />
+                  ) : (
+                    <ChevronDown size={14} strokeWidth={2} />
+                  )}
                 </button>
               )}
             </div>
@@ -192,10 +205,15 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
               <div className={styles.detailsContainer}>
                 {tips.length > 0 && (
                   <div className={styles.troubleshootTips}>
-                    <span className={styles.detailsHeader}>Suggested Steps:</span>
+                    <span className={styles.detailsHeader}>
+                      Suggested Steps
+                    </span>
                     {tips.map((tip, idx) => (
                       <div key={idx} className={styles.troubleshootItem}>
-                        <span className={styles.troubleshootDot} />
+                        <span
+                          className={styles.troubleshootDot}
+                          aria-hidden="true"
+                        />
                         <span>{tip}</span>
                       </div>
                     ))}
@@ -204,7 +222,9 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
 
                 {status.errorDetails && (
                   <>
-                    <span className={styles.detailsHeader}>System Output / Logs:</span>
+                    <span className={styles.detailsHeader}>
+                      System Output / Logs
+                    </span>
                     <pre className={styles.logsBox}>{status.errorDetails}</pre>
                   </>
                 )}

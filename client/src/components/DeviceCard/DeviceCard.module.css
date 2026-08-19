@@ -1,111 +1,198 @@
 .card {
+  --ls-card-bg-hover: rgba(255, 255, 255, 0.04);
+  --ls-card-bg-selected: rgba(0, 122, 255, 0.08);
+  --ls-avatar-bg: rgba(255, 255, 255, 0.06);
+  --ls-avatar-color: #a1a1a6;
+  --ls-avatar-bg-selected: #007aff;
+  --ls-avatar-color-selected: #ffffff;
+
+  --ls-text-primary: #f5f5f7;
+  --ls-text-secondary: #a1a1a6;
+  --ls-text-selected: #007aff;
+
+  --ls-ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
+  --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
   width: 100%;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 12px;
   cursor: pointer;
   transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
-  transform: translateY(0);
-  text-align: left;
+    transform 0.3s var(--ls-ease-spring),
+    background 0.2s var(--ls-ease-out),
+    border-color 0.2s ease;
+  position: relative;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease;
+  }
 }
 
 .card:hover {
-  background-color: var(--surface-hover);
-  border-color: #46515f;
-  transform: translateY(-1px);
+  background-color: var(--ls-card-bg-hover);
+}
+
+.card:active {
+  transform: scale(0.96);
 }
 
 .card.selected {
-  border-color: rgba(79, 140, 255, 0.7);
-  background-color: var(--accent-subtle);
+  background-color: var(--ls-card-bg-selected);
+  border-color: rgba(0, 122, 255, 0.2);
 }
 
-.primaryRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.card:focus-visible {
+  outline: 2px solid var(--ls-text-selected);
+  outline-offset: 2px;
+}
+
+/* Avatar & Icon Treatment */
+.avatarContainer {
+  position: relative;
+  display: inline-block;
 }
 
 .iconWrapper {
-  width: 34px;
-  height: 34px;
+  width: 60px;
+  height: 60px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-hover);
-  color: var(--text-secondary);
+  border-radius: 50%;
+  background: var(--ls-avatar-bg);
+  color: var(--ls-avatar-color);
+  transition: all 0.3s var(--ls-ease-spring);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.card:hover .iconWrapper {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ls-text-primary);
+  transform: scale(1.05);
 }
 
 .card.selected .iconWrapper {
-  color: var(--accent);
+  background: var(--ls-avatar-bg-selected);
+  color: var(--ls-avatar-color-selected);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
 
+/* Native-style status badge overlay */
+.statusBadge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #1c1c1e; /* Assuming dark background to mask the icon */
+  z-index: 2;
+  transition: background-color 0.2s ease;
+}
+
+.card.selected .statusBadge {
+  border-color: rgba(0, 122, 255, 0.15); /* Adjust border when selected */
+}
+
+.dot_available {
+  background-color: #32d74b;
+}
+
+.dot_connecting {
+  background-color: #ffd60a;
+  animation: pulse 2s infinite var(--ls-ease-out);
+}
+
+.dot_busy {
+  background-color: #ff9f0a;
+}
+
+.dot_offline {
+  background-color: #8e8e93;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Typography & Info */
 .info {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
+  width: 100%;
 }
 
 .name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--ls-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%;
+  letter-spacing: -0.01em;
 }
 
 .os {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--ls-text-secondary);
+  font-weight: 400;
 }
 
-.statusRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
+/* Action Affordance */
 .actionRow {
+  height: 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 20px;
-  color: var(--text-secondary);
-  font-size: 12px;
+  justify-content: center;
+  margin-top: 2px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.3s var(--ls-ease-spring);
+}
+
+.card:hover .actionRow,
+.card:focus-visible .actionRow,
+.card.selected .actionRow {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.actionText {
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ls-text-primary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
 }
 
-.actionIcon {
-  color: var(--accent);
-}
-
-.card:focus-visible { outline-offset: 3px; }
-
-.statusDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.dot_available {
-  background-color: var(--success);
-}
-.dot_connecting {
-  background-color: var(--warning);
-}
-.dot_busy {
-  background-color: var(--warning);
-}
-.dot_offline {
-  background-color: var(--text-muted);
+.card.selected .actionText {
+  color: var(--ls-avatar-color-selected);
+  background: var(--ls-avatar-bg-selected);
 }

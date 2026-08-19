@@ -1,57 +1,88 @@
 .container {
+  --ls-border-subtle: rgba(255, 255, 255, 0.08);
+  --ls-text-primary: rgba(255, 255, 255, 0.9);
+  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-muted: rgba(235, 235, 245, 0.3);
+  --ls-text-accent: #0a84ff;
+
+  --ls-radius-lg: 10px;
+  --ls-radius-md: 6px;
+  --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
   display: flex;
   flex-direction: column;
   height: 100%;
   gap: 28px;
-  max-width: 560px;
+  max-width: 540px;
+  padding-top: 4px;
+  padding-bottom: 12px;
+  user-select: none;
 }
 
 .title {
-  font-size: 23px;
+  font-size: 22px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--ls-text-primary);
+  letter-spacing: -0.5px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-bottom: 4px;
+  gap: 8px;
 }
 
 .sectionTitle {
   font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: var(--ls-text-secondary);
+  padding-left: 12px;
+}
+
+.cardGroup {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--ls-radius-lg);
+  border: 1px solid var(--ls-border-subtle);
+  overflow: hidden;
 }
 
 .row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .label {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ls-text-primary);
+  font-weight: 500;
 }
 
 .textInput {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  color: var(--text);
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--ls-radius-md);
+  padding: 8px 12px;
+  color: var(--ls-text-primary);
   font-size: 13px;
+  transition: all 0.2s var(--ls-ease-out);
 }
 
 .textInput:focus {
-  border-color: var(--accent);
+  border-color: var(--ls-text-accent);
+  background-color: rgba(0, 0, 0, 0.3);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3);
 }
 
-.textInput::placeholder { color: var(--text-muted); }
+.textInput::placeholder {
+  color: var(--ls-text-muted);
+}
 
 .folderInputGroup {
   display: flex;
@@ -63,39 +94,59 @@
 }
 
 .browseBtn {
-  background-color: var(--surface-hover);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  color: var(--text);
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: var(--ls-radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ls-text-primary);
+  cursor: pointer;
+  transition: all 0.15s var(--ls-ease-out);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.browseBtn:hover { background: var(--surface-active); border-color: #46515f; }
+.browseBtn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
 
-.checkboxRow input { accent-color: var(--accent); }
+.browseBtn:active {
+  transform: scale(0.96);
+}
 
 .checkboxRow {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
   font-size: 13px;
-  color: var(--text);
+  color: var(--ls-text-primary);
   cursor: pointer;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.checkboxRow:last-child {
+  border-bottom: none;
+}
+
+.checkboxRow input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ls-text-accent);
+  cursor: pointer;
+  border-radius: 4px;
 }
 
 .aboutRow {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 13px;
-  color: var(--text-secondary);
-  padding: 8px 12px;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  color: var(--ls-text-primary);
+  padding: 16px;
 }
 
 .version {
-  font-family: var(--font-mono);
-  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  color: var(--ls-text-secondary);
 }

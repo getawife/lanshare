@@ -17,76 +17,90 @@ export const SettingsPage: React.FC<SettingsProps> = ({
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} role="region" aria-label="Settings Page">
       <h1 className={styles.title}>Settings</h1>
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>General</div>
-        <div className={styles.row}>
-          <label className={styles.label}>Device name</label>
-          <input
-            type="text"
-            className={styles.textInput}
-            value={settings.deviceName}
-            onChange={(e) => onUpdateSettings({ deviceName: e.target.value })}
-          />
-        </div>
-        <div className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            id="autoStart"
-            checked={settings.autoStart}
-            onChange={(e) => onUpdateSettings({ autoStart: e.target.checked })}
-          />
-          <label htmlFor="autoStart">Start at system login</label>
-        </div>
-        <div className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            id="notifications"
-            checked={settings.showNotifications}
-            onChange={(e) =>
-              onUpdateSettings({ showNotifications: e.target.checked })
-            }
-          />
-          <label htmlFor="notifications">Show notifications</label>
+        <div className={styles.cardGroup}>
+          <div className={styles.row}>
+            <label className={styles.label} htmlFor="deviceNameInput">
+              Device name
+            </label>
+            <input
+              id="deviceNameInput"
+              type="text"
+              className={styles.textInput}
+              value={settings.deviceName}
+              onChange={(e) => onUpdateSettings({ deviceName: e.target.value })}
+            />
+          </div>
+          <div className={styles.checkboxRow}>
+            <label htmlFor="autoStart">Start at system login</label>
+            <input
+              type="checkbox"
+              id="autoStart"
+              checked={settings.autoStart}
+              onChange={(e) =>
+                onUpdateSettings({ autoStart: e.target.checked })
+              }
+            />
+          </div>
+          <div className={styles.checkboxRow}>
+            <label htmlFor="notifications">Show notifications</label>
+            <input
+              type="checkbox"
+              id="notifications"
+              checked={settings.showNotifications}
+              onChange={(e) =>
+                onUpdateSettings({ showNotifications: e.target.checked })
+              }
+            />
+          </div>
         </div>
       </div>
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Transfers</div>
-        <div className={styles.row}>
-          <label className={styles.label}>Default download folder</label>
-          <div className={styles.folderInputGroup}>
-            <input
-              type="text"
-              readOnly
-              className={styles.textInput}
-              value={settings.downloadFolder}
-            />
-            <button className={styles.browseBtn} onClick={handleBrowse}>
-              Browse
-            </button>
+        <div className={styles.cardGroup}>
+          <div className={styles.row}>
+            <label className={styles.label} htmlFor="downloadFolderInput">
+              Default download folder
+            </label>
+            <div className={styles.folderInputGroup}>
+              <input
+                id="downloadFolderInput"
+                type="text"
+                readOnly
+                className={styles.textInput}
+                value={settings.downloadFolder}
+              />
+              <button className={styles.browseBtn} onClick={handleBrowse}>
+                Browse
+              </button>
+            </div>
           </div>
-        </div>
-        <div className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            id="askAccept"
-            checked={settings.askBeforeAccepting}
-            onChange={(e) =>
-              onUpdateSettings({ askBeforeAccepting: e.target.checked })
-            }
-          />
-          <label htmlFor="askAccept">Ask before accepting files</label>
+          <div className={styles.checkboxRow}>
+            <label htmlFor="askAccept">Ask before accepting files</label>
+            <input
+              type="checkbox"
+              id="askAccept"
+              checked={settings.askBeforeAccepting}
+              onChange={(e) =>
+                onUpdateSettings({ askBeforeAccepting: e.target.checked })
+              }
+            />
+          </div>
         </div>
       </div>
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>About</div>
-        <div className={styles.aboutRow}>
-          <span>Lanshare Desktop</span>
-          <span className={styles.version}>v1.0.0</span>
+        <div className={styles.cardGroup}>
+          <div className={styles.aboutRow}>
+            <span>Lanshare Desktop</span>
+            <span className={styles.version}>v1.0.0</span>
+          </div>
         </div>
       </div>
     </div>

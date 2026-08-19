@@ -15,6 +15,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   discoveryStatus,
   statusDetail,
 }) => {
+  // Logs and executes the window control action[cite: 14]
   const logAndRun = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();
@@ -45,15 +46,24 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     <header className={styles.titleBar}>
       <div className={styles.dragRegion}>
         <span className={styles.appTitle}>Lanshare</span>
-        <div className={styles.statusIndicator}>
-          <span className={`${styles.dot} ${dotClass}`} />
+        <div
+          className={styles.statusIndicator}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={`${styles.dot} ${dotClass}`} aria-hidden="true" />
           <span className={styles.statusText}>
             {getStatusLabel()}
             <span className={styles.statusSubtext}>{getStatusSubtext()}</span>
           </span>
         </div>
       </div>
-      <div className={styles.windowControls}>
+
+      <div
+        className={styles.windowControls}
+        role="region"
+        aria-label="Window Controls"
+      >
         <button
           type="button"
           draggable={false}
@@ -61,9 +71,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             logAndRun("minimize", () => window.electronAPI?.minimizeWindow())
           }
           className={styles.controlBtn}
-          aria-label="Minimize"
+          aria-label="Minimize window"
         >
-          <Minus size={12} />
+          <Minus size={12} strokeWidth={2} />
         </button>
         <button
           type="button"
@@ -72,9 +82,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             logAndRun("maximize", () => window.electronAPI?.maximizeWindow())
           }
           className={styles.controlBtn}
-          aria-label="Maximize"
+          aria-label="Maximize window"
         >
-          <Square size={10} />
+          <Square size={10} strokeWidth={2} />
         </button>
         <button
           type="button"
@@ -83,9 +93,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             logAndRun("close", () => window.electronAPI?.closeWindow())
           }
           className={`${styles.controlBtn} ${styles.closeBtn}`}
-          aria-label="Close"
+          aria-label="Close window"
         >
-          <X size={12} />
+          <X size={12} strokeWidth={2} />
         </button>
       </div>
     </header>

@@ -1,5 +1,11 @@
 import React from "react";
-import { CheckCircle2, Clock3, FileText, ShieldAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  FileText,
+  ShieldAlert,
+  FolderTree,
+} from "lucide-react";
 import { TransferRecord } from "../../shared/types";
 import styles from "./TransferProgress.module.css";
 
@@ -12,21 +18,30 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
   transfer,
   onCancel,
 }) => {
+  // Calculates transfer completion percentage[cite: 16]
   const percentage = Math.min(
     100,
-    Math.round((transfer.bytesTransferred / Math.max(transfer.totalSizeBytes, 1)) * 100) ||
-      0,
+    Math.round(
+      (transfer.bytesTransferred / Math.max(transfer.totalSizeBytes, 1)) * 100,
+    ) || 0,
   );
 
+  // Formats file size bytes into readable units[cite: 16]
   const formatSize = (bytes: number) =>
     bytes < 1024 * 1024
       ? `${(bytes / 1024).toFixed(1)} KB`
       : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
   const speedMB = (transfer.speedBytesPerSec / (1024 * 1024)).toFixed(1);
   const fileCount = transfer.files.length;
+  const hasDirectories = transfer.files.some((file) => file.isDirectory);
 
   return (
-    <div className={styles.card}>
+    <div
+      className={styles.card}
+      role="region"
+      aria-label={`Transfer progress for ${transfer.deviceName}`}
+    >
       <div className={styles.header}>
         <div className={styles.titleGroup}>
           <span className={styles.title}>
@@ -40,22 +55,29 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
               : "Keep Lanshare open until the transfer finishes."}
           </span>
         </div>
-        <span className={styles.percentage}>{percentage}%</span>
-      </div>
-
-      <div className={styles.detailRow}>
-        <FileText size={14} />
-        <span className={styles.fileTarget}>
-          {transfer.files[0]?.name || "Files"}
-          {transfer.files.length > 1 && ` (+${transfer.files.length - 1} more)`}
+        <span className={styles.percentage} aria-hidden="true">
+          {percentage}%
         </span>
       </div>
-      {transfer.files.some((file) => file.isDirectory) && (
+
+      <div className={styles.detailContainer}>
         <div className={styles.detailRow}>
-          <FileText size={14} />
-          <span className={styles.fileTarget}>Folder structure will be preserved</span>
+          <FileText size={16} className={styles.fileIcon} />
+          <span className={styles.fileTarget}>
+            {transfer.files[0]?.name || "Files"}
+            {transfer.files.length > 1 &&
+              ` (+${transfer.files.length - 1} more)`}
+          </span>
         </div>
-      )}
+        {hasDirectories && (
+          <div className={styles.detailRow}>
+            <FolderTree size={16} className={styles.fileIcon} />
+            <span className={styles.fileTarget}>
+              Folder structure will be preserved
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className={styles.progressTrack} aria-hidden="true">
         <div
@@ -66,7 +88,7 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
 
       <div className={styles.progressCopy} aria-label="Transfer status details">
         <span>
-          <Clock3 size={13} /> {formatSize(transfer.bytesTransferred)} /{" "}
+          <Clock size={13} /> {formatSize(transfer.bytesTransferred)} /{" "}
           {formatSize(transfer.totalSizeBytes)}
         </span>
         <span>{speedMB} MB/s</span>
@@ -76,20 +98,25 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
         <span className={styles.metrics}>
           {transfer.state === "completed" ? (
             <>
-              <CheckCircle2 size={13} /> Complete
+              <CheckCircle2 size={16} style={{ color: "#32d74b" }} /> Complete
             </>
           ) : transfer.state === "failed" ? (
             <>
-              <ShieldAlert size={13} /> Interrupted
+              <ShieldAlert size={16} style={{ color: "#ff453a" }} /> Interrupted
             </>
           ) : (
             <>
-              <span className={styles.statusDot} aria-hidden="true" /> In progress
+              <span className={styles.statusDot} aria-hidden="true" /> In
+              progress
             </>
           )}
         </span>
         {transfer.state !== "completed" && (
-          <button className={styles.cancelBtn} onClick={onCancel}>
+          <button
+            className={styles.cancelBtn}
+            onClick={onCancel}
+            aria-label="Cancel active transfer"
+          >
             Cancel
           </button>
         )}

@@ -46,19 +46,18 @@ export const Home: React.FC<HomeProps> = ({
     [devices, selectedDeviceId],
   );
 
-  // --- BULLETPROOF FIX: Reselect device when it restarts ---
   useEffect(() => {
     if (!selectedDeviceId) return;
 
     // 1. If the current ID is invalid, try to find a device with the SAME NAME
-    // and automatically promote it to the selected device.
+    // and automatically promote it to the selected device[cite: 18].
     const deviceExists = devices.some((d) => d.id === selectedDeviceId);
     if (!deviceExists) {
       const oldDevice = devices.find((d) => d.name === selectedDevice?.name);
       if (oldDevice) {
         setSelectedDeviceId(oldDevice.id);
       } else {
-        // If we can't find the name either, clear the selection.
+        // If we can't find the name either, clear the selection[cite: 18].
         setSelectedDeviceId(null);
         setStagedFiles(null);
       }
@@ -148,7 +147,7 @@ export const Home: React.FC<HomeProps> = ({
               : hasDevices
                 ? hasRecipient
                   ? "Files and folders can be added now."
-                  : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network.`
+                  : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network[cite: 18].`
                 : discoveryStatus === "discovering"
                   ? "Checking the local network for nearby Lanshare devices."
                   : "Open Lanshare on the other device and keep both devices on the same network."}
@@ -178,7 +177,7 @@ export const Home: React.FC<HomeProps> = ({
 
       {!hasDevices ? (
         <section className={styles.emptyState} aria-label="No nearby devices">
-          <MonitorX size={28} className={styles.emptyIcon} />
+          <MonitorX size={32} className={styles.emptyIcon} />
           <div className={styles.emptyTitle}>No nearby devices</div>
           <div className={styles.emptyText}>
             Make sure Lanshare is open on the other device and both devices are
@@ -238,7 +237,7 @@ export const Home: React.FC<HomeProps> = ({
                   ))}
                 </div>
               )}
-              <div>Confirm both devices are on the same LAN</div>
+              <div>Confirm both devices are on the same LAN[cite: 18]</div>
               <div>
                 Check firewall permissions (allow LANShare on Private Networks)
               </div>

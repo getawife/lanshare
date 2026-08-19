@@ -18,12 +18,19 @@ export const Transfers: React.FC<TransfersProps> = ({
   };
 
   return (
-    <div className={styles.container}>
+    <div
+      className={styles.container}
+      role="region"
+      aria-label="Transfer History"
+    >
       <div className={styles.header}>
         <h1 className={styles.title}>Transfers</h1>
         {records.length > 0 && (
-          <button className={styles.clearBtn} onClick={onClearHistory}>
-            <Trash2 size={13} />
+          <button
+            className={styles.clearBtn}
+            onClick={onClearHistory}
+            aria-label="Clear transfer history"
+          >
             <span>Clear History</span>
           </button>
         )}
@@ -31,61 +38,72 @@ export const Transfers: React.FC<TransfersProps> = ({
 
       {records.length === 0 ? (
         <div className={styles.emptyState}>
-          {" "}
           <b>No recent file transfers</b>
-          <br />
           <p>Transfers you send or receive will appear here.</p>
         </div>
       ) : (
-        <div className={styles.list}>
-          {records.map((record) => (
-            <div key={record.id} className={styles.row}>
-              <div className={styles.iconCol}>
-                {record.direction === "outgoing" ? (
-                  <ArrowUp size={16} className={styles.outgoing} />
-                ) : (
-                  <ArrowDown size={16} className={styles.incoming} />
-                )}
-              </div>
-
-              <div className={styles.infoCol}>
-                <div className={styles.fileName}>
-                  {record.files[0]?.name || "Files"}
+        <div className={styles.listWrapper}>
+          <div
+            className={styles.list}
+            role="feed"
+            aria-label="Transfer history list"
+          >
+            {records.map((record) => (
+              <div key={record.id} className={styles.row}>
+                <div className={styles.iconCol} aria-hidden="true">
+                  {record.direction === "outgoing" ? (
+                    <ArrowUp size={14} className={styles.outgoing} />
+                  ) : (
+                    <ArrowDown size={14} className={styles.incoming} />
+                  )}
                 </div>
-                <div className={styles.meta}>
-                  {record.direction === "outgoing"
-                    ? `To ${record.deviceName}`
-                    : `From ${record.deviceName}`}{" "}
-                  · {formatSize(record.totalSizeBytes)}
+
+                <div className={styles.infoCol}>
+                  <div className={styles.fileName}>
+                    {record.files[0]?.name || "Files"}
+                  </div>
+                  <div className={styles.meta}>
+                    {record.direction === "outgoing"
+                      ? `To ${record.deviceName}`
+                      : `From ${record.deviceName}`}{" "}
+                    · {formatSize(record.totalSizeBytes)}
+                  </div>
                 </div>
-              </div>
 
-              <div className={styles.statusCol}>
-                <span
-                  className={`${styles.statusBadge} ${styles[record.state]}`}
-                >
-                  {record.state}
-                </span>
-              </div>
-
-              <div className={styles.actionsCol}>
-                {record.state === "completed" && (
-                  <button
-                    className={styles.actionBtn}
-                    title="Open in folder"
-                    onClick={() => window.electronAPI?.openFolder?.(record.files[0]?.path)}
+                <div className={styles.statusCol}>
+                  <span
+                    className={`${styles.statusBadge} ${styles[record.state]}`}
                   >
-                    <Folder size={14} />
-                  </button>
-                )}
-                {record.state === "failed" && (
-                  <button className={styles.actionBtn} title="Retry transfer">
-                    <RotateCcw size={14} />
-                  </button>
-                )}
+                    {record.state}
+                  </span>
+                </div>
+
+                <div className={styles.actionsCol}>
+                  {record.state === "completed" && (
+                    <button
+                      className={styles.actionBtn}
+                      title="Open in folder"
+                      aria-label="Open in folder"
+                      onClick={() =>
+                        window.electronAPI?.openFolder?.(record.files[0]?.path)
+                      }
+                    >
+                      <Folder size={14} />
+                    </button>
+                  )}
+                  {record.state === "failed" && (
+                    <button
+                      className={styles.actionBtn}
+                      title="Retry transfer"
+                      aria-label="Retry transfer"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
