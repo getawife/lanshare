@@ -251,9 +251,7 @@ export const Home: React.FC<HomeProps> = ({
         <section className={styles.deviceSection}>
           <div className={styles.sectionHeader}>
             <div>
-              <div className={styles.sectionTitle}>Nearby Devices</div>
               <div className={styles.sectionMeta}>
-                {isConnected ? "Service connected" : "Service offline"}
                 {discoveryStatus === "discovering" && " · discovering"}
               </div>
             </div>

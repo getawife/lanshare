@@ -1,34 +1,77 @@
 :root {
-  --bg: #14161a;
-  --surface: #191c21;
-  --surface-hover: #1e2329;
-  --surface-active: #222a35;
-  --border: #2b323c;
-  --border-subtle: #232830;
+  /* System Typography Stacks */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", SFMono-Regular, "Segoe UI Mono", Consolas, monospace;
 
-  --text: #f0f2f5;
-  --text-secondary: #9aa2b1;
-  --text-muted: #626a7a;
+  /* Timings & Motion Curve */
+  --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 280ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  --accent: #4f8cff;
-  --accent-hover: #6b9dff;
-  --accent-subtle: rgba(79, 140, 255, 0.12);
+  /* Geometry & Layout Constraints */
+  --titlebar-height: 38px;
+  --statusbar-height: 28px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
 
-  --success: #10b981;
-  --success-subtle: rgba(16, 185, 129, 0.12);
-  --danger: #ef4444;
-  --danger-subtle: rgba(239, 68, 68, 0.12);
-  --warning: #f59e0b;
+/* Light Theme (Native System Light) */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-hover: #f0f0f2;
+    --surface-active: #e5e5ea;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.04);
 
-  --font-sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "Segoe UI Mono", SFMono-Regular, Consolas, monospace;
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-muted: #86868b;
 
-  --transition-fast: 120ms ease;
-  --transition-normal: 180ms ease;
-  --transition-slow: 280ms ease;
+    --accent: #0066cc;
+    --accent-hover: #0052a3;
+    --accent-subtle: rgba(0, 102, 204, 0.08);
 
-  --titlebar-height: 32px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+    --success: #34c759;
+    --success-subtle: rgba(52, 199, 89, 0.1);
+    --danger: #ff3b30;
+    --danger-subtle: rgba(255, 59, 48, 0.1);
+    --warning: #ff9500;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Dark Theme (Default) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --surface: #191c21;
+    --surface-hover: #1e2329;
+    --surface-active: #222a35;
+    --border: #2b323c;
+    --border-subtle: #232830;
+
+    --text: #f0f2f5;
+    --text-secondary: #9aa2b1;
+    --text-muted: #626a7a;
+
+    --accent: #4f8cff;
+    --accent-hover: #6b9dff;
+    --accent-subtle: rgba(79, 140, 255, 0.12);
+
+    --success: #10b981;
+    --success-subtle: rgba(16, 185, 129, 0.12);
+    --danger: #ef4444;
+    --danger-subtle: rgba(239, 68, 68, 0.12);
+    --warning: #f59e0b;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
 }

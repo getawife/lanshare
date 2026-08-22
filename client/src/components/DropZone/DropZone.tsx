@@ -26,11 +26,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
     >
       {isDragging ? (
         <div className={styles.contentContainer}>
-          <div className={styles.iconWrapper}>
-            <Upload size={28} strokeWidth={2} />
-          </div>
           <div>
-            <div className={styles.title}>Release to Drop</div>
+            <h3 className={styles.title}>Release to Drop</h3>
             <div className={styles.subtitle}>
               {selectedDeviceName ? (
                 <>
@@ -49,11 +46,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
         <div className={styles.contentContainer}>
           {!hasRecipient ? (
             <>
-              <div className={styles.iconWrapper}>
-                <SearchX size={24} strokeWidth={1.5} />
-              </div>
               <div>
-                <div className={styles.title}>Select a recipient</div>
+                <h3 className={styles.title}>Select a recipient</h3>
                 <div className={styles.subtitle}>
                   Files and folders can be added once you choose a device to
                   send to.
@@ -62,19 +56,14 @@ export const DropZone: React.FC<DropZoneProps> = ({
             </>
           ) : (
             <>
-              <div className={styles.iconWrapper}>
-                <Upload size={24} strokeWidth={1.5} />
-              </div>
-              <div>
-                <div className={styles.title}>Drop files here</div>
-                {stagedCount > 0 && (
-                  <div className={styles.subtitle}>
-                    <span className={styles.accentText}>{stagedCount}</span>{" "}
-                    item{stagedCount === 1 ? "" : "s"} ready
-                    {selectedDeviceName ? ` for ${selectedDeviceName}` : ""}
-                  </div>
-                )}
-              </div>
+              <h3 className={styles.title}>Drop files here</h3>
+              {stagedCount > 0 && (
+                <div className={styles.subtitle}>
+                  <span className={styles.accentText}>{stagedCount}</span> item
+                  {stagedCount === 1 ? "" : "s"} ready
+                  {selectedDeviceName ? ` for ${selectedDeviceName}` : ""}
+                </div>
+              )}
             </>
           )}
 

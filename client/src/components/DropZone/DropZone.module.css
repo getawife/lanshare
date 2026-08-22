@@ -1,24 +1,50 @@
 .dropZone {
-  border: 2px dashed rgba(255, 255, 255, 0.08);
-  background-color: rgba(255, 255, 255, 0.02);
-  border-radius: 16px;
-  min-height: 200px;
-  padding: 32px 24px;
+  --ls-border-subtle: rgba(255, 255, 255, 0.08);
+  --ls-border-hover: rgba(255, 255, 255, 0.15);
+  --ls-border-inset: rgba(255, 255, 255, 0.04);
+  --ls-bg-inset: rgba(0, 0, 0, 0.2);
+
+  --ls-text-primary: rgba(255, 255, 255, 0.9);
+  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-muted: rgba(235, 235, 245, 0.3);
+  --ls-text-accent: #0a84ff;
+
+  --ls-radius-xl: 14px;
+  --ls-radius-md: 6px;
+  --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
+  border: 1px dashed var(--ls-border-subtle);
+  background-color: var(--ls-bg-inset);
+  border-radius: var(--ls-radius-xl);
+  min-height: 180px;
+  padding: 24px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    border-color 0.15s var(--ls-ease-out);
+  user-select: none;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dropZone.dragging {
-  border-color: #007aff;
-  background-color: rgba(0, 122, 255, 0.06);
+  border-color: var(--ls-text-accent);
+  background-color: rgba(10, 132, 255, 0.08);
   border-style: solid;
 }
 
 .dropZone:not(.dragging):hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background-color: rgba(255, 255, 255, 0.04);
+  border-color: var(--ls-border-hover);
+  background-color: rgba(0, 0, 0, 0.25);
 }
 
 .dragContent,
@@ -26,42 +52,43 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   text-align: center;
   width: 100%;
 }
 
 .dragIcon {
-  color: #007aff;
+  color: var(--ls-text-accent);
 }
 
 .dragTitle {
-  font-size: 16px;
-  font-weight: 500;
-  color: #f0f2f5;
-  letter-spacing: -0.01em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ls-text-primary);
+  letter-spacing: -0.2px;
 }
 
 .dragSubtitle {
-  font-size: 14px;
-  color: #7a8291;
-  max-width: 420px;
+  font-size: 11px;
+  color: var(--ls-text-secondary);
+  max-width: 320px;
+  line-height: 1.3;
 }
 
 .prompt {
-  font-size: 16px;
-  font-weight: 500;
-  color: #f0f2f5;
-  letter-spacing: -0.01em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ls-text-primary);
+  letter-spacing: -0.2px;
 }
 
 .emptyIcon {
-  color: #484f5e;
+  color: var(--ls-text-muted);
 }
 
 .buttonGroup {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 4px;
@@ -71,24 +98,27 @@
 .secondaryBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 16px;
-  border-radius: 20px;
-  font-size: 13px;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--ls-radius-md);
+  font-size: 12px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
   cursor: pointer;
 }
 
 .actionBtn {
-  background-color: #007aff;
+  background-color: var(--ls-text-accent);
   color: #ffffff;
   border: none;
 }
 
 .actionBtn:hover {
-  background-color: #0066d6;
+  background-color: #0070d6;
 }
 
 .actionBtn:active,
@@ -98,8 +128,8 @@
 
 .secondaryBtn {
   background-color: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #f0f2f5;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ls-text-primary);
 }
 
 .secondaryBtn:hover {

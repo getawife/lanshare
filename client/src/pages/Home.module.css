@@ -12,19 +12,18 @@
   --ls-status-warning: #ff9f0a;
   --ls-status-warning-text: #ffd60a;
 
-  --ls-radius-xl: 16px;
+  --ls-radius-xl: 14px;
   --ls-radius-lg: 10px;
   --ls-radius-md: 6px;
-  --ls-ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+    sans-serif;
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: 24px;
+  gap: 20px;
   padding-bottom: 8px;
   user-select: none;
 }
@@ -45,10 +44,10 @@
 }
 
 .title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--ls-text-primary);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -58,12 +57,13 @@
   font-size: 13px;
   color: var(--ls-text-secondary);
   max-width: 760px;
+  line-height: 1.4;
 }
 
 .refreshBtn {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 6px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 5px;
   background: var(--ls-surface-elevated);
   border: 1px solid var(--ls-border-subtle);
   color: var(--ls-text-primary);
@@ -72,8 +72,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s var(--ls-ease-out);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
 }
 
 .refreshBtn:hover:not(:disabled) {
@@ -81,7 +82,7 @@
 }
 
 .refreshBtn:active:not(:disabled) {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .refreshBtn:disabled {
@@ -97,7 +98,7 @@
   font-size: 12px;
   font-weight: 500;
   background: var(--ls-bg-inset);
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: var(--ls-radius-md);
   border: 1px solid var(--ls-border-inset);
   width: fit-content;
@@ -110,7 +111,7 @@
 .deviceSection {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .sectionHeader {
@@ -121,10 +122,11 @@
 }
 
 .sectionTitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--ls-text-secondary);
-  letter-spacing: 0.02em;
+  color: var(--ls-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .sectionMeta {
@@ -134,42 +136,40 @@
 }
 
 .clearSelectionBtn {
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 24px;
+  padding: 2px 8px;
   border-radius: var(--ls-radius-md);
   border: 1px solid transparent;
   color: var(--ls-text-accent);
   background: rgba(10, 132, 255, 0.1);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s var(--ls-ease-out);
+  transition: background-color 0.15s var(--ls-ease-out);
 }
 
 .clearSelectionBtn:hover {
-  background-color: rgba(10, 132, 255, 0.15);
+  background-color: rgba(10, 132, 255, 0.18);
 }
 
 .deviceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
 }
 
-/* Replaced dashed line with translucent blur */
 .emptyState,
 .guidanceState {
-  min-height: 220px;
+  min-height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid var(--ls-border-subtle);
   border-radius: var(--ls-radius-xl);
-  padding: 32px 24px;
+  padding: 28px 20px;
   background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(20px);
   text-align: center;
 }
 
@@ -180,16 +180,16 @@
 
 .emptyTitle,
 .guidanceTitle {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ls-text-primary);
 }
 
 .emptyText,
 .guidanceText {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ls-text-secondary);
-  max-width: 440px;
+  max-width: 400px;
   line-height: 1.4;
 }
 
@@ -198,18 +198,18 @@
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .scanBtn,
 .troubleshootBtn {
-  min-height: 32px;
-  padding: 4px 14px;
+  min-height: 28px;
+  padding: 4px 12px;
   border-radius: var(--ls-radius-md);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s var(--ls-ease-out);
+  transition: background-color 0.15s var(--ls-ease-out);
 }
 
 .scanBtn {
@@ -219,7 +219,6 @@
   background-color: var(--ls-text-accent);
   color: #ffffff;
   border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .scanBtn:hover:not(:disabled) {
@@ -238,7 +237,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .troubleshootBtn:hover {
@@ -246,20 +244,20 @@
 }
 
 .troubleshooting {
-  margin-top: 16px;
-  padding: 16px;
+  margin-top: 12px;
+  padding: 12px;
   border: 1px solid var(--ls-border-subtle);
   border-radius: var(--ls-radius-lg);
   background-color: var(--ls-bg-inset);
   color: var(--ls-text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
   text-align: left;
-  width: min(100%, 460px);
+  width: min(100%, 420px);
 }
 
 .troubleshooting > div + div {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .transferArea {
@@ -268,29 +266,28 @@
 
 .dragHint {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background-color: rgba(30, 30, 32, 0.7);
-  backdrop-filter: blur(20px);
+  right: 20px;
+  bottom: 20px;
+  background-color: rgba(30, 30, 32, 0.85);
   border: 1px solid var(--ls-border-subtle);
   border-radius: var(--ls-radius-md);
-  padding: 12px 16px;
+  padding: 10px 14px;
   color: var(--ls-text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   z-index: 1000;
-  animation: fadeInSlide 0.3s var(--ls-ease-spring);
+  animation: fadeInSlide 0.2s var(--ls-ease-out);
 }
 
 @keyframes fadeInSlide {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 

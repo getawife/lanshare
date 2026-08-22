@@ -1,25 +1,29 @@
 .titleBar {
   --ls-titlebar-bg: rgba(23, 25, 30, 0.75);
-  --ls-border-subtle: rgba(255, 255, 255, 0.08);
-  --ls-text-primary: #f5f5f7;
-  --ls-text-secondary: #a1a1a6;
-  --ls-text-muted: #7a8291;
+  --ls-border-subtle: rgba(255, 255, 255, 0.06);
+  --ls-text-primary: rgba(255, 255, 255, 0.9);
+  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-muted: rgba(235, 235, 245, 0.3);
 
-  --ls-status-online: #32d74b;
+  --ls-status-online: #30d158;
   --ls-status-restricted: #ff9f0a;
   --ls-status-offline: #ff453a;
 
+  --ls-radius-md: 6px;
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  height: 44px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
+  height: 38px;
   background-color: var(--ls-titlebar-bg);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-bottom: 1px solid var(--ls-border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 16px;
+  padding-left: 12px;
   padding-right: 6px;
   user-select: none;
   position: relative;
@@ -31,22 +35,22 @@
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   -webkit-app-region: drag;
 }
 
 .appTitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ls-text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.2px;
 }
 
 .statusIndicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
   color: var(--ls-text-muted);
 }
 
@@ -54,24 +58,19 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  transition:
-    background-color 0.3s ease,
-    box-shadow 0.3s ease;
+  transition: background-color 0.2s var(--ls-ease-out);
 }
 
 .online {
   background-color: var(--ls-status-online);
-  box-shadow: 0 0 8px rgba(50, 215, 75, 0.4);
 }
 
 .restricted {
   background-color: var(--ls-status-restricted);
-  box-shadow: 0 0 8px rgba(255, 159, 10, 0.4);
 }
 
 .offline {
   background-color: var(--ls-status-offline);
-  box-shadow: 0 0 8px rgba(255, 69, 58, 0.4);
 }
 
 .statusText {
@@ -81,23 +80,22 @@
 
 .statusSubtext {
   color: var(--ls-text-muted);
-  margin-left: 4px;
+  margin-left: 2px;
   font-weight: 400;
-  opacity: 0.8;
 }
 
-/* Window Controls (macOS/Windows hybrid feel) */
+/* Window Controls */
 .windowControls {
   display: flex;
   align-items: center;
   height: 100%;
   -webkit-app-region: no-drag;
-  gap: 2px;
+  gap: 4px;
 }
 
 .controlBtn {
-  width: 38px;
-  height: 28px;
+  width: 28px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,9 +105,11 @@
   padding: 0;
   margin: 0;
   cursor: pointer;
-  color: var(--ls-text-muted);
-  transition: all 0.15s var(--ls-ease-out);
-  border-radius: 6px;
+  color: var(--ls-text-secondary);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    color 0.15s var(--ls-ease-out);
+  border-radius: var(--ls-radius-md);
 }
 
 .controlBtn:hover {
@@ -118,15 +118,15 @@
 }
 
 .controlBtn:active {
-  transform: scale(0.92);
+  transform: scale(0.96);
 }
 
 .closeBtn:hover {
-  background-color: var(--ls-status-offline);
-  color: #ffffff;
+  background-color: rgba(255, 69, 58, 0.2);
+  color: var(--ls-status-offline);
 }
 
 .controlBtn:focus-visible {
-  outline: 2px solid #007aff;
-  outline-offset: -2px;
+  outline: 2px solid #0a84ff;
+  outline-offset: -1px;
 }

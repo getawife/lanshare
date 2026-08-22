@@ -1,42 +1,53 @@
 .card {
   --ls-card-bg-hover: rgba(255, 255, 255, 0.04);
-  --ls-card-bg-selected: rgba(0, 122, 255, 0.08);
+  --ls-card-bg-selected: rgba(10, 132, 255, 0.12);
   --ls-avatar-bg: rgba(255, 255, 255, 0.06);
-  --ls-avatar-color: #a1a1a6;
-  --ls-avatar-bg-selected: #007aff;
+  --ls-avatar-color: rgba(235, 235, 245, 0.6);
+  --ls-avatar-bg-selected: #0a84ff;
   --ls-avatar-color-selected: #ffffff;
 
-  --ls-text-primary: #f5f5f7;
-  --ls-text-secondary: #a1a1a6;
-  --ls-text-selected: #007aff;
+  --ls-text-primary: rgba(255, 255, 255, 0.9);
+  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-muted: rgba(235, 235, 245, 0.3);
+  --ls-text-selected: #0a84ff;
 
-  --ls-ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
+  --ls-status-available: #30d158;
+  --ls-status-connecting: #ffd60a;
+  --ls-status-busy: #ff9f0a;
+  --ls-status-offline: #636366;
+
+  --ls-radius-xl: 12px;
+  --ls-radius-md: 6px;
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 16px;
-  padding: 16px 12px;
+  border-radius: var(--ls-radius-xl);
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   cursor: pointer;
   transition:
-    transform 0.3s var(--ls-ease-spring),
-    background 0.2s var(--ls-ease-out),
-    border-color 0.2s ease;
+    background-color 0.15s var(--ls-ease-out),
+    border-color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
   position: relative;
   text-align: center;
+  user-select: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition:
-      background 0.2s ease,
-      border-color 0.2s ease;
+      background-color 0.15s ease,
+      border-color 0.15s ease;
   }
 }
 
@@ -45,17 +56,17 @@
 }
 
 .card:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .card.selected {
   background-color: var(--ls-card-bg-selected);
-  border-color: rgba(0, 122, 255, 0.2);
+  border-color: rgba(10, 132, 255, 0.25);
 }
 
 .card:focus-visible {
   outline: 2px solid var(--ls-text-selected);
-  outline-offset: 2px;
+  outline-offset: -1px;
 }
 
 /* Avatar & Icon Treatment */
@@ -65,28 +76,26 @@
 }
 
 .iconWrapper {
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: var(--ls-avatar-bg);
   color: var(--ls-avatar-color);
-  transition: all 0.3s var(--ls-ease-spring);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    color 0.15s var(--ls-ease-out);
 }
 
 .card:hover .iconWrapper {
   background: rgba(255, 255, 255, 0.1);
   color: var(--ls-text-primary);
-  transform: scale(1.05);
 }
 
 .card.selected .iconWrapper {
   background: var(--ls-avatar-bg-selected);
   color: var(--ls-avatar-color-selected);
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
 
 /* Native-style status badge overlay */
@@ -94,33 +103,33 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  border: 2px solid #1c1c1e; /* Assuming dark background to mask the icon */
+  border: 2px solid #1c1c1e;
   z-index: 2;
-  transition: background-color 0.2s ease;
+  transition: border-color 0.15s ease;
 }
 
 .card.selected .statusBadge {
-  border-color: rgba(0, 122, 255, 0.15); /* Adjust border when selected */
+  border-color: #16243b;
 }
 
 .dot_available {
-  background-color: #32d74b;
+  background-color: var(--ls-status-available);
 }
 
 .dot_connecting {
-  background-color: #ffd60a;
-  animation: pulse 2s infinite var(--ls-ease-out);
+  background-color: var(--ls-status-connecting);
+  animation: pulse 1.5s infinite var(--ls-ease-out);
 }
 
 .dot_busy {
-  background-color: #ff9f0a;
+  background-color: var(--ls-status-busy);
 }
 
 .dot_offline {
-  background-color: #8e8e93;
+  background-color: var(--ls-status-offline);
 }
 
 @keyframes pulse {
@@ -128,7 +137,7 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.4;
   }
   100% {
     opacity: 1;
@@ -140,56 +149,55 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
 }
 
 .name {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ls-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.1px;
 }
 
 .os {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ls-text-secondary);
   font-weight: 400;
 }
 
 /* Action Affordance */
 .actionRow {
-  height: 24px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
   opacity: 0;
-  transform: translateY(4px);
-  transition: all 0.3s var(--ls-ease-spring);
+  transition: opacity 0.15s var(--ls-ease-out);
 }
 
 .card:hover .actionRow,
 .card:focus-visible .actionRow,
 .card.selected .actionRow {
   opacity: 1;
-  transform: translateY(0);
 }
 
 .actionText {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--ls-text-primary);
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  transition: all 0.2s ease;
+  padding: 2px 8px;
+  border-radius: var(--ls-radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .card.selected .actionText {

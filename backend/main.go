@@ -117,7 +117,7 @@ func (b *Backend) Start(ctx context.Context) error {
 
 	go b.state.RunDiscovery(ctx, lanLn)
 	go b.state.RunExpiredPeerSweep(ctx)
-	// Removed RunLoopbackPeerProbe for production
+	go b.state.RunLoopbackPeerProbe(ctx)
 
 	log.Printf("LANShare backend ready: http=127.0.0.1:%d lan=%d", b.state.HTTPPort, b.state.LANPort)
 

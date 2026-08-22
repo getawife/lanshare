@@ -1,42 +1,46 @@
 .bannerContainer {
-  --ls-bg-error: rgba(255, 59, 48, 0.08);
-  --ls-bg-warning: rgba(255, 204, 0, 0.08);
-  --ls-border-error: rgba(255, 59, 48, 0.2);
-  --ls-border-warning: rgba(255, 204, 0, 0.2);
+  --ls-bg-error: rgba(255, 69, 58, 0.12);
+  --ls-bg-warning: rgba(255, 159, 10, 0.12);
+  --ls-border-error: rgba(255, 69, 58, 0.25);
+  --ls-border-warning: rgba(255, 159, 10, 0.25);
   --ls-text-error: #ff453a;
-  --ls-text-warning: #ffd60a;
+  --ls-text-warning: #ff9f0a;
 
-  --ls-surface-elevated: rgba(30, 30, 32, 0.75);
+  --ls-surface-elevated: rgba(30, 30, 32, 0.85);
   --ls-surface-inset: rgba(0, 0, 0, 0.2);
   --ls-border-subtle: rgba(255, 255, 255, 0.08);
 
-  --ls-text-primary: #f5f5f7;
-  --ls-text-secondary: #a1a1a6;
+  --ls-text-primary: rgba(255, 255, 255, 0.9);
+  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-muted: rgba(235, 235, 245, 0.3);
 
-  --ls-radius-lg: 16px;
-  --ls-radius-md: 10px;
-  --ls-radius-sm: 8px;
+  --ls-radius-xl: 14px;
+  --ls-radius-lg: 10px;
+  --ls-radius-md: 6px;
 
-  --ls-ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  margin: 16px 24px 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
+  margin: 12px 16px 0;
   display: flex;
   flex-direction: column;
-  animation: slideDown 0.5s var(--ls-ease-spring) forwards;
+  animation: slideDown 0.2s var(--ls-ease-out) forwards;
   will-change: transform, opacity;
+  user-select: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bannerContainer {
-    animation: fadeIn 0.3s ease forwards;
+    animation: fadeIn 0.2s ease forwards;
   }
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-16px) scale(0.98);
+    transform: translateY(-8px) scale(0.99);
   }
   to {
     opacity: 1;
@@ -54,30 +58,22 @@
 }
 
 .banner {
-  border-radius: var(--ls-radius-lg);
-  padding: 16px 20px;
+  border-radius: var(--ls-radius-xl);
+  padding: 12px 14px;
   background: var(--ls-surface-elevated);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 1px 2px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   position: relative;
-  transition:
-    height 0.3s var(--ls-ease-spring),
-    padding 0.3s var(--ls-ease-spring);
+  transition: padding 0.15s var(--ls-ease-out);
   overflow: hidden;
 }
 
-/* Subtle, premium state indicators instead of harsh full-background fills */
 .errorBanner {
   border: 1px solid var(--ls-border-error);
-  box-shadow:
-    0 8px 32px rgba(255, 59, 48, 0.05),
-    0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .warningBanner {
@@ -87,18 +83,18 @@
 .bannerMain {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
 }
 
 .iconWrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--ls-radius-md);
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .errorIcon {
@@ -116,67 +112,67 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .headerRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ls-text-primary);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.2px;
 }
 
 .message {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--ls-text-secondary);
 }
 
 .warningsList {
-  margin: 6px 0 0 0;
-  padding-left: 20px;
+  margin: 4px 0 0 0;
+  padding-left: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .warningItem {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ls-text-warning);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .actionsRow {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .restartBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--ls-radius-sm);
-  font-size: 13px;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--ls-radius-md);
+  font-size: 12px;
   font-weight: 500;
   background: var(--ls-text-primary);
   color: #000000;
-  border: 1px solid transparent;
+  border: none;
   cursor: pointer;
   transition:
-    transform 0.1s var(--ls-ease-out),
-    background 0.2s var(--ls-ease-out),
-    opacity 0.2s ease;
+    background-color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
 }
 
 .restartBtn:hover:not(:disabled) {
@@ -184,7 +180,7 @@
 }
 
 .restartBtn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .restartBtn:disabled {
@@ -195,87 +191,93 @@
 .detailsToggleBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: var(--ls-radius-sm);
-  font-size: 12px;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--ls-radius-md);
+  font-size: 11px;
   font-weight: 500;
   color: var(--ls-text-secondary);
   background: transparent;
   border: 1px solid var(--ls-border-subtle);
   cursor: pointer;
-  transition: all 0.2s var(--ls-ease-out);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    color 0.15s var(--ls-ease-out);
 }
 
 .detailsToggleBtn:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--ls-text-primary);
 }
 
 .detailsToggleBtn:focus-visible,
 .restartBtn:focus-visible,
 .dismissBtn:focus-visible {
-  outline: 2px solid var(--ls-text-secondary);
-  outline-offset: 2px;
+  outline: 2px solid #0a84ff;
+  outline-offset: -1px;
 }
 
 .dismissBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ls-radius-md);
   background: transparent;
   border: none;
-  color: var(--ls-text-secondary);
+  color: var(--ls-text-muted);
   cursor: pointer;
-  transition: all 0.2s var(--ls-ease-out);
+  transition:
+    background-color 0.15s var(--ls-ease-out),
+    color 0.15s var(--ls-ease-out);
   margin-left: auto;
 }
 
 .dismissBtn:hover {
   color: var(--ls-text-primary);
-  background: var(--ls-surface-inset);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .detailsContainer {
-  margin-top: 12px;
-  padding: 16px;
-  border-radius: var(--ls-radius-md);
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--ls-radius-lg);
   background: var(--ls-surface-inset);
   border: 1px solid var(--ls-border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  animation: fadeIn 0.3s var(--ls-ease-spring) forwards;
+  gap: 8px;
+  animation: fadeIn 0.15s var(--ls-ease-out) forwards;
 }
 
 .detailsHeader {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ls-text-secondary);
+  letter-spacing: 0.05em;
+  color: var(--ls-text-muted);
 }
 
 .logsBox {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: #d1d5db;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 160px;
+  max-height: 120px;
   overflow-y: auto;
-  padding: 12px;
+  padding: 8px;
   background: rgba(0, 0, 0, 0.4);
-  border-radius: var(--ls-radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: var(--ls-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  user-select: text;
 }
 
 .logsBox::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .logsBox::-webkit-scrollbar-track {
@@ -283,35 +285,35 @@
 }
 
 .logsBox::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
 }
 
 .troubleshootTips {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ls-text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .troubleshootItem {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .troubleshootDot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--ls-text-secondary);
+  background: var(--ls-text-muted);
   flex-shrink: 0;
-  margin-top: 7px;
+  margin-top: 6px;
 }
 
 .spinning {
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
