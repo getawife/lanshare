@@ -94,6 +94,9 @@ func NewServerState() (*ServerState, error) {
 func (s *ServerState) UpdateSettings(cfg BackendSettings) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if name := strings.TrimSpace(cfg.DeviceName); name != "" {
+		s.DeviceName = name
+	}
 	s.settings = cfg
 }
 
@@ -449,14 +452,12 @@ func (s *ServerState) RunExpiredPeerSweep(ctx context.Context) {
 }
 
 func (s *ServerState) RunLoopbackPeerProbe(ctx context.Context) {
-
-	peerPort := defaultLoopbackPeerPort
-	if v := os.Getenv("LANSHARE_LOOPBACK_PEER_HTTP_PORT"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			peerPort = parsed
-		}
+	v := os.Getenv("LANSHARE_LOOPBACK_PEER_HTTP_PORT")
+	if v == "" {
+		return
 	}
-	if peerPort <= 0 {
+	peerPort, err := strconv.Atoi(v)
+	if err != nil || peerPort <= 0 {
 		return
 	}
 	targetID := fmt.Sprintf("loopback-%d", peerPort)
@@ -528,18 +529,68 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	if len(manifest) == 0 {
 		return fmt.Errorf("no transferable files found")
 	}
-	pr, pw := io.Pipe()
-	mw := multipart.NewWriter(pw)
+
 	targetPort := peer.HTTPPort
 	if targetPort == 0 {
 		targetPort = peer.Port
 	}
-	url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
+
+	// 1. Prepare Transfer Handshake with recipient
+	prepURL := fmt.Sprintf("http://%s:%d/api/prepare-transfer", peer.IP, targetPort)
+	prepPayload, err := json.Marshal(map[string]any{
+		"transferId": req.TransferID,
+		"peerId":     s.DeviceID,
+		"deviceName": s.DeviceName,
+		"files":      manifestToMeta(manifest),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode prepare transfer payload: %w", err)
+	}
+
+	prepReq, err := http.NewRequestWithContext(ctx, http.MethodPost, prepURL, strings.NewReader(string(prepPayload)))
+	if err != nil {
+		return fmt.Errorf("failed to create prepare transfer request: %w", err)
+	}
+	prepReq.Header.Set("Content-Type", "application/json")
+
+	// Allow up to 35 seconds for recipient to respond (accounting for user prompt timeout)
+	prepClient := &http.Client{Timeout: 35 * time.Second}
+	prepResp, err := prepClient.Do(prepReq)
+	if err != nil {
+		return fmt.Errorf("failed to contact peer: %w", err)
+	}
+	defer prepResp.Body.Close()
+
+	if prepResp.StatusCode >= 300 {
+		var errData struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		if json.NewDecoder(prepResp.Body).Decode(&errData) == nil && errData.Message != "" {
+			return fmt.Errorf("peer rejected transfer: %s (%s)", errData.Message, errData.Code)
+		}
+		return fmt.Errorf("peer rejected transfer with status %s", prepResp.Status)
+	}
+
+	var prepResult struct {
+		OK    bool   `json:"ok"`
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(prepResp.Body).Decode(&prepResult); err != nil || !prepResult.OK || prepResult.Token == "" {
+		return fmt.Errorf("invalid response from peer prepare endpoint")
+	}
+
+	// 2. Stream multipart file data to recipient with the obtained token
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	receiveURL := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, receiveURL, pr)
 	if err != nil {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
+	httpReq.Header.Set("X-Lanshare-Transfer-Token", prepResult.Token)
+
 	progressPath := func(done int64, total int64) {
 		s.publish(event{Type: "transfer", Data: map[string]any{
 			"id":               req.TransferID,
@@ -565,6 +616,13 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
+		var errData struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&errData) == nil && errData.Message != "" {
+			return fmt.Errorf("peer rejected upload: %s (%s)", errData.Message, errData.Code)
+		}
 		return fmt.Errorf("peer rejected transfer: %s", resp.Status)
 	}
 	return nil

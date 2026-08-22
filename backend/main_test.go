@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -140,3 +143,113 @@ func TestGetBroadcastAddresses(t *testing.T) {
 		t.Errorf("Expected first broadcast IP to be 255.255.255.255, got %s", firstIP)
 	}
 }
+
+func TestPrepareTransferAutoAccept(t *testing.T) {
+	state, err := NewServerState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.UpdateSettings(BackendSettings{AskBeforeAccepting: false})
+	backend := NewBackend(state)
+
+	reqBody := `{"transferId":"tx-123","peerId":"peer-abc","deviceName":"Test Sender","files":[{"name":"test.txt","size":100}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/prepare-transfer", strings.NewReader(reqBody))
+	rec := httptest.NewRecorder()
+
+	backend.prepareTransfer(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var res struct {
+		OK    bool   `json:"ok"`
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if !res.OK || res.Token == "" {
+		t.Fatalf("Expected valid token in response, got %+v", res)
+	}
+
+	// Verify token was stored in allowedTransferTokens
+	state.mu.Lock()
+	_, ok := state.allowedTransferTokens[res.Token]
+	state.mu.Unlock()
+	if !ok {
+		t.Fatalf("Expected token %s to be registered in allowedTransferTokens", res.Token)
+	}
+}
+
+func TestReceiveTokenValidation(t *testing.T) {
+	state, err := NewServerState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := NewBackend(state)
+
+	// Missing token -> 401
+	req := httptest.NewRequest(http.MethodPost, "/api/receive", nil)
+	rec := httptest.NewRecorder()
+	backend.receive(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 for missing token, got %d", rec.Code)
+	}
+
+	// Invalid token -> 403
+	req2 := httptest.NewRequest(http.MethodPost, "/api/receive", nil)
+	req2.Header.Set("X-Lanshare-Transfer-Token", "invalid-token")
+	rec2 := httptest.NewRecorder()
+	backend.receive(rec2, req2)
+	if rec2.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 for invalid token, got %d", rec2.Code)
+	}
+}
+
+func TestUpdateSettingsDeviceName(t *testing.T) {
+	state, err := NewServerState()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state.UpdateSettings(BackendSettings{
+		DeviceName:         "My Custom Laptop",
+		AskBeforeAccepting: true,
+		DownloadFolder:     "C:/Downloads",
+	})
+
+	if state.DeviceName != "My Custom Laptop" {
+		t.Errorf("Expected state.DeviceName to be 'My Custom Laptop', got '%s'", state.DeviceName)
+	}
+
+	snap := state.Snapshot()
+	if snap.Device.Name != "My Custom Laptop" {
+		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.Device.Name)
+	}
+}
+
+func TestIsAllowedOrigin(t *testing.T) {
+	tests := []struct {
+		origin  string
+		allowed bool
+	}{
+		{"http://127.0.0.1:5173", true},
+		{"http://localhost:5173", true},
+		{"http://127.0.0.1:5174", true},
+		{"http://localhost:3000", true},
+		{"null", true},
+		{"http://evil.com", false},
+		{"http://192.168.1.50:5173", false},
+		{"invalid-url", false},
+	}
+
+	for _, tt := range tests {
+		got := isAllowedOrigin(tt.origin)
+		if got != tt.allowed {
+			t.Errorf("isAllowedOrigin(%q) = %v, want %v", tt.origin, got, tt.allowed)
+		}
+	}
+}
+
+
+

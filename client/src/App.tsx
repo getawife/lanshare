@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { TitleBar } from "./components/TitleBar/TitleBar.js";
 import { Navigation, ViewTab } from "./components/Navigation/Navigation.js";
+import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
@@ -330,12 +331,13 @@ export const App: React.FC = () => {
     setActiveTransfer(record);
 
     try {
-      // --- STEP 1: Prepare the transfer to get a token ---
-      const prepResponse = await window.electronAPI?.fetchBackend?.(
-        "/api/prepare-transfer",
+      const response = await window.electronAPI?.fetchBackend?.(
+        "/api/transfer",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             transferId,
             peerId: device.id,
@@ -349,67 +351,12 @@ export const App: React.FC = () => {
         },
       );
 
-      if (!prepResponse?.ok) {
-        const parsed = await parseErrorBody(prepResponse);
-        pushNotice({
-          title: parsed.code
-            ? `Something went wrong (${parsed.code})`
-            : "Something went wrong",
-          code: parsed.code,
-          details: parsed.message,
-        });
-        const failed = {
-          ...record,
-          state: "failed" as const,
-          errorMessage: parsed.message,
-        };
-        setActiveTransfer(undefined);
-        upsertTransferRecord(failed);
-        return;
-      }
-
-      // --- FIX: Parse the string body directly ---
-      let token = "";
-      try {
-        const parsedBody = JSON.parse(prepResponse.body || "{}");
-        token = parsedBody?.token;
-      } catch {
-        // If parsing fails, token remains ""
-      }
-
-      if (!token) {
-        throw new Error("Failed to obtain transfer token");
-      }
-
-      // --- STEP 2: Execute the actual file transfer with the token ---
-      // IMPORTANT: The body is EXACTLY the same as Step 1!
-      const response = await window.electronAPI?.fetchBackend?.(
-        "/api/transfer",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Lanshare-Transfer-Token": token,
-          },
-          body: JSON.stringify({
-            transferId,
-            peerId: device.id,
-            files: files.map((file) => ({
-              path: file.path, // <-- INCLUDE PATH HERE!
-              name: file.name,
-              size: file.sizeBytes,
-              isDir: file.isDirectory,
-            })),
-          }),
-        },
-      );
-
       if (!response?.ok) {
         const parsed = await parseErrorBody(response);
         pushNotice({
           title: parsed.code
-            ? `Something went wrong (${parsed.code})`
-            : "Something went wrong",
+            ? `Transfer failed (${parsed.code})`
+            : "Transfer failed",
           code: parsed.code,
           details: parsed.message,
         });
@@ -429,15 +376,41 @@ export const App: React.FC = () => {
       const details =
         error instanceof Error ? safeText(error.message) : "Unknown error";
       pushNotice({
-        title: "Something went wrong",
+        title: "Transfer failed",
         details,
       });
     }
   };
 
+  const handleRetryTransfer = (record: TransferRecord) => {
+    if (record.direction !== "outgoing" || !record.files.length) {
+      pushNotice({
+        title: "Cannot retry transfer",
+        details: "Only outgoing transfers with valid source files can be retried.",
+      });
+      return;
+    }
+    const matchingDevice = Array.from(devicesMap.values()).find(
+      (d) => d.name.toLowerCase().trim() === record.deviceName.toLowerCase().trim(),
+    );
+    if (!matchingDevice) {
+      pushNotice({
+        title: "Device unavailable",
+        details: `Cannot reach "${record.deviceName}". Ensure the recipient device is powered on and connected to the network.`,
+      });
+      return;
+    }
+    void handleInitiateTransfer(matchingDevice, record.files);
+  };
+
   return (
     <div className="app-layout">
       <TitleBar isConnected={isConnected} discoveryStatus={discoveryStatus} />
+      <BackendStatusBanner
+        status={backendStatus}
+        onRestart={handleRestartBackend}
+        isRestarting={isRestartingBackend}
+      />
       <div className="content-container">
         <Navigation
           activeTab={activeTab}
@@ -464,6 +437,7 @@ export const App: React.FC = () => {
             <Transfers
               records={transferHistory}
               onClearHistory={() => setTransferHistory([])}
+              onRetryTransfer={handleRetryTransfer}
             />
           )}
           {activeTab === "settings" && (

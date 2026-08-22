@@ -277,6 +277,7 @@ async function pushSettingsToBackend() {
   try {
     const s = (await readSettings()) ?? {};
     const cfg = {
+      deviceName: s.deviceName ?? "LANShare Desktop",
       askBeforeAccepting: s.askBeforeAccepting ?? true,
       autoAcceptTrusted: s.autoAcceptTrusted ?? false,
       downloadFolder: s.downloadFolder ?? "",

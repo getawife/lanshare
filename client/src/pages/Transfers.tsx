@@ -6,11 +6,13 @@ import styles from "./Transfers.module.css";
 interface TransfersProps {
   records: TransferRecord[];
   onClearHistory: () => void;
+  onRetryTransfer?: (record: TransferRecord) => void;
 }
 
 export const Transfers: React.FC<TransfersProps> = ({
   records,
   onClearHistory,
+  onRetryTransfer,
 }) => {
   const formatSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -96,6 +98,7 @@ export const Transfers: React.FC<TransfersProps> = ({
                       className={styles.actionBtn}
                       title="Retry transfer"
                       aria-label="Retry transfer"
+                      onClick={() => onRetryTransfer?.(record)}
                     >
                       <RotateCcw size={14} />
                     </button>

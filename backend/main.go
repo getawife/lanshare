@@ -12,6 +12,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"mime"
 	"mime/multipart"
 	"os"
@@ -146,18 +147,23 @@ func (b *Backend) Start(ctx context.Context) error {
 	return nil
 }
 
-func withCORS(next http.Handler) http.Handler {
-	// Restrict CORS to known renderer origins. Do not use wildcard in production.
-	allowedOrigins := map[string]bool{
-		"http://127.0.0.1:5173": true,
-		"http://localhost:5173": true,
-		// Some Electron environments may send Origin: "null" (file://), allow if needed.
-		"null": true,
+func isAllowedOrigin(origin string) bool {
+	if origin == "null" {
+		return true
 	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(u.Hostname())
+	return hostname == "127.0.0.1" || hostname == "localhost"
+}
+
+func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			if !allowedOrigins[origin] {
+			if !isAllowedOrigin(origin) {
 				// For preflight requests from disallowed origins, deny.
 				if r.Method == http.MethodOptions {
 					w.WriteHeader(http.StatusForbidden)
@@ -168,7 +174,7 @@ func withCORS(next http.Handler) http.Handler {
 				return
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Lanshare-Token")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Lanshare-Token, X-Lanshare-Transfer-Token")
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
@@ -233,6 +239,15 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	deviceName := req.DeviceName
+	if deviceName == "" {
+		if peer.ID != "" && peer.Name != "" {
+			deviceName = peer.Name
+		} else {
+			deviceName = "Nearby device"
+		}
+	}
+
 	// Otherwise, notify UI and wait for a user decision.
 	ch := make(chan transferDecision, 1)
 	b.state.mu.Lock()
@@ -242,7 +257,7 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 	b.state.publish(event{Type: "incoming-transfer-request", Data: map[string]any{
 		"transferId": transferID,
 		"peerId":     req.PeerID,
-		"deviceName": req.PeerID, // receiver can correlate
+		"deviceName": deviceName,
 		"files":      req.Files,
 	}})
 
@@ -510,6 +525,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		"totalSizeBytes":   total,
 	}})
 	downloads := defaultDownloads()
+	if custom := b.state.GetSettings().DownloadFolder; custom != "" {
+		downloads = custom
+	}
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "B-R006", "unable to prepare download folder")
 		return

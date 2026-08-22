@@ -4,6 +4,7 @@ import "time"
 
 // BackendSettings mirrors the user-facing settings that affect backend behaviour.
 type BackendSettings struct {
+	DeviceName         string `json:"deviceName,omitempty"`
 	AskBeforeAccepting bool   `json:"askBeforeAccepting"`
 	AutoAcceptTrusted  bool   `json:"autoAcceptTrusted"`
 	DownloadFolder     string `json:"downloadFolder"`
@@ -45,6 +46,7 @@ type FileItem struct {
 type TransferRequest struct {
 	TransferID string     `json:"transferId,omitempty"`
 	PeerID     string     `json:"peerId"`
+	DeviceName string     `json:"deviceName,omitempty"`
 	Files      []FileItem `json:"files"`
 }
 
