@@ -84,7 +84,6 @@
   font-weight: 400;
 }
 
-/* Window Controls */
 .windowControls {
   display: flex;
   align-items: center;
@@ -140,7 +139,7 @@
   padding: 0 12px;
   background: var(--surface);
   border-radius: 7px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 .appTitle {
   color: var(--text);
