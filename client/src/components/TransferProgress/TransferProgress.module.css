@@ -7,7 +7,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-status-green: #30d158;
   --ls-status-red: #ff453a;
@@ -197,4 +197,55 @@
 .cancelBtn:focus-visible {
   outline: 2px solid var(--ls-text-accent);
   outline-offset: 1px;
+}
+
+.card {
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-bg-inset: rgba(17, 17, 17, 0.035);
+  max-width: 560px;
+  border-radius: 8px;
+  background: var(--surface);
+  border-color: var(--accent);
+  backdrop-filter: none;
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+}
+.title {
+  font-size: 15px;
+}
+.subtitle {
+  color: var(--text-secondary);
+}
+.percentage {
+  color: var(--accent-text);
+  font-size: 22px;
+  font-weight: 500;
+}
+.detailContainer {
+  border-radius: 6px;
+  background: var(--bg);
+}
+.progressTrack {
+  height: 7px;
+  background: #2a332e;
+  border-radius: 2px;
+}
+.progressBar {
+  background: var(--accent);
+  border-radius: 2px;
+}
+.metrics {
+  font: 10px var(--font-mono);
+  color: var(--text-secondary);
+}
+.statusDot {
+  background: var(--accent);
+}
+.cancelBtn {
+  border-radius: 5px;
 }

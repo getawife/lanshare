@@ -7,7 +7,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-status-warning: #ff9f0a;
   --ls-status-warning-text: #ffd60a;
@@ -222,7 +222,7 @@
 }
 
 .scanBtn:hover:not(:disabled) {
-  background-color: #0070d6;
+  background-color: #111111;
 }
 
 .scanBtn:disabled {
@@ -298,4 +298,95 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.container {
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  --ls-bg-inset: rgba(17, 17, 17, 0.04);
+  gap: 26px;
+  max-width: 900px;
+}
+.header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.title {
+  font-size: 30px;
+  font-weight: 550;
+  letter-spacing: -1px;
+}
+.subtitle {
+  color: var(--text-secondary);
+}
+.refreshBtn {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 7px;
+  color: var(--accent-text);
+  background: var(--accent-subtle);
+  border-color: rgba(215, 243, 107, 0.2);
+}
+.sectionHeader {
+  min-height: 25px;
+}
+.sectionHeader::before {
+  content: "NEARBY DEVICES";
+  font: 10px var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+}
+.sectionMeta {
+  color: var(--accent-text);
+  font: 10px var(--font-mono);
+}
+.deviceGrid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+.emptyState,
+.guidanceState {
+  min-height: 250px;
+  border-radius: 8px;
+  border-style: dashed;
+  border-color: #c8c7bd;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(17, 17, 17, 0.025) 0,
+    rgba(17, 17, 17, 0.025) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+.emptyIcon {
+  color: var(--accent-text);
+}
+.emptyTitle,
+.guidanceTitle {
+  font-size: 16px;
+}
+.scanBtn {
+  background: #111111;
+  color: var(--accent);
+  border-radius: 6px;
+}
+.scanBtn:hover:not(:disabled) {
+  background-color: #111111;
+}
+.troubleshootBtn {
+  border-radius: 6px;
+}
+.transferArea {
+  margin-top: 8px;
+}
+.dragHint {
+  background: #111111;
+  color: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
 }

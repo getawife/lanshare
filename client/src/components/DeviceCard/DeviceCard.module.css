@@ -3,13 +3,13 @@
   --ls-card-bg-selected: rgba(10, 132, 255, 0.12);
   --ls-avatar-bg: rgba(255, 255, 255, 0.06);
   --ls-avatar-color: rgba(235, 235, 245, 0.6);
-  --ls-avatar-bg-selected: #0a84ff;
+  --ls-avatar-bg-selected: #111111;
   --ls-avatar-color-selected: #ffffff;
 
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-selected: #0a84ff;
+  --ls-text-selected: var(--accent-text);
 
   --ls-status-available: #30d158;
   --ls-status-connecting: #ffd60a;
@@ -62,14 +62,13 @@
 .card.selected {
   background-color: var(--ls-card-bg-selected);
   border-color: rgba(10, 132, 255, 0.25);
-}
-
-.card:focus-visible {
-  outline: 2px solid var(--ls-text-selected);
+  padding: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 10px;
   outline-offset: -1px;
 }
 
-/* Avatar & Icon Treatment */
 .avatarContainer {
   position: relative;
   display: inline-block;
@@ -98,7 +97,6 @@
   color: var(--ls-avatar-color-selected);
 }
 
-/* Native-style status badge overlay */
 .statusBadge {
   position: absolute;
   bottom: 0;
@@ -144,7 +142,6 @@
   }
 }
 
-/* Typography & Info */
 .info {
   display: flex;
   flex-direction: column;
@@ -170,7 +167,6 @@
   font-weight: 400;
 }
 
-/* Action Affordance */
 .actionRow {
   height: 20px;
   display: flex;
@@ -203,4 +199,77 @@
 .card.selected .actionText {
   color: var(--ls-avatar-color-selected);
   background: var(--ls-avatar-bg-selected);
+}
+
+.card {
+  --ls-card-bg-hover: var(--surface-hover);
+  --ls-card-bg-selected: var(--accent-subtle);
+  --ls-avatar-bg: var(--surface-active);
+  --ls-avatar-color: var(--text-secondary);
+  --ls-avatar-bg-selected: #111111;
+  --ls-avatar-color-selected: var(--accent);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-selected: #111111;
+  min-height: 166px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: left;
+}
+.card:hover {
+  background: var(--surface-hover);
+  border-color: rgba(215, 243, 107, 0.3);
+  transform: translateY(-2px);
+}
+.card.selected {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(215, 243, 107, 0.15);
+}
+.iconWrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  background: var(--surface-active);
+  color: var(--text-secondary);
+}
+.card.selected .iconWrapper {
+  background: #111111;
+  color: var(--accent);
+}
+.statusBadge {
+  border-color: var(--surface);
+}
+.info {
+  align-items: flex-start;
+  gap: 5px;
+}
+.name {
+  font-size: 14px;
+  font-weight: 650;
+}
+.os {
+  font: 10px var(--font-mono);
+  color: var(--text-muted);
+}
+.actionRow {
+  width: 100%;
+  justify-content: flex-start;
+  opacity: 1;
+}
+.actionText {
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+}
+.card.selected .actionText {
+  background: transparent;
+  color: #dff58e;
 }

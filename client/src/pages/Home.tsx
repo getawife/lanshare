@@ -78,8 +78,8 @@ export const Home: React.FC<HomeProps> = ({
     if (isSending) return "Transfer in progress";
     if (!hasDevices)
       return discoveryStatus === "discovering"
-        ? "Scanning for devices…"
-        : "No nearby devices";
+        ? "Looking for devices"
+        : "Nearby devices";
     if (hasRecipient) return `Send to ${selectedDevice?.name}`;
     return "Choose a device to continue";
   }, [
@@ -283,97 +283,99 @@ export const Home: React.FC<HomeProps> = ({
         </section>
       )}
 
-      <section className={styles.transferArea}>
-        {activeTransfer ? (
-          activeTransfer.direction === "incoming" ? (
-            <IncomingTransfer
-              transfer={activeTransfer}
-              onAccept={async () => {
-                if (!activeTransfer) return;
-                const resp = await window.electronAPI?.transferRespond?.(
-                  activeTransfer.id,
-                  true,
-                );
-                if (resp?.ok) {
-                } else {
-                  try {
-                    const body = resp?.body || "";
-                    let parsed = null as any;
+      {(hasDevices || activeTransfer) && (
+        <section className={styles.transferArea}>
+          {activeTransfer ? (
+            activeTransfer.direction === "incoming" ? (
+              <IncomingTransfer
+                transfer={activeTransfer}
+                onAccept={async () => {
+                  if (!activeTransfer) return;
+                  const resp = await window.electronAPI?.transferRespond?.(
+                    activeTransfer.id,
+                    true,
+                  );
+                  if (resp?.ok) {
+                  } else {
                     try {
-                      parsed = JSON.parse(body);
-                    } catch {}
-                    const code = parsed?.code ?? undefined;
-                    const message =
-                      parsed?.message ??
-                      (body ? String(body) : "Failed to accept transfer");
-                    if (onNotify)
-                      onNotify("Failed to accept transfer", message, code);
-                  } catch (e) {
-                    if (onNotify)
-                      onNotify(
-                        "Failed to accept transfer",
-                        "An unknown error occurred",
-                      );
+                      const body = resp?.body || "";
+                      let parsed = null as any;
+                      try {
+                        parsed = JSON.parse(body);
+                      } catch {}
+                      const code = parsed?.code ?? undefined;
+                      const message =
+                        parsed?.message ??
+                        (body ? String(body) : "Failed to accept transfer");
+                      if (onNotify)
+                        onNotify("Failed to accept transfer", message, code);
+                    } catch (e) {
+                      if (onNotify)
+                        onNotify(
+                          "Failed to accept transfer",
+                          "An unknown error occurred",
+                        );
+                    }
+                    onCancelTransfer();
+                  }
+                }}
+                onDecline={async () => {
+                  if (!activeTransfer) return;
+                  const resp = await window.electronAPI?.transferRespond?.(
+                    activeTransfer.id,
+                    false,
+                  );
+                  if (resp && !resp.ok) {
+                    try {
+                      const body = resp?.body || "";
+                      let parsed = null as any;
+                      try {
+                        parsed = JSON.parse(body);
+                      } catch {}
+                      const code = parsed?.code ?? undefined;
+                      const message =
+                        parsed?.message ??
+                        (body ? String(body) : "Failed to decline transfer");
+                      if (onNotify)
+                        onNotify("Failed to decline transfer", message, code);
+                    } catch (e) {
+                      if (onNotify)
+                        onNotify(
+                          "Failed to decline transfer",
+                          "An unknown error occurred",
+                        );
+                    }
                   }
                   onCancelTransfer();
-                }
-              }}
-              onDecline={async () => {
-                if (!activeTransfer) return;
-                const resp = await window.electronAPI?.transferRespond?.(
-                  activeTransfer.id,
-                  false,
-                );
-                if (resp && !resp.ok) {
-                  try {
-                    const body = resp?.body || "";
-                    let parsed = null as any;
-                    try {
-                      parsed = JSON.parse(body);
-                    } catch {}
-                    const code = parsed?.code ?? undefined;
-                    const message =
-                      parsed?.message ??
-                      (body ? String(body) : "Failed to decline transfer");
-                    if (onNotify)
-                      onNotify("Failed to decline transfer", message, code);
-                  } catch (e) {
-                    if (onNotify)
-                      onNotify(
-                        "Failed to decline transfer",
-                        "An unknown error occurred",
-                      );
-                  }
-                }
-                onCancelTransfer();
-              }}
+                }}
+              />
+            ) : (
+              <TransferProgress
+                transfer={activeTransfer}
+                onCancel={onCancelTransfer}
+              />
+            )
+          ) : hasRecipient ? (
+            <DropZone
+              isDragging={isDragging}
+              selectedDeviceName={selectedDevice?.name}
+              hasRecipient={dropZoneEnabled}
+              stagedCount={stagedFiles?.length ?? 0}
+              onSelectFiles={handleSelectFiles}
+              onSelectFolder={handleSelectFolder}
             />
           ) : (
-            <TransferProgress
-              transfer={activeTransfer}
-              onCancel={onCancelTransfer}
-            />
-          )
-        ) : hasRecipient ? (
-          <DropZone
-            isDragging={isDragging}
-            selectedDeviceName={selectedDevice?.name}
-            hasRecipient={dropZoneEnabled}
-            stagedCount={stagedFiles?.length ?? 0}
-            onSelectFiles={handleSelectFiles}
-            onSelectFolder={handleSelectFolder}
-          />
-        ) : (
-          <div className={styles.guidanceState}>
-            <div className={styles.guidanceTitle}>
-              Select a device to start sending
+            <div className={styles.guidanceState}>
+              <div className={styles.guidanceTitle}>
+                Select a device to start sending
+              </div>
+              <div className={styles.guidanceText}>
+                Files and folders can be added once you choose a recipient.
+              </div>
             </div>
-            <div className={styles.guidanceText}>
-              Files and folders can be added once you choose a recipient.
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {stagedFiles && selectedDevice && !activeTransfer && (
         <SendConfirmation

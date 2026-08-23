@@ -7,7 +7,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-radius-xl: 14px;
   --ls-radius-md: 6px;
@@ -94,7 +94,6 @@
   margin-top: 4px;
 }
 
-.actionBtn,
 .secondaryBtn {
   display: flex;
   align-items: center;
@@ -104,7 +103,7 @@
   padding: 0 12px;
   border-radius: var(--ls-radius-md);
   font-size: 12px;
-  font-weight: 500;
+  color: var(--accent-text);
   transition:
     background-color 0.15s var(--ls-ease-out),
     transform 0.15s var(--ls-ease-out);
@@ -118,7 +117,7 @@
 }
 
 .actionBtn:hover {
-  background-color: #0070d6;
+  background-color: #111111;
 }
 
 .actionBtn:active,
@@ -134,4 +133,44 @@
 
 .secondaryBtn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dropZone {
+  --ls-border-subtle: #c8c7bd;
+  --ls-border-hover: #111111;
+  --ls-bg-inset: rgba(17, 17, 17, 0.035);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  min-height: 190px;
+  border-color: #c8c7bd;
+  border-radius: 8px;
+  background: rgba(250, 249, 243, 0.72);
+}
+.dropZone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.dragIcon {
+  color: var(--accent);
+}
+.prompt,
+.dragTitle {
+  font-size: 15px;
+}
+.dragSubtitle {
+  color: var(--text-secondary);
+}
+.emptyIcon {
+  color: var(--text-muted);
+}
+.actionBtn {
+  background: #111111;
+  color: var(--accent);
+  border-radius: 5px;
+}
+.secondaryBtn {
+  border-radius: 5px;
 }

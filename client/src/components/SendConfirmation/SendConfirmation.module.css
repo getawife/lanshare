@@ -8,7 +8,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-radius-xl: 14px;
   --ls-radius-lg: 10px;
@@ -229,7 +229,7 @@
 }
 
 .sendBtn:hover:not(:disabled) {
-  background-color: #0070d6;
+  background-color: #111111;
 }
 
 .sendBtn:active:not(:disabled),
@@ -254,4 +254,43 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.overlay {
+  --ls-overlay-bg: rgba(17, 17, 17, 0.38);
+  background: var(--ls-overlay-bg);
+  backdrop-filter: blur(8px);
+}
+.modal {
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-bg-inset: rgba(17, 17, 17, 0.035);
+  width: 400px;
+  border-radius: 8px;
+  background: var(--surface);
+  border-color: var(--accent);
+  backdrop-filter: none;
+  box-shadow: var(--shadow-md);
+}
+.title {
+  font-size: 15px;
+}
+.targetDevice {
+  color: var(--accent);
+}
+.fileList {
+  border-radius: 6px;
+  background: var(--bg);
+}
+.sendBtn {
+  background: #111111;
+  color: var(--accent);
+  border-radius: 5px;
+}
+.cancelBtn {
+  border-radius: 5px;
 }

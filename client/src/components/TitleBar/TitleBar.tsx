@@ -15,7 +15,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   discoveryStatus,
   statusDetail,
 }) => {
-  // Logs and executes the window control action[cite: 14]
+  // Logs and executes the window control action
   const logAndRun = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();
@@ -25,15 +25,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     if (!isConnected) return "Offline";
     if (isRestricted) return "Network Restricted";
     return "Connected";
-  };
-
-  const getStatusSubtext = () => {
-    if (statusDetail) return ` - ${statusDetail}`;
-    if (!isConnected) return " - service unavailable";
-    if (isRestricted) return " - discovery limited";
-    if (discoveryStatus === "discovering") return " - scanning nearby devices";
-    if (discoveryStatus === "found") return " - discovery active";
-    return " - no devices found yet";
   };
 
   const dotClass = !isConnected
@@ -52,10 +43,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           aria-live="polite"
         >
           <span className={`${styles.dot} ${dotClass}`} aria-hidden="true" />
-          <span className={styles.statusText}>
-            {getStatusLabel()}
-            <span className={styles.statusSubtext}>{getStatusSubtext()}</span>
-          </span>
+          <span className={styles.statusText}>{getStatusLabel()}</span>
         </div>
       </div>
 

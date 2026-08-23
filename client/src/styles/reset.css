@@ -16,13 +16,12 @@ body,
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px; /* Standard macOS desktop utility body scale */
+  font-size: 13px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Image & Media Reset */
 img,
 svg,
 video,
@@ -32,7 +31,6 @@ canvas {
   height: auto;
 }
 
-/* Interactive Elements */
 button,
 input,
 select,
@@ -48,14 +46,12 @@ button {
   cursor: pointer;
 }
 
-/* Form Control Resets */
 input[type="text"],
 input[type="search"],
 textarea {
-  user-select: text; /* Re-enable text selection for input fields */
+  user-select: text;
 }
 
-/* Accessibility Focus States */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -66,7 +62,6 @@ textarea:focus-visible {
   border-radius: 4px;
 }
 
-/* Electron Window Drag Controls */
 [data-tauri-drag-region],
 .app-header-drag {
   -webkit-app-region: drag;
@@ -81,7 +76,6 @@ a,
   -webkit-app-region: no-drag;
 }
 
-/* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -127,6 +127,64 @@
 }
 
 .controlBtn:focus-visible {
-  outline: 2px solid #0a84ff;
+  outline: 2px solid var(--accent-text);
   outline-offset: -1px;
+}
+
+.titleBar {
+  --ls-text-primary: var(--accent);
+  --ls-text-secondary: #f3f2eb;
+  --ls-text-muted: #b8b7af;
+  height: 38px;
+  margin: 10px 18px 0;
+  padding: 0 12px;
+  background: var(--surface);
+  border-radius: 7px;
+  box-shadow: var(--shadow-sm);
+}
+.appTitle {
+  color: var(--text);
+  font: 11px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+.statusIndicator {
+  font: 12px var(--font-mono);
+  letter-spacing: 0.035em;
+}
+.statusText {
+  color: var(--text);
+}
+.statusSubtext {
+  color: var(--text-secondary);
+}
+.online {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent);
+}
+.controlBtn {
+  color: var(--text-secondary);
+  border-radius: 5px;
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 58px;
+    align-items: center;
+  }
+  .sidebar::before {
+    content: "LS";
+    padding: 2px 0 22px;
+    font-weight: 700;
+  }
+  .navItem {
+    width: 42px;
+    justify-content: center;
+    padding: 0;
+  }
+  .navItem span:not(.badge) {
+    display: none;
+  }
+  .main-viewport {
+    padding: 22px 18px 26px;
+  }
 }

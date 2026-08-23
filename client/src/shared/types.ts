@@ -55,7 +55,7 @@ export interface AppSettings {
   askBeforeAccepting: boolean;
   autoAcceptTrusted: boolean;
   currentNetwork: string;
-  theme: "system" | "light" | "dark";
+  theme: "dark";
   clipboardSync?: boolean;
 }
 
@@ -72,7 +72,13 @@ export type BackendState = "starting" | "running" | "error" | "stopped";
 export interface BackendStatus {
   state: BackendState;
   url: string;
-  code?: "PORT_IN_USE" | "BLOCKED_BY_FIREWALL" | "BINARY_NOT_FOUND" | "HEALTHCHECK_TIMEOUT" | "BACKEND_CRASH" | "UNKNOWN";
+  code?:
+    | "PORT_IN_USE"
+    | "BLOCKED_BY_FIREWALL"
+    | "BINARY_NOT_FOUND"
+    | "HEALTHCHECK_TIMEOUT"
+    | "BACKEND_CRASH"
+    | "UNKNOWN";
   error?: string;
   errorDetails?: string;
   networkWarnings?: string[];

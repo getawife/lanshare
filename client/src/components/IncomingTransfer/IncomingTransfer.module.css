@@ -8,7 +8,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-status-green: #30d158;
 
@@ -192,7 +192,7 @@
 }
 
 .acceptBtn:hover {
-  background-color: #0070d6;
+  background-color: #111111;
 }
 
 .acceptBtn:active,
@@ -204,4 +204,45 @@
 .declineBtn:focus-visible {
   outline: 2px solid var(--ls-text-accent);
   outline-offset: 1px;
+}
+
+.overlay {
+  --ls-overlay-bg: rgba(17, 17, 17, 0.38);
+  background: var(--ls-overlay-bg);
+  backdrop-filter: blur(8px);
+}
+.card {
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-bg-inset: rgba(17, 17, 17, 0.035);
+  width: 380px;
+  border-radius: 8px;
+  background: var(--surface);
+  border-color: var(--success);
+  backdrop-filter: none;
+  box-shadow: var(--shadow-md);
+  padding: 18px;
+}
+.sender strong {
+  font-size: 15px;
+}
+.trusted {
+  color: var(--success);
+  background: rgba(119, 214, 160, 0.12);
+}
+.payloadBox {
+  border-radius: 6px;
+  background: var(--bg);
+}
+.acceptBtn {
+  background: #111111;
+  color: var(--accent);
+  border-radius: 5px;
+}
+.declineBtn {
+  border-radius: 5px;
 }

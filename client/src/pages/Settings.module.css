@@ -3,7 +3,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-radius-lg: 10px;
   --ls-radius-md: 6px;
@@ -151,4 +151,88 @@
 .version {
   font-variant-numeric: tabular-nums;
   color: var(--ls-text-secondary);
+}
+
+.container {
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-border-subtle: var(--border-subtle);
+  max-width: 720px;
+  gap: 26px;
+}
+.title {
+  font-size: 30px;
+  font-weight: 550;
+  letter-spacing: -1px;
+}
+.section {
+  gap: 8px;
+}
+.sectionTitle {
+  padding-left: 2px;
+  color: var(--accent-text);
+  font: 10px var(--font-mono);
+  letter-spacing: 0.12em;
+}
+.cardGroup {
+  border-radius: 8px;
+  background: var(--surface);
+}
+.row {
+  padding: 16px;
+}
+.checkboxRow {
+  padding: 14px 16px;
+}
+.label {
+  color: var(--text);
+}
+.textInput {
+  border-radius: 5px;
+  background: var(--bg);
+  padding: 9px 11px;
+  color: var(--text);
+}
+.browseBtn {
+  border-radius: 5px;
+  color: var(--accent);
+  background: #111111;
+  border: 0;
+}
+.aboutRow {
+  padding: 16px;
+}
+.version {
+  color: var(--accent-text);
+  font: 10px var(--font-mono);
+}
+.checkboxRow input[type="checkbox"] {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.checkboxRow input[type="checkbox"]::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--surface);
+  border-bottom: 2px solid var(--surface);
+  transform: rotate(-45deg) scale(0);
+  transition: transform var(--transition-fast);
+}
+.checkboxRow input[type="checkbox"]:checked {
+  background: var(--accent-text);
+  border-color: var(--accent-text);
+}
+.checkboxRow input[type="checkbox"]:checked::before {
+  transform: rotate(-45deg) scale(1);
 }

@@ -5,7 +5,7 @@
   --ls-text-primary: rgba(255, 255, 255, 0.9);
   --ls-text-secondary: rgba(235, 235, 245, 0.6);
   --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: #0a84ff;
+  --ls-text-accent: var(--accent-text);
 
   --ls-status-green: #30d158;
   --ls-status-red: #ff453a;
@@ -204,4 +204,67 @@
 .actionBtn:hover {
   background-color: rgba(255, 255, 255, 0.08);
   color: var(--ls-text-primary);
+}
+
+.container {
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: #111111;
+  --ls-border-subtle: var(--border-subtle);
+  max-width: 860px;
+  gap: 24px;
+}
+.title {
+  font-size: 30px;
+  font-weight: 550;
+  letter-spacing: -1px;
+}
+.clearBtn {
+  color: var(--accent-text);
+}
+.emptyState {
+  min-height: 250px;
+  border-radius: 8px;
+  border-style: dashed;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(17, 17, 17, 0.025) 0,
+    rgba(17, 17, 17, 0.025) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+.listWrapper {
+  border-radius: 8px;
+  background: var(--surface);
+}
+.row {
+  min-height: 62px;
+  padding: 12px 16px;
+}
+.iconCol {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--accent-subtle);
+}
+.outgoing {
+  color: var(--accent-text);
+}
+.incoming {
+  color: var(--success);
+}
+.fileName {
+  font-size: 13px;
+}
+.meta {
+  font: 10px var(--font-mono);
+  color: var(--text-muted);
+}
+.statusBadge {
+  font: 10px var(--font-mono);
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: var(--surface-active);
 }

@@ -214,7 +214,7 @@
 .detailsToggleBtn:focus-visible,
 .restartBtn:focus-visible,
 .dismissBtn:focus-visible {
-  outline: 2px solid #0a84ff;
+  outline: 2px solid var(--accent-text);
   outline-offset: -1px;
 }
 
@@ -250,6 +250,28 @@
   flex-direction: column;
   gap: 8px;
   animation: fadeIn 0.15s var(--ls-ease-out) forwards;
+}
+
+.bannerContainer {
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-warning: var(--warning);
+  --ls-text-error: var(--danger);
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  margin: 8px 16px 0;
+}
+.banner {
+  border-radius: 7px;
+  padding: 10px 12px;
+  backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+}
+.restartBtn {
+  background: #111111;
+  color: var(--accent);
+  border-radius: 5px;
 }
 
 .detailsHeader {

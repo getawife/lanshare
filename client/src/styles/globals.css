@@ -14,6 +14,8 @@
   flex: 1;
   overflow: hidden;
   position: relative;
+  gap: 18px;
+  padding: 16px 18px 18px;
 }
 
 .main-viewport {
@@ -23,6 +25,30 @@
   overflow-y: auto;
   padding: 28px 36px 32px;
   min-width: 0;
+  background: var(--bg);
+}
+
+.main-viewport > * {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+.app-layout {
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
+}
+button,
+input {
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 @media (max-width: 800px) {
@@ -44,4 +70,28 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+button,
+input {
+  font: inherit;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* One consistent corner treatment across the desktop UI. */
+* {
+  border-radius: 7px !important;
+}
+
+.notice-card {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+.notice-title {
+  color: var(--accent-text);
 }

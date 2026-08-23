@@ -37,7 +37,7 @@ export const App: React.FC = () => {
   const [notices, setNotices] = useState<AppNotice[]>([]);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
-    deviceName: "LANShare Desktop",
+    deviceName: "Lanshare",
     autoStart: false,
     showNotifications: true,
     downloadFolder: "",
@@ -213,7 +213,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     window.electronAPI?.getSettings().then((saved) => {
-      if (saved) setSettings((prev) => ({ ...prev, ...saved }));
+      if (saved) setSettings((prev) => ({ ...prev, ...saved, theme: "dark" }));
     });
   }, []);
 
@@ -310,6 +310,10 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = "dark";
+  }, []);
+
+  useEffect(() => {
     void window.electronAPI?.saveSettings(settings);
   }, [settings]);
 
@@ -386,12 +390,14 @@ export const App: React.FC = () => {
     if (record.direction !== "outgoing" || !record.files.length) {
       pushNotice({
         title: "Cannot retry transfer",
-        details: "Only outgoing transfers with valid source files can be retried.",
+        details:
+          "Only outgoing transfers with valid source files can be retried.",
       });
       return;
     }
     const matchingDevice = Array.from(devicesMap.values()).find(
-      (d) => d.name.toLowerCase().trim() === record.deviceName.toLowerCase().trim(),
+      (d) =>
+        d.name.toLowerCase().trim() === record.deviceName.toLowerCase().trim(),
     );
     if (!matchingDevice) {
       pushNotice({
