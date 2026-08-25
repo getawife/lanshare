@@ -37,14 +37,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     <header className={styles.titleBar}>
       <div className={styles.dragRegion}>
         <span className={styles.appTitle}>Lanshare</span>
-        <div
-          className={styles.statusIndicator}
-          role="status"
-          aria-live="polite"
-        >
-          <span className={`${styles.dot} ${dotClass}`} aria-hidden="true" />
-          <span className={styles.statusText}>{getStatusLabel()}</span>
-        </div>
       </div>
 
       <div

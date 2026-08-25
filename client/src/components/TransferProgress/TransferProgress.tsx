@@ -34,7 +34,6 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
 
   const speedMB = (transfer.speedBytesPerSec / (1024 * 1024)).toFixed(1);
   const fileCount = transfer.files.length;
-  const hasDirectories = transfer.files.some((file) => file.isDirectory);
 
   return (
     <div
@@ -69,14 +68,6 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
               ` (+${transfer.files.length - 1} more)`}
           </span>
         </div>
-        {hasDirectories && (
-          <div className={styles.detailRow}>
-            <FolderTree size={16} className={styles.fileIcon} />
-            <span className={styles.fileTarget}>
-              Folder structure will be preserved
-            </span>
-          </div>
-        )}
       </div>
 
       <div className={styles.progressTrack} aria-hidden="true">
