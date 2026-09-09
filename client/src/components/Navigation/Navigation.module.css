@@ -7,10 +7,7 @@
 
   --ls-text-primary: var(--text);
   --ls-text-secondary: var(--text-secondary);
-  --ls-text-accent: var(--accent-text);
-
-  --ls-badge-bg: var(--text);
-  --ls-badge-text: #ffffff;
+  --ls-text-accent: #ffffff;
 
   --ls-radius-md: 7px;
   --ls-radius-lg: 7px;
@@ -46,8 +43,6 @@
 }
 
 .sidebar::before {
-  content: "LANSHARE";
-
   padding: 2px 12px 22px;
 
   color: var(--text-muted);
@@ -92,6 +87,11 @@
   cursor: pointer;
 }
 
+.navItem svg {
+  color: inherit;
+  flex-shrink: 0;
+}
+
 .navItem:last-child {
   margin-top: auto;
 }
@@ -111,6 +111,11 @@
 }
 
 .navItem.active svg {
+  color: var(--ls-text-accent);
+}
+
+.navItem.active:hover {
+  background-color: var(--accent-hover, var(--ls-nav-active));
   color: var(--ls-text-accent);
 }
 
@@ -134,8 +139,8 @@
   align-items: center;
   justify-content: center;
 
-  background-color: var(--ls-badge-bg);
-  color: var(--ls-badge-text);
+  background: transparent;
+  color: var(--ls-text-secondary);
 
   border-radius: 4px;
 
@@ -147,6 +152,14 @@
   animation: popIn 0.2s var(--ls-ease-out) forwards;
 }
 
+.navItem:hover .badge {
+  color: var(--ls-text-primary);
+}
+
+.navItem.active .badge {
+  color: var(--ls-text-accent);
+}
+
 @keyframes popIn {
   from {
     transform: scale(0.8);
@@ -156,43 +169,5 @@
   to {
     transform: scale(1);
     opacity: 1;
-  }
-}
-
-.navItem.active:hover {
-  background-color: var(--accent-hover);
-}
-
-@media (max-width: 700px) {
-  .sidebar {
-    width: 58px;
-    align-items: center;
-
-    padding: 20px 8px;
-  }
-
-  .sidebar::before {
-    content: "LS";
-
-    padding: 2px 0 22px;
-
-    font-weight: 700;
-  }
-
-  .navItem {
-    width: 42px;
-
-    justify-content: center;
-
-    padding: 0;
-  }
-
-  .navItem span:not(.badge) {
-    display: none;
-  }
-
-  .badge {
-    right: 2px;
-    top: 2px;
   }
 }
