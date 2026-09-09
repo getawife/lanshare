@@ -7,6 +7,7 @@
   height: 100vh;
   width: 100vw;
   background-color: var(--bg);
+  color: var(--text);
 }
 
 .content-container {
@@ -39,6 +40,7 @@
     background-color var(--transition-normal),
     color var(--transition-normal);
 }
+
 button,
 input {
   transition:
@@ -47,6 +49,7 @@ input {
     color var(--transition-fast),
     transform var(--transition-fast);
 }
+
 button:active:not(:disabled) {
   transform: translateY(1px);
 }
@@ -61,13 +64,16 @@ button:active:not(:disabled) {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
@@ -76,22 +82,23 @@ button,
 input {
   font: inherit;
 }
+
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text);
   outline-offset: 3px;
 }
 
-/* One consistent corner treatment across the desktop UI. */
 * {
   border-radius: 7px !important;
 }
 
 .notice-card {
   background: var(--surface);
-  border-color: var(--accent);
+  border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
 }
+
 .notice-title {
-  color: var(--accent-text);
+  color: var(--text);
 }

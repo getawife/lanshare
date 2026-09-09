@@ -1,59 +1,95 @@
 .sidebar {
-  --ls-sidebar-bg: rgba(28, 28, 30, 0.6);
-  --ls-sidebar-border: rgba(255, 255, 255, 0.06);
+  --ls-sidebar-bg: var(--surface);
+  --ls-sidebar-border: var(--border-subtle);
 
-  --ls-nav-hover: rgba(255, 255, 255, 0.06);
-  --ls-nav-active: rgba(255, 255, 255, 0.1);
+  --ls-nav-hover: var(--surface-hover);
+  --ls-nav-active: var(--accent);
 
-  --ls-text-primary: rgba(255, 255, 255, 0.9);
-  --ls-text-secondary: rgba(235, 235, 245, 0.6);
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
   --ls-text-accent: var(--accent-text);
-  --ls-badge-bg: #111111;
+
+  --ls-badge-bg: var(--text);
   --ls-badge-text: #ffffff;
 
-  --ls-radius-md: 6px;
-  --ls-radius-lg: 10px;
+  --ls-radius-md: 7px;
+  --ls-radius-lg: 7px;
+
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
-    sans-serif;
-  width: 56px;
-  background-color: var(--ls-sidebar-bg);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  width: 188px;
+
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 4px;
+  align-items: stretch;
+
   flex-shrink: 0;
-  height: 100%;
+  height: auto;
+
+  padding: 20px 12px;
+  gap: 5px;
+
+  background: var(--ls-sidebar-bg);
+
+  border: 1px solid var(--ls-sidebar-border);
+  border-radius: var(--ls-radius-lg);
+
+  box-shadow: var(--shadow-sm);
+
   z-index: 40;
+
   user-select: none;
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, sans-serif;
+}
+
+.sidebar::before {
+  content: "LANSHARE";
+
+  padding: 2px 12px 22px;
+
+  color: var(--text-muted);
+
+  font: 10px var(--font-mono);
+  font-weight: 600;
+
+  letter-spacing: 0.12em;
 }
 
 .navItem {
+  position: relative;
+
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 44px;
-  height: 44px;
-  padding: 2px;
+  justify-content: flex-start;
+
+  width: 100%;
+  height: 42px;
+
+  gap: 11px;
+  padding: 0 12px;
+
+  box-sizing: border-box;
+
   color: var(--ls-text-secondary);
+
   background: transparent;
   border: none;
-  font-size: 10px;
+  border-radius: var(--ls-radius-md);
+
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.1px;
+
   transition:
     background-color 0.15s var(--ls-ease-out),
-    color 0.15s var(--ls-ease-out);
-  position: relative;
+    color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
+
   cursor: pointer;
-  box-sizing: border-box;
 }
 
 .navItem:last-child {
@@ -66,12 +102,12 @@
 }
 
 .navItem:active {
-  transform: scale(0.96);
+  transform: scale(0.98);
 }
 
 .navItem.active {
   background-color: var(--ls-nav-active);
-  color: var(--ls-text-primary);
+  color: var(--ls-text-accent);
 }
 
 .navItem.active svg {
@@ -79,26 +115,35 @@
 }
 
 .navItem:focus-visible {
-  outline: 2px solid var(--ls-text-accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 
 .badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  background-color: var(--ls-badge-bg);
-  color: var(--ls-badge-text);
-  font-size: 9px;
-  font-weight: 600;
-  height: 14px;
+
+  top: 14px;
+  right: 12px;
+
   min-width: 14px;
+  height: 14px;
+
   padding: 0 4px;
-  border-radius: 7px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  background-color: var(--ls-badge-bg);
+  color: var(--ls-badge-text);
+
+  border-radius: 4px;
+
+  font-size: 9px;
+  font-weight: 600;
+
   font-variant-numeric: tabular-nums;
+
   animation: popIn 0.2s var(--ls-ease-out) forwards;
 }
 
@@ -107,63 +152,47 @@
     transform: scale(0.8);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
   }
 }
 
-.sidebar {
-  --ls-sidebar-bg: #e9e8df;
-  --ls-text-primary: var(--text);
-  --ls-text-secondary: var(--text-secondary);
-  --ls-text-accent: #111111;
-  --ls-nav-hover: rgba(17, 17, 17, 0.05);
-  --ls-nav-active: var(--accent-subtle);
-  width: 188px;
-  align-items: stretch;
-  padding: 20px 12px;
-  gap: 5px;
-  background: var(--surface);
-  backdrop-filter: none;
-  border-radius: 7px;
-  height: auto;
-  box-shadow: var(--shadow-sm);
-}
-.sidebar::before {
-  padding: 2px 12px 22px;
-  color: var(--text-muted);
-  font: 10px var(--font-mono);
-  letter-spacing: 0.12em;
-}
-.navItem {
-  width: 100%;
-  height: 42px;
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 11px;
-  padding: 0 12px;
-  border-radius: 7px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.navItem.active {
-  color: var(--text);
-  background: var(--accent);
-}
-.navItem.active svg {
-  color: var(--accent-text);
-}
-.badge {
-  right: 12px;
-  top: 14px;
-  background: #111111;
-  color: var(--accent);
-  border-radius: 4px;
-}
-.navItem:hover {
-  background: var(--surface-hover);
-}
 .navItem.active:hover {
-  background: var(--accent-hover);
+  background-color: var(--accent-hover);
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 58px;
+    align-items: center;
+
+    padding: 20px 8px;
+  }
+
+  .sidebar::before {
+    content: "LS";
+
+    padding: 2px 0 22px;
+
+    font-weight: 700;
+  }
+
+  .navItem {
+    width: 42px;
+
+    justify-content: center;
+
+    padding: 0;
+  }
+
+  .navItem span:not(.badge) {
+    display: none;
+  }
+
+  .badge {
+    right: 2px;
+    top: 2px;
+  }
 }

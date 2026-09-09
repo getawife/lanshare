@@ -1,62 +1,87 @@
 .container {
-  --ls-border-subtle: rgba(255, 255, 255, 0.06);
-  --ls-text-primary: rgba(255, 255, 255, 0.9);
-  --ls-text-secondary: rgba(235, 235, 245, 0.6);
-  --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-accent: var(--accent-text);
+  --ls-border-subtle: #e5e5e5;
 
-  --ls-radius-lg: 10px;
+  --ls-text-primary: #111111;
+  --ls-text-secondary: #666666;
+  --ls-text-muted: #999999;
+  --ls-text-accent: #111111;
+
+  --ls-surface: #ffffff;
+  --ls-surface-inset: #f7f7f7;
+
+  --ls-radius-lg: 8px;
   --ls-radius-md: 6px;
+
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
     sans-serif;
+
   display: flex;
   flex-direction: column;
+
   height: 100%;
-  gap: 20px;
-  max-width: 520px;
+  max-width: 720px;
+
+  gap: 26px;
+
   padding-top: 4px;
   padding-bottom: 12px;
+
   user-select: none;
 }
 
+/* Page Title */
+
 .title {
-  font-size: 20px;
+  font-size: 30px;
   font-weight: 600;
+  line-height: 1.15;
+
   color: var(--ls-text-primary);
-  letter-spacing: -0.4px;
+
+  letter-spacing: -1px;
 }
+
+/* Sections */
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .sectionTitle {
-  font-size: 11px;
-  font-weight: 600;
+  padding-left: 2px;
+
   color: var(--ls-text-muted);
+
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-left: 8px;
+  letter-spacing: 0.12em;
 }
 
 .cardGroup {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--ls-radius-lg);
-  border: 1px solid var(--ls-border-subtle);
   overflow: hidden;
+
+  background: var(--ls-surface);
+
+  border: 1px solid var(--ls-border-subtle);
+  border-radius: var(--ls-radius-lg);
 }
 
 .row {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+
+  padding: 16px;
+
+  border-bottom: 1px solid var(--ls-border-subtle);
 }
 
 .row:last-child {
@@ -65,23 +90,41 @@
 
 .label {
   font-size: 12px;
-  color: var(--ls-text-secondary);
   font-weight: 500;
+
+  color: var(--ls-text-primary);
 }
 
 .textInput {
-  background-color: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--ls-radius-md);
-  padding: 6px 10px;
+  width: 100%;
+
+  padding: 9px 11px;
+
+  background: #ffffff;
+
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+
   color: var(--ls-text-primary);
+
   font-size: 12px;
-  transition: border-color 0.15s var(--ls-ease-out);
+
+  outline: none;
+
+  transition:
+    border-color 150ms var(--ls-ease-out),
+    box-shadow 150ms var(--ls-ease-out),
+    background-color 150ms var(--ls-ease-out);
+}
+
+.textInput:hover {
+  border-color: #c8c8c8;
 }
 
 .textInput:focus {
-  border-color: var(--ls-text-accent);
-  outline: none;
+  border-color: #111111;
+
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.08);
 }
 
 .textInput::placeholder {
@@ -95,144 +138,141 @@
 
 .folderInputGroup .textInput {
   flex: 1;
+  min-width: 0;
 }
 
 .browseBtn {
-  background-color: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 4px 12px;
-  border-radius: var(--ls-radius-md);
+  flex-shrink: 0;
+
+  padding: 8px 12px;
+
+  background: #111111;
+
+  border: 1px solid #111111;
+  border-radius: 6px;
+
+  color: #ffffff;
+
   font-size: 12px;
   font-weight: 500;
-  color: var(--ls-text-primary);
+
   cursor: pointer;
-  transition: background-color 0.15s var(--ls-ease-out);
+
+  transition:
+    background-color 150ms var(--ls-ease-out),
+    transform 150ms var(--ls-ease-out);
 }
 
 .browseBtn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: #000000;
 }
 
 .browseBtn:active {
-  transform: scale(0.97);
+  transform: translateY(1px);
 }
 
 .checkboxRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid var(--ls-border-subtle);
+
   color: var(--ls-text-primary);
+
+  font-size: 12px;
+
   cursor: pointer;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .checkboxRow:last-child {
   border-bottom: none;
 }
 
+/* Custom Checkbox */
+
 .checkboxRow input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--ls-text-accent);
+  appearance: none;
+
+  width: 17px;
+  height: 17px;
+
+  flex-shrink: 0;
+
+  margin: 0;
+
+  display: grid;
+  place-content: center;
+
+  background: #ffffff;
+
+  border: 1.5px solid #bdbdbd;
+  border-radius: 4px;
+
   cursor: pointer;
+
+  transition:
+    background-color 150ms var(--ls-ease-out),
+    border-color 150ms var(--ls-ease-out),
+    transform 150ms var(--ls-ease-out);
+}
+
+.checkboxRow input[type="checkbox"]:hover {
+  border-color: #777777;
+}
+
+.checkboxRow input[type="checkbox"]:active {
+  transform: scale(0.94);
+}
+
+.checkboxRow input[type="checkbox"]::before {
+  content: "";
+
+  width: 8px;
+  height: 4px;
+
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+
+  transform: rotate(-45deg) scale(0);
+
+  transition: transform 120ms var(--ls-ease-out);
+}
+
+.checkboxRow input[type="checkbox"]:checked {
+  background: #111111;
+  border-color: #111111;
+}
+
+.checkboxRow input[type="checkbox"]:checked::before {
+  transform: rotate(-45deg) scale(1);
+}
+
+.checkboxRow input[type="checkbox"]:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
 }
 
 .aboutRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+
+  padding: 16px;
+
   color: var(--ls-text-primary);
-  padding: 12px 14px;
+
+  font-size: 12px;
 }
 
 .version {
+  color: var(--ls-text-muted);
+
+  font-family: var(--font-mono);
+  font-size: 10px;
+
   font-variant-numeric: tabular-nums;
-  color: var(--ls-text-secondary);
-}
-
-.container {
-  --ls-text-primary: var(--text);
-  --ls-text-secondary: var(--text-secondary);
-  --ls-text-muted: var(--text-muted);
-  --ls-text-accent: #111111;
-  --ls-border-subtle: var(--border-subtle);
-  max-width: 720px;
-  gap: 26px;
-}
-.title {
-  font-size: 30px;
-  font-weight: 550;
-  letter-spacing: -1px;
-}
-.section {
-  gap: 8px;
-}
-.sectionTitle {
-  padding-left: 2px;
-  color: var(--accent-text);
-  font: 10px var(--font-mono);
-  letter-spacing: 0.12em;
-}
-.cardGroup {
-  border-radius: 8px;
-  background: var(--surface);
-}
-.row {
-  padding: 16px;
-}
-.checkboxRow {
-  padding: 14px 16px;
-}
-.label {
-  color: var(--text);
-}
-.textInput {
-  border-radius: 5px;
-  background: var(--bg);
-  padding: 9px 11px;
-  color: var(--text);
-}
-.browseBtn {
-  border-radius: 5px;
-  color: var(--accent);
-  background: #111111;
-  border: 0;
-}
-.aboutRow {
-  padding: 16px;
-}
-.version {
-  color: var(--accent-text);
-  font: 10px var(--font-mono);
-}
-.checkboxRow input[type="checkbox"] {
-  appearance: none;
-  width: 17px;
-  height: 17px;
-  margin: 0;
-  border: 1.5px solid var(--text-muted);
-  border-radius: 4px;
-  background: var(--surface);
-  cursor: pointer;
-  display: grid;
-  place-content: center;
-}
-.checkboxRow input[type="checkbox"]::before {
-  content: "";
-  width: 9px;
-  height: 5px;
-  border-left: 2px solid var(--surface);
-  border-bottom: 2px solid var(--surface);
-  transform: rotate(-45deg) scale(0);
-  transition: transform var(--transition-fast);
-}
-.checkboxRow input[type="checkbox"]:checked {
-  background: var(--accent-text);
-  border-color: var(--accent-text);
-}
-.checkboxRow input[type="checkbox"]:checked::before {
-  transform: rotate(-45deg) scale(1);
+  letter-spacing: 0.03em;
 }

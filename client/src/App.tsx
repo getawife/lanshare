@@ -112,7 +112,10 @@ export const App: React.FC = () => {
           isDirectory: Boolean(file.isDir ?? file.isDirectory),
         }))
       : [];
-    const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
+    const totalSize = files.reduce(
+      (sum: number, file: FileItem) => sum + file.sizeBytes,
+      0,
+    );
     const totalSizeBytes = Number(payload.totalSizeBytes ?? totalSize);
     const bytesTransferred = Number(
       payload.bytesTransferred ??
@@ -319,7 +322,10 @@ export const App: React.FC = () => {
 
   const handleInitiateTransfer = async (device: Device, files: FileItem[]) => {
     if (!files.length) return;
-    const totalSize = files.reduce((sum, file) => sum + file.sizeBytes, 0);
+    const totalSize = files.reduce(
+      (sum: number, file: FileItem) => sum + file.sizeBytes,
+      0,
+    );
     const transferId = String(Date.now());
     const record: TransferRecord = {
       id: transferId,
@@ -361,7 +367,7 @@ export const App: React.FC = () => {
           title: parsed.code
             ? `Transfer failed (${parsed.code})`
             : "Transfer failed",
-          code: parsed.code,
+          code: parsed.code ?? undefined,
           details: parsed.message,
         });
         const failed = {
@@ -435,7 +441,7 @@ export const App: React.FC = () => {
               discoveryStatus={discoveryStatus}
               isConnected={isConnected}
               onNotify={(title, details, code) =>
-                pushNotice({ title, details, code })
+                pushNotice({ title, details, code: code ?? undefined })
               }
             />
           )}

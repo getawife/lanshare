@@ -1,65 +1,96 @@
 .titleBar {
-  --ls-titlebar-bg: rgba(23, 25, 30, 0.75);
-  --ls-border-subtle: rgba(255, 255, 255, 0.06);
-  --ls-text-primary: rgba(255, 255, 255, 0.9);
-  --ls-text-secondary: rgba(235, 235, 245, 0.6);
-  --ls-text-muted: rgba(235, 235, 245, 0.3);
+  --ls-titlebar-bg: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
 
-  --ls-status-online: #30d158;
-  --ls-status-restricted: #ff9f0a;
-  --ls-status-offline: #ff453a;
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
 
-  --ls-radius-md: 6px;
+  --ls-status-online: #222222;
+  --ls-status-restricted: #555555;
+  --ls-status-offline: #111111;
+
+  --ls-radius-md: 5px;
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  height: 38px;
+
+  margin: 10px 18px 0;
+  padding: 0 12px;
+
+  background: var(--ls-titlebar-bg);
+
+  border: 1px solid var(--ls-border-subtle);
+  border-radius: 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  user-select: none;
+
+  position: relative;
+  z-index: 100;
 
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
     sans-serif;
-  height: 38px;
-  background-color: var(--ls-titlebar-bg);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border-bottom: 1px solid var(--ls-border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-left: 12px;
-  padding-right: 6px;
-  user-select: none;
-  position: relative;
-  z-index: 100;
 }
 
 .dragRegion {
   flex: 1;
   height: 100%;
+
   display: flex;
   align-items: center;
+
   gap: 12px;
+
   -webkit-app-region: drag;
+}
+
+.appTitle {
+  color: var(--ls-text-primary);
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  letter-spacing: 0.1em;
 }
 
 .statusIndicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+
+  font: 12px var(--font-mono);
+  letter-spacing: 0.035em;
+
   color: var(--ls-text-muted);
 }
 
 .dot {
   width: 6px;
   height: 6px;
+
   border-radius: 50%;
-  transition: background-color 0.2s var(--ls-ease-out);
+
+  transition:
+    background-color 0.2s var(--ls-ease-out),
+    box-shadow 0.2s var(--ls-ease-out);
 }
 
 .online {
   background-color: var(--ls-status-online);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
 }
 
 .restricted {
   background-color: var(--ls-status-restricted);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
 
 .offline {
@@ -68,11 +99,11 @@
 
 .statusText {
   font-weight: 500;
-  color: var(--ls-text-secondary);
+  color: var(--ls-text-primary);
 }
 
 .statusSubtext {
-  color: var(--ls-text-muted);
+  color: var(--ls-text-secondary);
   margin-left: 2px;
   font-weight: 400;
 }
@@ -80,32 +111,43 @@
 .windowControls {
   display: flex;
   align-items: center;
+
   height: 100%;
-  -webkit-app-region: no-drag;
   gap: 4px;
+
+  -webkit-app-region: no-drag;
 }
 
 .controlBtn {
   width: 28px;
   height: 24px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   -webkit-app-region: no-drag;
+
   background: transparent;
   border: none;
+
   padding: 0;
   margin: 0;
+
   cursor: pointer;
+
   color: var(--ls-text-secondary);
+
+  border-radius: var(--ls-radius-md);
+
   transition:
     background-color 0.15s var(--ls-ease-out),
-    color 0.15s var(--ls-ease-out);
-  border-radius: var(--ls-radius-md);
+    color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out);
 }
 
 .controlBtn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--surface-hover);
   color: var(--ls-text-primary);
 }
 
@@ -114,50 +156,13 @@
 }
 
 .closeBtn:hover {
-  background-color: rgba(255, 69, 58, 0.2);
-  color: var(--ls-status-offline);
+  background-color: var(--surface-active);
+  color: var(--ls-text-primary);
 }
 
 .controlBtn:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
-}
-
-.titleBar {
-  --ls-text-primary: var(--accent);
-  --ls-text-secondary: #f3f2eb;
-  --ls-text-muted: #b8b7af;
-  height: 38px;
-  margin: 10px 18px 0;
-  padding: 0 12px;
-  background: var(--surface);
-  border-radius: 7px;
-  box-shadow: none;
-}
-.appTitle {
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-}
-.statusIndicator {
-  font: 12px var(--font-mono);
-  letter-spacing: 0.035em;
-}
-.statusText {
-  color: var(--text);
-}
-.statusSubtext {
-  color: var(--text-secondary);
-}
-.online {
-  background: var(--success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent);
-}
-.controlBtn {
-  color: var(--text-secondary);
-  border-radius: 5px;
 }
 
 @media (max-width: 700px) {
@@ -165,19 +170,23 @@
     width: 58px;
     align-items: center;
   }
+
   .sidebar::before {
     content: "LS";
     padding: 2px 0 22px;
     font-weight: 700;
   }
+
   .navItem {
     width: 42px;
     justify-content: center;
     padding: 0;
   }
+
   .navItem span:not(.badge) {
     display: none;
   }
+
   .main-viewport {
     padding: 22px 18px 26px;
   }

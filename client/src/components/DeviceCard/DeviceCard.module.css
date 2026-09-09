@@ -1,72 +1,93 @@
 .card {
-  --ls-card-bg-hover: rgba(255, 255, 255, 0.04);
-  --ls-card-bg-selected: rgba(10, 132, 255, 0.12);
-  --ls-avatar-bg: rgba(255, 255, 255, 0.06);
-  --ls-avatar-color: rgba(235, 235, 245, 0.6);
-  --ls-avatar-bg-selected: #111111;
-  --ls-avatar-color-selected: #ffffff;
+  --ls-card-bg-hover: var(--surface-hover);
+  --ls-card-bg-selected: var(--text);
 
-  --ls-text-primary: rgba(255, 255, 255, 0.9);
-  --ls-text-secondary: rgba(235, 235, 245, 0.6);
-  --ls-text-muted: rgba(235, 235, 245, 0.3);
-  --ls-text-selected: var(--accent-text);
+  --ls-avatar-bg: var(--surface-active);
+  --ls-avatar-color: var(--text-secondary);
 
-  --ls-status-available: #30d158;
-  --ls-status-connecting: #ffd60a;
-  --ls-status-busy: #ff9f0a;
-  --ls-status-offline: #636366;
+  --ls-avatar-bg-selected: #ffffff;
+  --ls-avatar-color-selected: #111111;
 
-  --ls-radius-xl: 12px;
-  --ls-radius-md: 6px;
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-selected: #ffffff;
+
+  --ls-status-available: #16803c;
+  --ls-status-connecting: #a16207;
+  --ls-status-busy: #c2410c;
+  --ls-status-offline: #8a8a8a;
+
+  --ls-radius-xl: 8px;
+  --ls-radius-md: 5px;
+
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
-    sans-serif;
+  position: relative;
+
   width: 100%;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--ls-radius-xl);
-  padding: 12px 8px;
+  min-height: 166px;
+
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 14px;
+
+  padding: 18px;
+
+  background: var(--surface);
+
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ls-radius-xl);
+
+  color: var(--ls-text-primary);
+
+  text-align: left;
+
   cursor: pointer;
+  user-select: none;
+
   transition:
     background-color 0.15s var(--ls-ease-out),
     border-color 0.15s var(--ls-ease-out),
-    transform 0.15s var(--ls-ease-out);
-  position: relative;
-  text-align: center;
-  user-select: none;
+    color 0.15s var(--ls-ease-out),
+    transform 0.15s var(--ls-ease-out),
+    box-shadow 0.15s var(--ls-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition:
       background-color 0.15s ease,
-      border-color 0.15s ease;
+      border-color 0.15s ease,
+      color 0.15s ease;
   }
 }
 
 .card:hover {
-  background-color: var(--ls-card-bg-hover);
+  background: var(--surface-hover);
+  border-color: var(--border);
+  transform: translateY(-2px);
 }
 
 .card:active {
-  transform: scale(0.97);
+  transform: translateY(0) scale(0.985);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .card.selected {
-  background-color: var(--ls-card-bg-selected);
-  border-color: rgba(10, 132, 255, 0.25);
-  padding: 0;
-  background: transparent;
-  color: var(--accent-text);
-  font-size: 10px;
-  outline-offset: -1px;
+  background: var(--text);
+  border-color: var(--text);
+
+  color: var(--text-selected);
+
+  box-shadow: var(--shadow-sm);
 }
 
 .avatarContainer {
@@ -75,42 +96,57 @@
 }
 
 .iconWrapper {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
+
   display: grid;
   place-items: center;
-  border-radius: 50%;
+
   background: var(--ls-avatar-bg);
+
+  border: 1px solid var(--border);
+
+  border-radius: 8px;
+
   color: var(--ls-avatar-color);
+
   transition:
     background-color 0.15s var(--ls-ease-out),
+    border-color 0.15s var(--ls-ease-out),
     color 0.15s var(--ls-ease-out);
 }
 
 .card:hover .iconWrapper {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--ls-text-primary);
+  background: var(--surface-active);
+  color: var(--text);
 }
 
 .card.selected .iconWrapper {
   background: var(--ls-avatar-bg-selected);
+  border-color: #ffffff;
+
   color: var(--ls-avatar-color-selected);
 }
 
 .statusBadge {
   position: absolute;
-  bottom: 0;
+
   right: 0;
+  bottom: 0;
+
   width: 10px;
   height: 10px;
+
+  border: 2px solid var(--surface);
   border-radius: 50%;
-  border: 2px solid #1c1c1e;
+
   z-index: 2;
+
   transition: border-color 0.15s ease;
 }
 
 .card.selected .statusBadge {
-  border-color: #16243b;
+  border-color: var(--text);
 }
 
 .dot_available {
@@ -119,6 +155,7 @@
 
 .dot_connecting {
   background-color: var(--ls-status-connecting);
+
   animation: pulse 1.5s infinite var(--ls-ease-out);
 }
 
@@ -131,145 +168,93 @@
 }
 
 @keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
+  0%,
   100% {
     opacity: 1;
   }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .info {
+  width: 100%;
+
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  width: 100%;
+  align-items: flex-start;
+
+  gap: 5px;
 }
 
 .name {
-  font-size: 12px;
-  font-weight: 500;
+  width: 100%;
+
   color: var(--ls-text-primary);
+
+  font-size: 14px;
+  font-weight: 650;
+
+  letter-spacing: -0.15px;
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
-  letter-spacing: -0.1px;
 }
 
 .os {
-  font-size: 11px;
-  color: var(--ls-text-secondary);
-  font-weight: 400;
+  color: var(--ls-text-muted);
+
+  font: 10px var(--font-mono);
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card.selected .name {
+  color: #ffffff;
+}
+
+.card.selected .os {
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .actionRow {
+  width: 100%;
   height: 20px;
+
   display: flex;
   align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s var(--ls-ease-out);
-}
-
-.card:hover .actionRow,
-.card:focus-visible .actionRow,
-.card.selected .actionRow {
-  opacity: 1;
-}
-
-.actionText {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ls-text-primary);
-  padding: 2px 8px;
-  border-radius: var(--ls-radius-md);
-  background: rgba(255, 255, 255, 0.08);
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.card.selected .actionText {
-  color: var(--ls-avatar-color-selected);
-  background: var(--ls-avatar-bg-selected);
-}
-
-.card {
-  --ls-card-bg-hover: var(--surface-hover);
-  --ls-card-bg-selected: var(--accent-subtle);
-  --ls-avatar-bg: var(--surface-active);
-  --ls-avatar-color: var(--text-secondary);
-  --ls-avatar-bg-selected: #111111;
-  --ls-avatar-color-selected: var(--accent);
-  --ls-text-primary: var(--text);
-  --ls-text-secondary: var(--text-secondary);
-  --ls-text-muted: var(--text-muted);
-  --ls-text-selected: #111111;
-  min-height: 166px;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--surface);
-  text-align: left;
-}
-.card:hover {
-  background: var(--surface-hover);
-  border-color: rgba(215, 243, 107, 0.3);
-  transform: translateY(-2px);
-}
-.card.selected {
-  background: var(--accent-subtle);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(215, 243, 107, 0.15);
-}
-.iconWrapper {
-  width: 52px;
-  height: 52px;
-  border-radius: 8px;
-  background: var(--surface-active);
-  color: var(--text-secondary);
-}
-.card.selected .iconWrapper {
-  background: #111111;
-  color: var(--accent);
-}
-.statusBadge {
-  border-color: var(--surface);
-}
-.info {
-  align-items: flex-start;
-  gap: 5px;
-}
-.name {
-  font-size: 14px;
-  font-weight: 650;
-}
-.os {
-  font: 10px var(--font-mono);
-  color: var(--text-muted);
-}
-.actionRow {
-  width: 100%;
   justify-content: flex-start;
+
   opacity: 1;
 }
+
 .actionText {
   padding: 0;
+
   background: transparent;
-  color: var(--accent);
+
+  color: var(--text);
+
   font-size: 10px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  transition:
+    color 0.15s var(--ls-ease-out),
+    opacity 0.15s var(--ls-ease-out);
 }
+
+.card:hover .actionText {
+  color: var(--text);
+}
+
 .card.selected .actionText {
   background: transparent;
-  color: #dff58e;
+  color: #ffffff;
 }
