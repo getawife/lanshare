@@ -15,7 +15,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   discoveryStatus,
   statusDetail,
 }) => {
-  // Logs and executes the window control action
   const logAndRun = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();

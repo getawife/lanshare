@@ -35,23 +35,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   transferRespond: (transferId: string, accept: boolean) =>
     ipcRenderer.invoke("transfer:respond", transferId, accept),
 
-  openFolder: (path?: string) =>
-    ipcRenderer.invoke("folder:open", path),
+  openFolder: (path?: string) => ipcRenderer.invoke("folder:open", path),
 
   minimizeWindow: () => {
-    console.log("[Preload] minimizeWindow called");
     ipcRenderer.send("window:minimize");
   },
 
   maximizeWindow: () => {
-    console.log("[Preload] maximizeWindow called");
     ipcRenderer.send("window:maximize");
   },
 
   closeWindow: () => {
-    console.log("[Preload] closeWindow called");
     ipcRenderer.send("window:close");
   },
 });
-
-console.log("[Preload] electronAPI exposed");

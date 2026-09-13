@@ -66,11 +66,9 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
           };
         case "BINARY_NOT_FOUND":
           return {
-            title: "Backend Executable Not Found",
+            title: "Backend Not Found",
             icon: <AlertTriangle size={20} strokeWidth={2} />,
-            message:
-              status.error ||
-              "The local Go backend engine or binary could not be found.",
+            message: status.error || "The local Go backend could not be found.",
             tips: [
               "If running in development mode, ensure Go is installed and available in your PATH.",
               "If packaged, verify the installation directory contains lanshare-backend.",
@@ -78,7 +76,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
           };
         case "HEALTHCHECK_TIMEOUT":
           return {
-            title: "Backend Health Check Timed Out",
+            title: "Backend Timed Out",
             icon: <AlertTriangle size={20} strokeWidth={2} />,
             message:
               status.error ||
@@ -94,10 +92,10 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
             icon: <AlertOctagon size={20} strokeWidth={2} />,
             message:
               status.error ||
-              "The local communication engine is offline. Device discovery and file transfers are disabled.",
+              "The backend is offline. Device discovery and file transfers are disabled.",
             tips: [
-              "Click 'Restart Service' to launch the background engine.",
-              "Check technical logs below for more details.",
+              "Click 'Restart Service' to launch again.",
+              "Check logs below for more details.",
             ],
           };
       }

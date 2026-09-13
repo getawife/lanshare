@@ -22,7 +22,6 @@ let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendUrl = "http://127.0.0.1:43821";
 let mainWindow: BrowserWindow | null = null;
 const backendPort = Number(process.env.LANSHARE_HTTP_PORT ?? "43821") || 43821;
-// Per-run admin token to authenticate privileged local UI calls to the backend.
 let adminToken: string | null = null;
 
 async function readSettings() {
@@ -151,9 +150,6 @@ async function startBackend(): Promise<BackendStatus> {
   }
 
   try {
-    // Ensure an admin token exists for this run and pass it to the backend
-    // as an environment variable. The backend will require this token for
-    // privileged endpoints like /api/settings and /api/respond-transfer.
     if (!adminToken) {
       adminToken = crypto.randomBytes(16).toString("hex");
     }
@@ -271,9 +267,6 @@ async function waitForBackend(): Promise<BackendStatus> {
 }
 
 async function pushSettingsToBackend() {
-  // Read persisted Electron settings and POST them to the local backend
-  // so the backend can enforce and advertise current preferences where
-  // appropriate. Use the per-run admin token for authentication.
   try {
     const s = (await readSettings()) ?? {};
     const cfg = {
@@ -282,7 +275,9 @@ async function pushSettingsToBackend() {
       autoAcceptTrusted: s.autoAcceptTrusted ?? false,
       downloadFolder: s.downloadFolder ?? "",
     };
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (adminToken) headers["X-Lanshare-Token"] = adminToken;
     await fetch(`${backendUrl}/api/settings`, {
       method: "POST",
@@ -439,8 +434,6 @@ ipcMain.handle("settings:get", async () => {
 ipcMain.handle("settings:save", async (_event, settings) => {
   await writeSettings(settings);
   nativeTheme.themeSource = settings.theme ?? "system";
-  // Push updated settings to the backend so discovery broadcasts include the
-  // current effective preferences (askBeforeAccepting, autoAcceptTrusted).
   try {
     await pushSettingsToBackend();
   } catch (e) {
@@ -454,27 +447,34 @@ ipcMain.handle(
   async (_event, pathName: string, init?: RequestInit) => {
     const headers: Record<string, string> = {};
     if (init?.headers) {
-      // merge provided headers
       Object.assign(headers, init.headers as Record<string, string>);
     }
     if (adminToken) headers["X-Lanshare-Token"] = adminToken;
-    const response = await fetch(`${backendUrl}${pathName}`, { ...init, headers });
+    const response = await fetch(`${backendUrl}${pathName}`, {
+      ...init,
+      headers,
+    });
     const text = await response.text();
     return { ok: response.ok, status: response.status, body: text };
   },
 );
 
-ipcMain.handle("transfer:respond", async (_event, transferId: string, accept: boolean) => {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (adminToken) headers["X-Lanshare-Token"] = adminToken;
-  const response = await fetch(`${backendUrl}/api/respond-transfer`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ transferId, accept }),
-  });
-  const text = await response.text();
-  return { ok: response.ok, status: response.status, body: text };
-});
+ipcMain.handle(
+  "transfer:respond",
+  async (_event, transferId: string, accept: boolean) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (adminToken) headers["X-Lanshare-Token"] = adminToken;
+    const response = await fetch(`${backendUrl}/api/respond-transfer`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ transferId, accept }),
+    });
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, body: text };
+  },
+);
 
 ipcMain.handle("backend:state", async () => {
   const response = await fetch(`${backendUrl}/api/state`);
@@ -501,8 +501,6 @@ ipcMain.handle("folder:open", async (_event, folderPath?: string) => {
 
 app.whenReady().then(async () => {
   await startBackend();
-  // After backend is running, push the current Electron settings so the backend
-  // will advertise them in its discovery packets.
   try {
     await pushSettingsToBackend();
   } catch (e) {
