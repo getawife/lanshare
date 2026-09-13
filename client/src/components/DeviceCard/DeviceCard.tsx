@@ -52,23 +52,12 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
         <div className={styles.iconWrapper} aria-hidden="true">
           {getDeviceIcon()}
         </div>
-        <span
-          className={`${styles.statusBadge} ${styles[`dot_${device.status}`]}`}
-          title={getStatusText()}
-          aria-hidden="true"
-        />
       </div>
 
       <div className={styles.info}>
         <span className={styles.name}>{device.name}</span>
         <span className={styles.os}>
           {device.os} • {getStatusText()}
-        </span>
-      </div>
-
-      <div className={styles.actionRow} aria-hidden="true">
-        <span className={styles.actionText}>
-          {isSelected ? "Selected" : actionLabel}
         </span>
       </div>
     </button>
