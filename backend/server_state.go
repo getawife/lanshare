@@ -41,19 +41,14 @@ type ServerState struct {
 	HTTPPort          int
 	LANPort           int
 	UDPDiscoveryBound bool
-	Peers             map[string]Device // Keyed by Name (lowercased) to guarantee zero duplicate cards
+	Peers             map[string]Device 
 	events            map[chan event]struct{}
 	mu                sync.Mutex
 	shares            map[string]shareRecord
 	warnings          []string
 	settings          BackendSettings
-	// AdminToken is an optional per-run secret used to authenticate privileged
-	// local requests from the Electron host (X-Lanshare-Token header).
 	AdminToken        string
-	// pendingTransfers holds channels that wait for local user acceptance for
-	// a transfer. Keyed by transferID.
 	pendingTransfers  map[string]chan transferDecision
-	// allowedTransferTokens maps transfer tokens to the transfer ID and expiry.
 	allowedTransferTokens map[string]allowedToken
 }
 
@@ -73,7 +68,7 @@ func NewServerState() (*ServerState, error) {
 		name = h
 	}
 	return &ServerState{
-		DeviceID:          randomToken(8), // Unique ID per running process instance
+		DeviceID:          randomToken(8), 
 		DeviceName:        name,
 		Version:           "1.0.0",
 		UDPDiscoveryBound: false,
@@ -306,15 +301,11 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 	}
 }
 
-// interfaceBroadcastPair ties a local interface unicast address to its
-// calculated broadcast address (for IPv4 only).
 type interfaceBroadcastPair struct {
 	Local *net.UDPAddr
 	Bcast *net.UDPAddr
 }
 
-// getInterfaceBroadcastPairs returns local IP / broadcast pairs for each
-// active non-loopback IPv4 interface.
 func getInterfaceBroadcastPairs(port int) []interfaceBroadcastPair {
 	out := []interfaceBroadcastPair{}
 	ifaces, err := net.Interfaces()
@@ -374,10 +365,8 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 		id, _ := packet["id"].(string)
 		name, _ := packet["name"].(string)
 
-		// --- BULLETPROOF FIX: Trim spaces, newlines, and most importantly NULL bytes ---
 		name = strings.TrimSpace(name)
 		name = strings.Trim(name, "\x00")
-		// ------------------------------------------------------------------------------
 
 		ip := strings.Split(addr.String(), ":")[0]
 		port := intFrom(packet["port"])
@@ -386,12 +375,10 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 			httpPort = port
 		}
 
-		// Filter out invalid, empty, or self packets
 		if name == "" || strings.EqualFold(name, s.DeviceName) || id == s.DeviceID {
 			continue
 		}
 
-		// Parse optional settings object if present in discovery packet.
 		var peerSettings BackendSettings
 		if rawSettings, ok := packet["settings"]; ok {
 			if b, err := json.Marshal(rawSettings); err == nil {
@@ -415,7 +402,6 @@ func (s *ServerState) RunDiscoveryListener(ctx context.Context, conn net.PacketC
 			Settings:     peerSettings,
 		}
 
-		// Use lowercased name as map key to force exact 1 entry per physical device name
 		key := strings.ToLower(name)
 
 		s.mu.Lock()
@@ -535,7 +521,6 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 		targetPort = peer.Port
 	}
 
-	// 1. Prepare Transfer Handshake with recipient
 	prepURL := fmt.Sprintf("http://%s:%d/api/prepare-transfer", peer.IP, targetPort)
 	prepPayload, err := json.Marshal(map[string]any{
 		"transferId": req.TransferID,
@@ -553,7 +538,6 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 	}
 	prepReq.Header.Set("Content-Type", "application/json")
 
-	// Allow up to 35 seconds for recipient to respond (accounting for user prompt timeout)
 	prepClient := &http.Client{Timeout: 35 * time.Second}
 	prepResp, err := prepClient.Do(prepReq)
 	if err != nil {
@@ -580,7 +564,6 @@ func (s *ServerState) SendFiles(ctx context.Context, req TransferRequest) error 
 		return fmt.Errorf("invalid response from peer prepare endpoint")
 	}
 
-	// 2. Stream multipart file data to recipient with the obtained token
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	receiveURL := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, targetPort)

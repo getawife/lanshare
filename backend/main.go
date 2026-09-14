@@ -81,8 +81,6 @@ func (b *Backend) Start(ctx context.Context) error {
 			httpPort = parsed
 		}
 	}
-	// Issue 5.1: try the preferred port first, then fall back to a range of
-	// nearby ports so a leftover orphan process doesn't crash the app.
 	var httpLn net.Listener
 	var err error
 	for _, candidate := range candidatePorts(httpPort, 10) {
@@ -96,11 +94,8 @@ func (b *Backend) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to bind HTTP server: all candidate ports (%d–%d) are in use", defaultHTTPPort, defaultHTTPPort+9)
 	}
 	b.state.HTTPPort = httpLn.Addr().(*net.TCPAddr).Port
-	// Harden admin token policy: require the LANSHARE_ADMIN_TOKEN to be set by the
-	// Electron host. If not set, privileged endpoints will reject requests.
 	b.state.AdminToken = os.Getenv("LANSHARE_ADMIN_TOKEN")
 	if b.state.AdminToken == "" {
-		// Log a warning — by default we will deny privileged actions when token is missing.
 		log.Printf("[Security] no LANSHARE_ADMIN_TOKEN provided; privileged endpoints will be disabled")
 	}
 
@@ -122,7 +117,6 @@ func (b *Backend) Start(ctx context.Context) error {
 
 	log.Printf("LANShare backend ready: http=127.0.0.1:%d lan=%d", b.state.HTTPPort, b.state.LANPort)
 
-	// Force close if context is cancelled
 	go func() {
 		<-ctx.Done()
 		_ = httpLn.Close()
@@ -164,12 +158,10 @@ func withCORS(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			if !isAllowedOrigin(origin) {
-				// For preflight requests from disallowed origins, deny.
 				if r.Method == http.MethodOptions {
 					w.WriteHeader(http.StatusForbidden)
 					return
 				}
-				// For non-preflight, continue without CORS headers (browser will block).
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -193,10 +185,6 @@ func (b *Backend) health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// prepareTransfer handles an initial sender request to initiate a transfer.
-// The request is held until the local user accepts or rejects (or a timeout
-// occurs). On acceptance the backend responds with a short-lived transfer
-// token that the sender must present when POSTing file content to /api/receive.
 func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
@@ -216,10 +204,8 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 		transferID = randomToken(8)
 	}
 
-	// Enforce local policy: if AskBeforeAccepting is false, accept automatically.
 	settings := b.state.GetSettings()
 	if !settings.AskBeforeAccepting {
-		// Auto-accept; generate a token and return immediately.
 		token := randomToken(16)
 		b.state.mu.Lock()
 		b.state.allowedTransferTokens[token] = allowedToken{TransferID: transferID, ExpiresAt: time.Now().Add(30 * time.Second)}
@@ -228,7 +214,6 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If peer is trusted and autoAcceptTrusted is set, accept automatically.
 	peer := b.state.findPeer(req.PeerID)
 	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted {
 		token := randomToken(16)
@@ -248,12 +233,10 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Otherwise, notify UI and wait for a user decision.
 	ch := make(chan transferDecision, 1)
 	b.state.mu.Lock()
 	b.state.pendingTransfers[transferID] = ch
 	b.state.mu.Unlock()
-	// publish an event so UI can show prompt
 	b.state.publish(event{Type: "incoming-transfer-request", Data: map[string]any{
 		"transferId": transferID,
 		"peerId":     req.PeerID,
@@ -264,7 +247,6 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 	select {
 	case dec := <-ch:
 		if dec.Accepted {
-			// ensure token is valid briefly
 			b.state.mu.Lock()
 			b.state.allowedTransferTokens[dec.Token] = allowedToken{TransferID: transferID, ExpiresAt: time.Now().Add(30 * time.Second)}
 			b.state.mu.Unlock()
@@ -283,15 +265,12 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// respondTransfer is a privileged endpoint called by the local UI (Electron)
-// to accept/reject a pending incoming transfer.
 func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-RP000", "method not allowed")
 		return
 	}
 	
-	// Require admin token to ensure only the local UI can respond.
 	header := r.Header.Get("X-Lanshare-Token")
 	if b.state.AdminToken == "" {
 		writeErrorJSON(w, http.StatusUnauthorized, "B-RP004", "admin token not configured on server")
@@ -339,10 +318,7 @@ func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, b.state.Snapshot())
 }
 
-// settingsHandler accepts a POST from Electron to push user settings into the backend,
-// and responds to GET with the current settings.  This resolves Issue 2.2.
 func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
-	// Require the admin token for POST (privileged) operations.
 	if r.Method == http.MethodPost {
 		header := r.Header.Get("X-Lanshare-Token")
 		if b.state.AdminToken == "" {
@@ -370,7 +346,6 @@ func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// candidatePorts returns [start, start+1, … start+n-1] for port-fallback logic.
 func candidatePorts(start, n int) []int {
 	out := make([]int, n)
 	for i := range out {
@@ -469,7 +444,6 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		writeErrorJSON(w, http.StatusForbidden, "B-R021", "invalid or expired transfer token")
 		return
 	}
-	// token is valid for the expected transfer; consume it (single-use)
 	delete(b.state.allowedTransferTokens, token)
 	b.state.mu.Unlock()
 

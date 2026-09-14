@@ -41,7 +41,7 @@ func TestSafeDownloadPath(t *testing.T) {
 		{
 			name:         "windows drive specifier",
 			relativePath: "C:/Windows/System32/cmd.exe",
-			wantErr:      false, // Sanitizes to System32/cmd.exe under tempDir
+			wantErr:      false, 
 		},
 	}
 
@@ -68,30 +68,25 @@ func TestGetUniqueFilePath(t *testing.T) {
 	tempDir := t.TempDir()
 	file1 := filepath.Join(tempDir, "test.txt")
 
-	// First call when file does not exist should return file1
 	got1 := getUniqueFilePath(file1)
 	if got1 != file1 {
 		t.Errorf("Expected %s, got %s", file1, got1)
 	}
 
-	// Create file1
 	if err := os.WriteFile(file1, []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Second call should return test (1).txt
 	got2 := getUniqueFilePath(file1)
 	expected2 := filepath.Join(tempDir, "test (1).txt")
 	if got2 != expected2 {
 		t.Errorf("Expected %s, got %s", expected2, got2)
 	}
 
-	// Create expected2
 	if err := os.WriteFile(expected2, []byte("hello 2"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Third call should return test (2).txt
 	got3 := getUniqueFilePath(file1)
 	expected3 := filepath.Join(tempDir, "test (2).txt")
 	if got3 != expected3 {
@@ -103,7 +98,6 @@ func TestComputeFileSHA256(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "sample.txt")
 
-	// Known SHA-256 for "hello world\n" is 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b or similar
 	content := []byte("hello lanshare")
 	if err := os.WriteFile(filePath, content, 0o644); err != nil {
 		t.Fatal(err)
@@ -117,7 +111,6 @@ func TestComputeFileSHA256(t *testing.T) {
 		t.Errorf("Expected 64 hex characters, got %d (%s)", len(hash), hash)
 	}
 
-	// Zero-byte file test
 	emptyFile := filepath.Join(tempDir, "empty.txt")
 	if err := os.WriteFile(emptyFile, []byte{}, 0o644); err != nil {
 		t.Fatal(err)
@@ -126,7 +119,6 @@ func TestComputeFileSHA256(t *testing.T) {
 	if err != nil {
 		t.Fatalf("computeFileSHA256 empty file failed: %v", err)
 	}
-	// SHA-256 for empty byte array: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 	expectedEmpty := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	if emptyHash != expectedEmpty {
 		t.Errorf("Expected empty file hash %s, got %s", expectedEmpty, emptyHash)
@@ -172,7 +164,6 @@ func TestPrepareTransferAutoAccept(t *testing.T) {
 		t.Fatalf("Expected valid token in response, got %+v", res)
 	}
 
-	// Verify token was stored in allowedTransferTokens
 	state.mu.Lock()
 	_, ok := state.allowedTransferTokens[res.Token]
 	state.mu.Unlock()
@@ -188,7 +179,6 @@ func TestReceiveTokenValidation(t *testing.T) {
 	}
 	backend := NewBackend(state)
 
-	// Missing token -> 401
 	req := httptest.NewRequest(http.MethodPost, "/api/receive", nil)
 	rec := httptest.NewRecorder()
 	backend.receive(rec, req)
@@ -196,7 +186,6 @@ func TestReceiveTokenValidation(t *testing.T) {
 		t.Errorf("Expected 401 for missing token, got %d", rec.Code)
 	}
 
-	// Invalid token -> 403
 	req2 := httptest.NewRequest(http.MethodPost, "/api/receive", nil)
 	req2.Header.Set("X-Lanshare-Transfer-Token", "invalid-token")
 	rec2 := httptest.NewRecorder()

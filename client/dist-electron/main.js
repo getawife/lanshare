@@ -59,7 +59,7 @@ function analyzeBackendError() {
         fullLog.includes("firewall")) {
         return {
             code: "BLOCKED_BY_FIREWALL",
-            error: "LANShare backend access was blocked by system permissions or security/firewall software.",
+            error: "Lanshare backend access was blocked by system permissions or security/firewall software.",
         };
     }
     if (fullLog.includes("cannot find") ||
@@ -207,7 +207,7 @@ async function pushSettingsToBackend() {
     try {
         const s = (await readSettings()) ?? {};
         const cfg = {
-            deviceName: s.deviceName ?? "LANShare Desktop",
+            deviceName: s.deviceName ?? "Lanshare Desktop",
             askBeforeAccepting: s.askBeforeAccepting ?? true,
             autoAcceptTrusted: s.autoAcceptTrusted ?? false,
             downloadFolder: s.downloadFolder ?? "",
@@ -349,7 +349,7 @@ ipcMain.handle("folder:select", async () => {
 });
 ipcMain.handle("settings:get", async () => {
     return ((await readSettings()) ?? {
-        deviceName: "LANShare Desktop",
+        deviceName: "Lanshare Desktop",
         autoStart: false,
         showNotifications: true,
         downloadFolder: "",
