@@ -7,12 +7,21 @@
   "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
   "extraResources": [
     {
-      "from": "../backend/linux/backend",
-      "to": "backend/backend"
+      "from": "backend/linux",
+      "to": "backend/linux"
     }
   ],
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64", "arm64"]
+      }
+    ],
     "icon": "build/icon.png"
   }
 }

@@ -7,12 +7,17 @@
   "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
   "extraResources": [
     {
-      "from": "../backend/macos/backend-arm64",
-      "to": "backend/backend"
+      "from": "backend/macos/arm64",
+      "to": "backend/macos/arm64"
     }
   ],
   "mac": {
-    "target": "dmg",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["arm64"]
+      }
+    ],
     "icon": "build/icon.icns"
   }
 }

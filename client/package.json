@@ -4,6 +4,12 @@
   "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
+  "description": "Fast local network file transfers between your devices.",
+  "author": {
+    "name": "getawife",
+    "email": "contactgetawife@gmail.com"
+  },
+  "homepage": "https://github.com/getawife/lanshare",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite --host 127.0.0.1",
