@@ -1,7 +1,7 @@
 {
   "name": "lanshare",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -11,6 +11,10 @@
     "dev:instance": "tsc -p electron/tsconfig.json && wait-on http://127.0.0.1:5173 && set ELECTRON_RUN_AS_NODE=&& electron .",
     "build": "vite build && tsc -p electron/tsconfig.json",
     "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
+    "dist": "pnpm build && electron-builder",
+    "dist:win": "pnpm build && electron-builder --config electron-builder.win.json",
+    "dist:mac": "pnpm build && electron-builder --config electron-builder.mac.json",
+    "dist:linux": "pnpm build && electron-builder --config electron-builder.linux.json",
     "dev:clean": "npx kill-port 43821 43822 43823 43824 43825 43826 43827 43828 43829 43830",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -19,7 +23,7 @@
     "crypto": "^1.0.1",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -28,6 +32,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "concurrently": "^9.2.1",
     "electron": "^39.8.10",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
@@ -35,5 +40,27 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.lanshare.app",
+    "productName": "Lanshare",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icon.png"
+    },
+    "directories": {
+      "output": "../releases"
+    }
   }
 }

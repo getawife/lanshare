@@ -1,7 +1,10 @@
 # Dependencies & Builds
+
 /client/node_modules
 /client/dist
 /client/dist-electron
-*.exe
+
+/releases
+
 .gocache
 /backend/.gocache-test

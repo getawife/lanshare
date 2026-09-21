@@ -6,11 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_BACKEND_PORT = 43821;
 const settingsPath = path.join(app.getPath("userData"), "lanshare-settings.json");
 let backendProcess = null;
-let backendUrl = "http://127.0.0.1:43821";
+let backendUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`;
 let mainWindow = null;
-const backendPort = Number(process.env.LANSHARE_HTTP_PORT ?? "43821") || 43821;
+let backendPort = DEFAULT_BACKEND_PORT;
 let adminToken = null;
 async function readSettings() {
     try {
@@ -26,20 +27,49 @@ async function writeSettings(settings) {
     await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf8");
 }
 function backendBinaryPath() {
-    return path.join(process.resourcesPath, "backend", process.platform === "win32" ? "lanshare-backend.exe" : "lanshare-backend");
+    const backendRoot = path.join(process.resourcesPath, "backend");
+    if (process.platform === "win32") {
+        const candidates = [
+            path.join(backendRoot, "windows", process.arch, "lanshare-backend.exe"),
+            path.join(backendRoot, "windows", "lanshare-backend.exe"),
+            path.join(backendRoot, "lanshare-backend.exe"),
+        ];
+        return (candidates.find((candidate) => fsSync.existsSync(candidate)) ??
+            candidates[0]);
+    }
+    if (process.platform === "darwin") {
+        const candidates = [
+            path.join(backendRoot, "macos", process.arch, "lanshare-backend"),
+            path.join(backendRoot, "macos", "lanshare-backend"),
+            path.join(backendRoot, "lanshare-backend"),
+        ];
+        return (candidates.find((candidate) => fsSync.existsSync(candidate)) ??
+            candidates[0]);
+    }
+    if (process.platform === "linux") {
+        const candidates = [
+            path.join(backendRoot, "linux", process.arch, "lanshare-backend"),
+            path.join(backendRoot, "linux", "lanshare-backend"),
+            path.join(backendRoot, "lanshare-backend"),
+        ];
+        return (candidates.find((candidate) => fsSync.existsSync(candidate)) ??
+            candidates[0]);
+    }
+    throw new Error(`Unsupported platform: ${process.platform}`);
 }
 let backendStatus = {
     state: "stopped",
-    url: `http://127.0.0.1:${backendPort}`,
+    url: backendUrl,
 };
 const backendLogs = [];
 function appendBackendLog(chunk) {
-    const lines = chunk.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const lines = chunk.split(/\r?\n/).filter((line) => line.trim().length > 0);
     for (const line of lines) {
         console.log(`[Backend Log] ${line}`);
         backendLogs.push(line);
-        if (backendLogs.length > 100)
+        if (backendLogs.length > 100) {
             backendLogs.shift();
+        }
     }
 }
 function analyzeBackendError() {
@@ -50,7 +80,7 @@ function analyzeBackendError() {
         fullLog.includes("wsaeaddrinuse")) {
         return {
             code: "PORT_IN_USE",
-            error: `Port ${backendPort} is already in use by another instance or application. Close conflicting applications or choose another port.`,
+            error: `Backend port ${backendPort} could not be bound.`,
         };
     }
     if (fullLog.includes("permission denied") ||
@@ -59,7 +89,7 @@ function analyzeBackendError() {
         fullLog.includes("firewall")) {
         return {
             code: "BLOCKED_BY_FIREWALL",
-            error: "Lanshare backend access was blocked by system permissions or security/firewall software.",
+            error: "LANShare backend access was blocked by system permissions or security software.",
         };
     }
     if (fullLog.includes("cannot find") ||
@@ -67,7 +97,7 @@ function analyzeBackendError() {
         fullLog.includes("executable file not found")) {
         return {
             code: "BINARY_NOT_FOUND",
-            error: "Backend executable or Go compiler could not be located.",
+            error: "The LANShare backend executable could not be found.",
         };
     }
     return {
@@ -75,27 +105,42 @@ function analyzeBackendError() {
         error: "Backend process terminated unexpectedly on startup.",
     };
 }
+function setBackendPort(port) {
+    backendPort = port;
+    backendUrl = `http://127.0.0.1:${port}`;
+}
 async function startBackend() {
     if (backendProcess && !backendProcess.killed) {
         return backendStatus;
     }
     backendLogs.length = 0;
+    setBackendPort(DEFAULT_BACKEND_PORT);
     backendStatus = {
         state: "starting",
-        url: `http://127.0.0.1:${backendPort}`,
+        url: backendUrl,
     };
     const binary = backendBinaryPath();
     const isPackaged = app.isPackaged;
     const command = isPackaged ? binary : "go";
     const args = isPackaged ? [] : ["run", "."];
-    const cwd = path.resolve(__dirname, "../../backend");
+    const developmentCwd = path.resolve(__dirname, "../../backend");
     if (isPackaged && !fsSync.existsSync(binary)) {
         backendStatus = {
             state: "error",
-            url: `http://127.0.0.1:${backendPort}`,
+            url: backendUrl,
             code: "BINARY_NOT_FOUND",
             error: `Packaged backend binary was not found at: ${binary}`,
-            errorDetails: `Expected binary path does not exist.`,
+            errorDetails: "Expected backend executable does not exist.",
+        };
+        return backendStatus;
+    }
+    if (!isPackaged && !fsSync.existsSync(developmentCwd)) {
+        backendStatus = {
+            state: "error",
+            url: backendUrl,
+            code: "BINARY_NOT_FOUND",
+            error: `Backend development directory was not found at: ${developmentCwd}`,
+            errorDetails: "Expected Go backend directory does not exist.",
         };
         return backendStatus;
     }
@@ -104,12 +149,13 @@ async function startBackend() {
             adminToken = crypto.randomBytes(16).toString("hex");
         }
         backendProcess = spawn(command, args, {
-            cwd,
+            cwd: isPackaged ? path.dirname(binary) : developmentCwd,
             windowsHide: true,
             stdio: "pipe",
             env: {
                 ...process.env,
                 GOTOOLCHAIN: "local",
+                LANSHARE_HTTP_PORT: String(DEFAULT_BACKEND_PORT),
                 LANSHARE_ADMIN_TOKEN: adminToken,
             },
         });
@@ -118,8 +164,8 @@ async function startBackend() {
         const errorMsg = err?.message || String(err);
         backendStatus = {
             state: "error",
-            url: `http://127.0.0.1:${backendPort}`,
-            code: err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL",
+            url: backendUrl,
+            code: err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "UNKNOWN",
             error: `Failed to spawn backend process: ${errorMsg}`,
             errorDetails: errorMsg,
         };
@@ -133,10 +179,10 @@ async function startBackend() {
     });
     backendProcess.on("error", (err) => {
         console.error("[Backend Process Error]", err);
-        const code = err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "BLOCKED_BY_FIREWALL";
+        const code = err?.code === "ENOENT" ? "BINARY_NOT_FOUND" : "UNKNOWN";
         backendStatus = {
             state: "error",
-            url: `http://127.0.0.1:${backendPort}`,
+            url: backendUrl,
             code,
             error: `Backend process error: ${err.message}`,
             errorDetails: backendLogs.join("\n") || err.stack || err.message,
@@ -150,7 +196,7 @@ async function startBackend() {
             const analyzed = analyzeBackendError();
             backendStatus = {
                 state: "error",
-                url: `http://127.0.0.1:${backendPort}`,
+                url: backendUrl,
                 code: analyzed.code,
                 error: analyzed.error,
                 errorDetails: backendLogs.join("\n") ||
@@ -158,47 +204,57 @@ async function startBackend() {
             };
         }
     });
-    const cleanup = () => {
-        if (backendProcess && !backendProcess.killed) {
-            backendProcess.kill();
-        }
-    };
-    app.once("before-quit", cleanup);
     return await waitForBackend();
 }
 async function waitForBackend() {
-    const url = `http://127.0.0.1:${backendPort}`;
-    for (let i = 0; i < 40; i += 1) {
+    const initialUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`;
+    for (let i = 0; i < 60; i += 1) {
         if (backendStatus.state === "error") {
             return backendStatus;
         }
         try {
-            const response = await fetch(`${url}/api/health`);
+            const response = await fetch(`${initialUrl}/api/health`);
             if (response.ok) {
-                const data = await response.json().catch(() => ({}));
-                backendUrl = url;
+                const healthData = await response.json().catch(() => ({}));
+                let actualPort = DEFAULT_BACKEND_PORT;
+                try {
+                    const stateResponse = await fetch(`${initialUrl}/api/state`);
+                    if (stateResponse.ok) {
+                        const state = await stateResponse.json();
+                        if (Number.isInteger(state.httpPort) &&
+                            state.httpPort > 0 &&
+                            state.httpPort <= 65535) {
+                            actualPort = state.httpPort;
+                        }
+                    }
+                }
+                catch {
+                    actualPort = DEFAULT_BACKEND_PORT;
+                }
+                setBackendPort(actualPort);
                 backendStatus = {
                     state: "running",
-                    url,
-                    diagnostics: data.diagnostics,
-                    networkWarnings: data.diagnostics?.warnings ?? [],
+                    url: backendUrl,
+                    diagnostics: healthData.diagnostics,
+                    networkWarnings: healthData.diagnostics?.warnings ?? [],
                 };
                 return backendStatus;
             }
         }
         catch {
-            // retry
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            continue;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
     if (backendStatus.state === "starting") {
         backendStatus = {
             state: "error",
-            url,
+            url: backendUrl,
             code: "HEALTHCHECK_TIMEOUT",
-            error: "Backend service did not respond to local health checks. It may be blocked by firewall or antivirus software.",
+            error: "Backend service did not respond to local health checks.",
             errorDetails: backendLogs.join("\n") ||
-                "No response received on 127.0.0.1 within timeout.",
+                `No response received on 127.0.0.1:${DEFAULT_BACKEND_PORT} within timeout.`,
         };
     }
     return backendStatus;
@@ -215,8 +271,9 @@ async function pushSettingsToBackend() {
         const headers = {
             "Content-Type": "application/json",
         };
-        if (adminToken)
+        if (adminToken) {
             headers["X-Lanshare-Token"] = adminToken;
+        }
         await fetch(`${backendUrl}/api/settings`, {
             method: "POST",
             headers,
@@ -228,14 +285,35 @@ async function pushSettingsToBackend() {
     }
 }
 async function stopBackend() {
-    if (!backendProcess)
+    if (!backendProcess) {
+        backendStatus = {
+            state: "stopped",
+            url: backendUrl,
+        };
         return;
+    }
     const proc = backendProcess;
     backendProcess = null;
-    proc.kill();
+    try {
+        if (process.platform === "win32" && proc.pid) {
+            spawn("taskkill", ["/pid", String(proc.pid), "/t", "/f"], {
+                windowsHide: true,
+                stdio: "ignore",
+            });
+        }
+        else {
+            proc.kill("SIGTERM");
+        }
+    }
+    catch {
+        try {
+            proc.kill();
+        }
+        catch { }
+    }
     backendStatus = {
         state: "stopped",
-        url: `http://127.0.0.1:${backendPort}`,
+        url: backendUrl,
     };
 }
 const preloadPath = path.join(__dirname, "preload.cjs");
@@ -258,9 +336,9 @@ function createWindow() {
             preload: preloadPath,
         },
     });
-    mainWindow.webContents.on("preload-error", (_event, preloadPath, error) => {
+    mainWindow.webContents.on("preload-error", (_event, failedPreloadPath, error) => {
         console.error("[Electron] PRELOAD ERROR");
-        console.error("[Electron] Path:", preloadPath);
+        console.error("[Electron] Path:", failedPreloadPath);
         console.error("[Electron] Error:", error);
     });
     mainWindow.on("closed", () => {
@@ -301,11 +379,9 @@ ipcMain.handle("backend:restart", async () => {
     return await startBackend();
 });
 ipcMain.on("window:minimize", () => {
-    console.log("[Electron] window:minimize received");
     mainWindow?.minimize();
 });
 ipcMain.on("window:maximize", () => {
-    console.log("[Electron] window:maximize received");
     if (!mainWindow)
         return;
     if (mainWindow.isMaximized()) {
@@ -316,7 +392,6 @@ ipcMain.on("window:maximize", () => {
     }
 });
 ipcMain.on("window:close", () => {
-    console.log("[Electron] window:close received");
     mainWindow?.close();
 });
 ipcMain.handle("files:select", async () => {
@@ -336,9 +411,12 @@ ipcMain.handle("files:select", async () => {
     });
 });
 ipcMain.handle("folder:select", async () => {
-    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    if (result.canceled || !result.filePaths[0])
+    const result = await dialog.showOpenDialog({
+        properties: ["openDirectory"],
+    });
+    if (result.canceled || !result.filePaths[0]) {
         return null;
+    }
     const folderPath = result.filePaths[0];
     return {
         name: path.basename(folderPath),
@@ -376,28 +454,41 @@ ipcMain.handle("backend:fetch", async (_event, pathName, init) => {
     if (init?.headers) {
         Object.assign(headers, init.headers);
     }
-    if (adminToken)
+    if (adminToken) {
         headers["X-Lanshare-Token"] = adminToken;
+    }
     const response = await fetch(`${backendUrl}${pathName}`, {
         ...init,
         headers,
     });
     const text = await response.text();
-    return { ok: response.ok, status: response.status, body: text };
+    return {
+        ok: response.ok,
+        status: response.status,
+        body: text,
+    };
 });
 ipcMain.handle("transfer:respond", async (_event, transferId, accept) => {
     const headers = {
         "Content-Type": "application/json",
     };
-    if (adminToken)
+    if (adminToken) {
         headers["X-Lanshare-Token"] = adminToken;
+    }
     const response = await fetch(`${backendUrl}/api/respond-transfer`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ transferId, accept }),
+        body: JSON.stringify({
+            transferId,
+            accept,
+        }),
     });
     const text = await response.text();
-    return { ok: response.ok, status: response.status, body: text };
+    return {
+        ok: response.ok,
+        status: response.status,
+        body: text,
+    };
 });
 ipcMain.handle("backend:state", async () => {
     const response = await fetch(`${backendUrl}/api/state`);
@@ -430,14 +521,16 @@ app.whenReady().then(async () => {
     }
     createWindow();
     app.on("activate", () => {
-        if (BrowserWindow.getAllWindows().length === 0)
+        if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
+        }
     });
 });
 app.on("before-quit", () => {
     void stopBackend();
 });
 app.on("window-all-closed", () => {
-    if (process.platform !== "darwin")
+    if (process.platform !== "darwin") {
         app.quit();
+    }
 });
