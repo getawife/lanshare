@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: client/releases/windows/*.exe
+          path: releases/windows/*.exe
 
   macos:
     runs-on: macos-14
@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: client/releases/mac/*.dmg
+          path: releases/mac/*.dmg
 
   linux:
     runs-on: ubuntu-24.04
@@ -159,8 +159,8 @@ jobs:
         with:
           name: linux
           path: |
-            client/releases/linux/*.AppImage
-            client/releases/linux/*.deb
+            releases/linux/*.AppImage
+            releases/linux/*.deb
 
   release:
     runs-on: ubuntu-latest
