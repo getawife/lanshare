@@ -12,7 +12,7 @@ jobs:
 windows:
 runs-on: windows-latest
 
-```
+
 defaults:
   run:
     working-directory: client
@@ -47,12 +47,12 @@ steps:
     with:
       name: windows
       path: releases/windows/*
-```
+
 
 macos:
 runs-on: macos-14
 
-```
+
 defaults:
   run:
     working-directory: client
@@ -81,7 +81,7 @@ steps:
 
   - name: Build macOS backend
     working-directory: backend
-    run: |
+    run: 
       mkdir -p ../client/backend/macos/arm64
       GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/macos/arm64/lanshare-backend .
 
@@ -96,12 +96,12 @@ steps:
     with:
       name: macos
       path: releases/mac/*
-```
+
 
 linux:
 runs-on: ubuntu-24.04
 
-```
+
 defaults:
   run:
     working-directory: client
@@ -130,15 +130,14 @@ steps:
 
   - name: Build Linux backends
     working-directory: backend
-    run: |
+    run: 
       mkdir -p ../client/backend/linux/x64
       mkdir -p ../client/backend/linux/arm64
-
       GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/x64/lanshare-backend .
-      GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/arm64/lanshare-backend
+      GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/arm64/lanshare-backend .
 
   - name: Make backends executable
-    run: |
+    run: 
       chmod +x backend/linux/x64/lanshare-backend
       chmod +x backend/linux/arm64/lanshare-backend
 
@@ -150,7 +149,7 @@ steps:
     with:
       name: linux
       path: releases/linux/*
-```
+
 
 release:
 runs-on: ubuntu-latest
@@ -159,7 +158,7 @@ needs:
 - macos
 - linux
 
-```
+
 steps:
   - name: Download Windows artifacts
     uses: actions/download-artifact@v4
@@ -184,4 +183,4 @@ steps:
     with:
       files: release-assets/**/*
       generate_release_notes: true
-```
+
