@@ -1,186 +1,195 @@
 name: Build and Release
 
 on:
-push:
-tags:
-- "v*"
+  push:
+    tags:
+      - "v*"
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-windows:
-runs-on: windows-latest
+  windows:
+    runs-on: windows-latest
 
+    defaults:
+      run:
+        working-directory: client
 
-defaults:
-  run:
-    working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-  - name: Setup pnpm
-    uses: pnpm/action-setup@v4
-    with:
-      version: 10
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
 
-  - name: Install dependencies
-    run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-  - name: Build backend
-    shell: pwsh
-    working-directory: backend
-    run: ./scripts/build-backend.ps1
+      - name: Build Windows backends
+        shell: pwsh
+        working-directory: backend
+        run: |
+          New-Item -ItemType Directory -Force ../client/backend/windows/x64 | Out-Null
+          New-Item -ItemType Directory -Force ../client/backend/windows/arm64 | Out-Null
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CGO_ENABLED = "0"
+          go build -trimpath -ldflags="-s -w" -o ../client/backend/windows/x64/lanshare-backend.exe .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:GOARCH = "arm64"
+          go build -trimpath -ldflags="-s -w" -o ../client/backend/windows/arm64/lanshare-backend.exe .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-  - name: Build Windows app
-    run: pnpm dist:win
+      - name: Build Windows app
+        run: pnpm dist:win
 
-  - name: Upload Windows artifacts
-    uses: actions/upload-artifact@v4
-    with:
-      name: windows
-      path: releases/windows/*
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: client/releases/windows/*.exe
 
+  macos:
+    runs-on: macos-14
 
-macos:
-runs-on: macos-14
+    defaults:
+      run:
+        working-directory: client
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-defaults:
-  run:
-    working-directory: client
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
 
-  - name: Setup pnpm
-    uses: pnpm/action-setup@v4
-    with:
-      version: 10
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-  - name: Install dependencies
-    run: pnpm install --frozen-lockfile
+      - name: Build macOS backend
+        working-directory: backend
+        run: |
+          mkdir -p ../client/backend/macos/arm64
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/macos/arm64/lanshare-backend .
 
-  - name: Setup Go
-    uses: actions/setup-go@v5
-    with:
-      go-version: "1.25"
+      - name: Make backend executable
+        run: chmod +x backend/macos/arm64/lanshare-backend
 
-  - name: Build macOS backend
-    working-directory: backend
-    run: 
-      mkdir -p ../client/backend/macos/arm64
-      GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/macos/arm64/lanshare-backend .
+      - name: Build macOS app
+        run: pnpm dist:mac
 
-  - name: Make backend executable
-    run: chmod +x backend/macos/arm64/lanshare-backend
+      - name: Upload macOS installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: client/releases/mac/*.dmg
 
-  - name: Build macOS app
-    run: pnpm dist:mac
+  linux:
+    runs-on: ubuntu-24.04
 
-  - name: Upload macOS artifacts
-    uses: actions/upload-artifact@v4
-    with:
-      name: macos
-      path: releases/mac/*
+    defaults:
+      run:
+        working-directory: client
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-linux:
-runs-on: ubuntu-24.04
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-defaults:
-  run:
-    working-directory: client
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Build Linux backends
+        working-directory: backend
+        run: |
+          mkdir -p ../client/backend/linux/x64
+          mkdir -p ../client/backend/linux/arm64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/x64/lanshare-backend .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/arm64/lanshare-backend .
 
-  - name: Setup pnpm
-    uses: pnpm/action-setup@v4
-    with:
-      version: 10
+      - name: Make backends executable
+        run: |
+          chmod +x backend/linux/x64/lanshare-backend
+          chmod +x backend/linux/arm64/lanshare-backend
 
-  - name: Install dependencies
-    run: pnpm install --frozen-lockfile
+      - name: Build Linux app
+        run: pnpm dist:linux
 
-  - name: Setup Go
-    uses: actions/setup-go@v5
-    with:
-      go-version: "1.25"
+      - name: Upload Linux installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            client/releases/linux/*.AppImage
+            client/releases/linux/*.deb
 
-  - name: Build Linux backends
-    working-directory: backend
-    run: 
-      mkdir -p ../client/backend/linux/x64
-      mkdir -p ../client/backend/linux/arm64
-      GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/x64/lanshare-backend .
-      GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../client/backend/linux/arm64/lanshare-backend .
+  release:
+    runs-on: ubuntu-latest
+    needs:
+      - windows
+      - macos
+      - linux
 
-  - name: Make backends executable
-    run: 
-      chmod +x backend/linux/x64/lanshare-backend
-      chmod +x backend/linux/arm64/lanshare-backend
+    steps:
+      - name: Download Windows installers
+        uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: release-assets
 
-  - name: Build Linux app
-    run: pnpm dist:linux
+      - name: Download macOS installers
+        uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: release-assets
 
-  - name: Upload Linux artifacts
-    uses: actions/upload-artifact@v4
-    with:
-      name: linux
-      path: releases/linux/*
+      - name: Download Linux installers
+        uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: release-assets
 
-
-release:
-runs-on: ubuntu-latest
-needs:
-- windows
-- macos
-- linux
-
-
-steps:
-  - name: Download Windows artifacts
-    uses: actions/download-artifact@v4
-    with:
-      name: windows
-      path: release-assets
-
-  - name: Download macOS artifacts
-    uses: actions/download-artifact@v4
-    with:
-      name: macos
-      path: release-assets
-
-  - name: Download Linux artifacts
-    uses: actions/download-artifact@v4
-    with:
-      name: linux
-      path: release-assets
-
-  - name: Create GitHub Release
-    uses: softprops/action-gh-release@v2
-    with:
-      files: release-assets/**/*
-      generate_release_notes: true
-
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/**/*
+          generate_release_notes: true
