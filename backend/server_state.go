@@ -246,20 +246,15 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 			"settings":     s.settings,
 		})
 
-		// 1) Send using per-interface sockets to their calculated broadcast addresses.
 		for _, pair := range getInterfaceBroadcastPairs(discoveryPort) {
 			if pair.Local == nil || pair.Bcast == nil {
 				continue
 			}
-			// Try to bind a UDP socket to the interface local IP and write to its
-			// broadcast address. This ensures the packet is emitted on that
-			// interface rather than only the system default.
 			func() {
 				laddr := &net.UDPAddr{IP: pair.Local.IP, Port: 0}
 				raddr := &net.UDPAddr{IP: pair.Bcast.IP, Port: pair.Bcast.Port}
 				conn, err := net.DialUDP("udp4", laddr, raddr)
 				if err != nil {
-					// best-effort: record a warning and continue
 					errStr := strings.ToLower(err.Error())
 					if strings.Contains(errStr, "permission") || strings.Contains(errStr, "access") || strings.Contains(errStr, "firewall") {
 						s.AddWarning("Firewall or security software may be blocking UDP broadcast discovery packets.")
@@ -279,7 +274,6 @@ func (s *ServerState) RunDiscovery(ctx context.Context, conn net.PacketConn) {
 			}()
 		}
 
-		// 2) Fallback: send to global IPv4 broadcast using the provided conn.
 		for _, bcast := range getBroadcastAddresses(discoveryPort) {
 			if bcast.IP.Equal(net.IPv4bcast) {
 				if _, err := conn.WriteTo(payload, bcast); err != nil {
@@ -705,23 +699,15 @@ func (s *ServerState) writeTransferMultipart(mw *multipart.Writer, transferID st
 	}
 	var copied int64
 	for idx, entry := range manifest {
-		partHeader, err := mw.CreateFormField(fmt.Sprintf("file-%d", idx))
+		part, err := mw.CreateFormField(fmt.Sprintf("file-%d", idx))
 		if err != nil {
-			return err
-		}
-		if err := json.NewEncoder(partHeader).Encode(map[string]any{
-			"relativePath": entry.RelativePath,
-			"isDir":        entry.IsDirectory,
-			"size":         entry.SizeBytes,
-			"checksum":     entry.Checksum,
-		}); err != nil {
 			return err
 		}
 		if entry.IsDirectory {
 			progress(copied, total)
 			continue
 		}
-		if err := copyFileWithProgress(partHeader, entry.SourcePath, func(n int64) {
+		if err := copyFileWithProgress(part, entry.SourcePath, func(n int64) {
 			copied += n
 			progress(copied, total)
 		}); err != nil {
