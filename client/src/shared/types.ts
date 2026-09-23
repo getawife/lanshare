@@ -32,6 +32,7 @@ export type TransferState =
   | "completed"
   | "failed"
   | "cancelled";
+
 export type TransferDirection = "incoming" | "outgoing";
 
 export interface TransferRecord {
@@ -102,6 +103,33 @@ declare global {
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
       transferRespond?: (transferId: string, accept: boolean) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
+
+      updates: {
+        onChecking: (callback: () => void) => () => void;
+
+        onAvailable: (
+          callback: (info: { version: string }) => void,
+        ) => () => void;
+
+        onProgress: (
+          callback: (progress: {
+            percent: number;
+            bytesPerSecond: number;
+            transferred: number;
+            total: number;
+          }) => void,
+        ) => () => void;
+
+        onDownloaded: (
+          callback: (info: { version: string }) => void,
+        ) => () => void;
+
+        onError: (
+          callback: (error: { message?: string }) => void,
+        ) => () => void;
+
+        install: () => void;
+      };
     };
   }
 }

@@ -8,3 +8,4 @@
 
 .gocache
 /backend/.gocache-test
+/backend/scripts

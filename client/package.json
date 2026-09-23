@@ -1,7 +1,7 @@
 {
   "name": "lanshare",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "dist-electron/main.js",
   "description": "Fast local network file transfers between your devices.",
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "crypto": "^1.0.1",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.0"
@@ -50,6 +51,13 @@
   "build": {
     "appId": "com.lanshare.app",
     "productName": "Lanshare",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "getawife",
+        "repo": "lanshare"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico"

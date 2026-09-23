@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import { autoUpdater } from "electron-updater";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKEND_PORT = 43821;
 const settingsPath = path.join(app.getPath("userData"), "lanshare-settings.json");
@@ -13,6 +14,13 @@ let backendUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`;
 let mainWindow = null;
 let backendPort = DEFAULT_BACKEND_PORT;
 let adminToken = null;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.setFeedURL({
+    provider: "github",
+    owner: "getawife",
+    repo: "lanshare",
+});
 async function readSettings() {
     try {
         const raw = await fs.readFile(settingsPath, "utf8");
@@ -520,6 +528,9 @@ app.whenReady().then(async () => {
         console.warn("Failed to push settings to backend:", e);
     }
     createWindow();
+    if (app.isPackaged) {
+        await autoUpdater.checkForUpdatesAndNotify();
+    }
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
