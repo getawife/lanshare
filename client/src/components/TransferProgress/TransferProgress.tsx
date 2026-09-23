@@ -18,7 +18,6 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
   transfer,
   onCancel,
 }) => {
-  // Calculates transfer completion percentage[cite: 16]
   const percentage = Math.min(
     100,
     Math.round(
@@ -26,7 +25,6 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
     ) || 0,
   );
 
-  // Formats file size bytes into readable units[cite: 16]
   const formatSize = (bytes: number) =>
     bytes < 1024 * 1024
       ? `${(bytes / 1024).toFixed(1)} KB`

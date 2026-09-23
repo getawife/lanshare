@@ -5,7 +5,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
+const { autoUpdater } = electronUpdater;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKEND_PORT = 43821;
 const settingsPath = path.join(app.getPath("userData"), "lanshare-settings.json");
@@ -20,6 +21,36 @@ autoUpdater.setFeedURL({
     provider: "github",
     owner: "getawife",
     repo: "lanshare",
+});
+autoUpdater.on("checking-for-update", () => {
+    mainWindow?.webContents.send("update:checking");
+});
+autoUpdater.on("update-available", (info) => {
+    mainWindow?.webContents.send("update:available", {
+        version: info.version,
+    });
+});
+autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update:progress", {
+        percent: progress.percent,
+        bytesPerSecond: progress.bytesPerSecond,
+        transferred: progress.transferred,
+        total: progress.total,
+    });
+});
+autoUpdater.on("update-downloaded", (info) => {
+    mainWindow?.webContents.send("update:downloaded", {
+        version: info.version,
+    });
+});
+autoUpdater.on("error", (error) => {
+    console.error("[Updater Error]", error);
+    mainWindow?.webContents.send("update:error", {
+        message: error.message,
+    });
+});
+ipcMain.on("update:install", () => {
+    autoUpdater.quitAndInstall();
 });
 async function readSettings() {
     try {
