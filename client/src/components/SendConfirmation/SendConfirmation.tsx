@@ -1,31 +1,29 @@
 import React, { useState } from "react";
 import { File, Folder, X, CircleDashed } from "lucide-react";
-import { Device, FileItem } from "../../shared/types";
+import { device, file_item } from "../../shared/types";
 import styles from "./SendConfirmation.module.css";
 
-interface SendConfirmationProps {
-  device: Device;
-  files: FileItem[];
-  onCancel: () => void;
-  onSend: () => void;
+interface send_confirmation_props {
+  device: device;
+  files: file_item[];
+  on_cancel: () => void;
+  on_send: () => void;
 }
 
-export const SendConfirmation: React.FC<SendConfirmationProps> = ({
+export const SendConfirmation: React.FC<send_confirmation_props> = ({
   device,
   files,
-  onCancel,
-  onSend,
+  on_cancel,
+  on_send,
 }) => {
-  const [isSending, setIsSending] = useState(false);
+  const [is_sending, set_is_sending] = useState(false);
 
-  // Calculates the total size of all files in the array[cite: 12]
-  const totalSizeBytes = files.reduce(
-    (acc, f) => acc + (Number(f.sizeBytes) || 0),
+  const total_size_bytes = files.reduce(
+    (acc, f) => acc + (Number(f.size) || 0),
     0,
   );
 
-  // Formats bytes into a readable string (B, KB, MB, GB)[cite: 12]
-  const formatSize = (bytes: number) => {
+  const format_size = (bytes: number) => {
     if (bytes <= 0 || isNaN(bytes)) return "0 B";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -34,13 +32,12 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handles the send action and sets the loading state[cite: 12]
-  const handleSend = async () => {
-    setIsSending(true);
+  const handle_send = async () => {
+    set_is_sending(true);
     try {
-      await onSend();
+      await on_send();
     } finally {
-      setIsSending(false);
+      set_is_sending(false);
     }
   };
 
@@ -58,8 +55,8 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
           </span>
           <button
             className={styles.closeBtn}
-            onClick={onCancel}
-            disabled={isSending}
+            onClick={on_cancel}
+            disabled={is_sending}
             aria-label="Close modal"
           >
             <X size={18} strokeWidth={2.5} />
@@ -74,14 +71,14 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
 
           <div className={styles.summaryText}>
             {files.length} {files.length === 1 ? "item" : "items"} ·{" "}
-            {formatSize(totalSizeBytes)}
+            {format_size(total_size_bytes)}
           </div>
 
           <div className={styles.fileList} tabIndex={0}>
             {files.map((file, idx) => (
               <div key={idx} className={styles.fileItem}>
                 <span className={styles.fileIcon}>
-                  {file.isDirectory ? <Folder size={18} /> : <File size={18} />}
+                  {file.is_dir ? <Folder size={18} /> : <File size={18} />}
                 </span>
                 <span className={styles.fileName}>{file.name}</span>
               </div>
@@ -92,10 +89,10 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
         <div className={styles.actions}>
           <button
             className={styles.sendBtn}
-            onClick={handleSend}
-            disabled={isSending}
+            onClick={handle_send}
+            disabled={is_sending}
           >
-            {isSending ? (
+            {is_sending ? (
               <>
                 <CircleDashed size={18} className={styles.spinning} />
                 <span>Sending…</span>
@@ -106,8 +103,8 @@ export const SendConfirmation: React.FC<SendConfirmationProps> = ({
           </button>
           <button
             className={styles.cancelBtn}
-            onClick={onCancel}
-            disabled={isSending}
+            onClick={on_cancel}
+            disabled={is_sending}
           >
             Cancel
           </button>

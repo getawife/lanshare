@@ -11,53 +11,53 @@ import (
 )
 
 func TestSafeDownloadPath(t *testing.T) {
-	tempDir := t.TempDir()
+	temp_dir := t.TempDir()
 
 	tests := []struct {
-		name         string
-		relativePath string
-		wantErr      bool
+		name          string
+		relative_path string
+		want_err      bool
 	}{
 		{
-			name:         "valid relative path",
-			relativePath: "documents/report.pdf",
-			wantErr:      false,
+			name:          "valid relative path",
+			relative_path: "documents/report.pdf",
+			want_err:      false,
 		},
 		{
-			name:         "simple filename",
-			relativePath: "photo.jpg",
-			wantErr:      false,
+			name:          "simple filename",
+			relative_path: "photo.jpg",
+			want_err:      false,
 		},
 		{
-			name:         "directory traversal attempt",
-			relativePath: "../secret.txt",
-			wantErr:      true,
+			name:          "directory traversal attempt",
+			relative_path: "../secret.txt",
+			want_err:      true,
 		},
 		{
-			name:         "nested traversal attempt",
-			relativePath: "foo/../../secret.txt",
-			wantErr:      true,
+			name:          "nested traversal attempt",
+			relative_path: "foo/../../secret.txt",
+			want_err:      true,
 		},
 		{
-			name:         "windows drive specifier",
-			relativePath: "C:/Windows/System32/cmd.exe",
-			wantErr:      false, 
+			name:          "windows drive specifier",
+			relative_path: "C:/Windows/System32/cmd.exe",
+			want_err:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := safeDownloadPath(tempDir, tt.relativePath)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("safeDownloadPath() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := safeDownloadPath(temp_dir, tt.relative_path)
+			if (err != nil) != tt.want_err {
+				t.Errorf("safeDownloadPath() error = %v, wantErr %v", err, tt.want_err)
 				return
 			}
 			if err == nil {
-				baseAbs, _ := filepath.Abs(tempDir)
-				targetAbs, _ := filepath.Abs(got)
-				prefix := baseAbs + string(filepath.Separator)
-				if targetAbs != baseAbs && !strings.HasPrefix(targetAbs, prefix) {
-					t.Errorf("safeDownloadPath() resulted in path %v outside base %v", targetAbs, baseAbs)
+				base_abs, _ := filepath.Abs(temp_dir)
+				target_abs, _ := filepath.Abs(got)
+				prefix := base_abs + string(filepath.Separator)
+				if target_abs != base_abs && !strings.HasPrefix(target_abs, prefix) {
+					t.Errorf("safeDownloadPath() resulted in path %v outside base %v", target_abs, base_abs)
 				}
 			}
 		})
@@ -65,8 +65,8 @@ func TestSafeDownloadPath(t *testing.T) {
 }
 
 func TestGetUniqueFilePath(t *testing.T) {
-	tempDir := t.TempDir()
-	file1 := filepath.Join(tempDir, "test.txt")
+	temp_dir := t.TempDir()
+	file1 := filepath.Join(temp_dir, "test.txt")
 
 	got1 := getUniqueFilePath(file1)
 	if got1 != file1 {
@@ -78,7 +78,7 @@ func TestGetUniqueFilePath(t *testing.T) {
 	}
 
 	got2 := getUniqueFilePath(file1)
-	expected2 := filepath.Join(tempDir, "test (1).txt")
+	expected2 := filepath.Join(temp_dir, "test (1).txt")
 	if got2 != expected2 {
 		t.Errorf("Expected %s, got %s", expected2, got2)
 	}
@@ -88,22 +88,22 @@ func TestGetUniqueFilePath(t *testing.T) {
 	}
 
 	got3 := getUniqueFilePath(file1)
-	expected3 := filepath.Join(tempDir, "test (2).txt")
+	expected3 := filepath.Join(temp_dir, "test (2).txt")
 	if got3 != expected3 {
 		t.Errorf("Expected %s, got %s", expected3, got3)
 	}
 }
 
 func TestComputeFileSHA256(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "sample.txt")
+	temp_dir := t.TempDir()
+	file_path := filepath.Join(temp_dir, "sample.txt")
 
 	content := []byte("hello lanshare")
-	if err := os.WriteFile(filePath, content, 0o644); err != nil {
+	if err := os.WriteFile(file_path, content, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	hash, err := computeFileSHA256(filePath)
+	hash, err := computeFileSHA256(file_path)
 	if err != nil {
 		t.Fatalf("computeFileSHA256 failed: %v", err)
 	}
@@ -111,17 +111,17 @@ func TestComputeFileSHA256(t *testing.T) {
 		t.Errorf("Expected 64 hex characters, got %d (%s)", len(hash), hash)
 	}
 
-	emptyFile := filepath.Join(tempDir, "empty.txt")
-	if err := os.WriteFile(emptyFile, []byte{}, 0o644); err != nil {
+	empty_file := filepath.Join(temp_dir, "empty.txt")
+	if err := os.WriteFile(empty_file, []byte{}, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	emptyHash, err := computeFileSHA256(emptyFile)
+	empty_hash, err := computeFileSHA256(empty_file)
 	if err != nil {
 		t.Fatalf("computeFileSHA256 empty file failed: %v", err)
 	}
-	expectedEmpty := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-	if emptyHash != expectedEmpty {
-		t.Errorf("Expected empty file hash %s, got %s", expectedEmpty, emptyHash)
+	expected_empty := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	if empty_hash != expected_empty {
+		t.Errorf("Expected empty file hash %s, got %s", expected_empty, empty_hash)
 	}
 }
 
@@ -130,9 +130,9 @@ func TestGetBroadcastAddresses(t *testing.T) {
 	if len(addrs) == 0 {
 		t.Fatal("Expected at least 1 broadcast address (255.255.255.255), got 0")
 	}
-	firstIP := addrs[0].IP.String()
-	if firstIP != "255.255.255.255" {
-		t.Errorf("Expected first broadcast IP to be 255.255.255.255, got %s", firstIP)
+	first_ip := addrs[0].IP.String()
+	if first_ip != "255.255.255.255" {
+		t.Errorf("Expected first broadcast IP to be 255.255.255.255, got %s", first_ip)
 	}
 }
 
@@ -144,8 +144,8 @@ func TestPrepareTransferAutoAccept(t *testing.T) {
 	state.UpdateSettings(BackendSettings{AskBeforeAccepting: false})
 	backend := NewBackend(state)
 
-	reqBody := `{"transferId":"tx-123","peerId":"peer-abc","deviceName":"Test Sender","files":[{"name":"test.txt","size":100}]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/prepare-transfer", strings.NewReader(reqBody))
+	req_body := `{"transferId":"tx-123","peerId":"peer-abc","deviceName":"Test Sender","files":[{"name":"test.txt","size":100}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/prepare-transfer", strings.NewReader(req_body))
 	rec := httptest.NewRecorder()
 
 	backend.prepareTransfer(rec, req)
@@ -239,6 +239,3 @@ func TestIsAllowedOrigin(t *testing.T) {
 		}
 	}
 }
-
-
-

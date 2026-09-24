@@ -1,26 +1,26 @@
 import React from "react";
 import { ShieldCheck, FileText } from "lucide-react";
-import { TransferRecord } from "../../shared/types";
+import { transfer_record } from "../../shared/types";
 import styles from "./IncomingTransfer.module.css";
 
-interface IncomingTransferProps {
-  transfer: TransferRecord;
-  isTrusted?: boolean;
-  onAccept: () => void;
-  onDecline: () => void;
+interface incoming_transfer_props {
+  transfer: transfer_record;
+  is_trusted?: boolean;
+  on_accept: () => void;
+  on_decline: () => void;
 }
 
-export const IncomingTransfer: React.FC<IncomingTransferProps> = ({
+export const IncomingTransfer: React.FC<incoming_transfer_props> = ({
   transfer,
-  isTrusted,
-  onAccept,
-  onDecline,
+  is_trusted,
+  on_accept,
+  on_decline,
 }) => {
-  const formatSize = (bytes: number) =>
+  const format_size = (bytes: number) =>
     `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
-  const fileName = transfer.files[0]?.name || "Unknown File";
-  const additionalFilesCount = transfer.files.length - 1;
+  const file_name = transfer.files[0]?.name || "Unknown File";
+  const additional_files_count = transfer.files.length - 1;
 
   return (
     <div
@@ -33,10 +33,10 @@ export const IncomingTransfer: React.FC<IncomingTransferProps> = ({
       <div className={styles.card}>
         <div className={styles.titleRow}>
           <span className={styles.sender} id="incoming-transfer-title">
-            <strong>{transfer.deviceName}</strong>
+            <strong>{transfer.device_name}</strong>
             wants to share a file
           </span>
-          {isTrusted && (
+          {is_trusted && (
             <span className={styles.trusted} title="Verified local device">
               <ShieldCheck size={12} strokeWidth={2.5} />
               Trusted
@@ -50,11 +50,12 @@ export const IncomingTransfer: React.FC<IncomingTransferProps> = ({
           </div>
           <div className={styles.fileDetails}>
             <span className={styles.fileName}>
-              {fileName}
-              {additionalFilesCount > 0 && ` + ${additionalFilesCount} more`}
+              {file_name}
+              {additional_files_count > 0 &&
+                ` + ${additional_files_count} more`}
             </span>
             <span className={styles.fileSize}>
-              {formatSize(transfer.totalSizeBytes)}
+              {format_size(transfer.total_size_bytes)}
             </span>
           </div>
         </div>
@@ -62,15 +63,15 @@ export const IncomingTransfer: React.FC<IncomingTransferProps> = ({
         <div className={styles.actions}>
           <button
             className={styles.declineBtn}
-            onClick={onDecline}
-            aria-label={`Decline transfer from ${transfer.deviceName}`}
+            onClick={on_decline}
+            aria-label={`Decline transfer from ${transfer.device_name}`}
           >
             Decline
           </button>
           <button
             className={styles.acceptBtn}
-            onClick={onAccept}
-            aria-label={`Accept transfer from ${transfer.deviceName}`}
+            onClick={on_accept}
+            aria-label={`Accept transfer from ${transfer.device_name}`}
           >
             Accept
           </button>

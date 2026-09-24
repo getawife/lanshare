@@ -2,26 +2,26 @@ import React from "react";
 import { Monitor, ArrowLeftRight, Settings } from "lucide-react";
 import styles from "./Navigation.module.css";
 
-export type ViewTab = "devices" | "transfers" | "settings";
+export type view_tab = "devices" | "transfers" | "settings";
 
-interface NavigationProps {
-  activeTab: ViewTab;
-  onSelectTab: (tab: ViewTab) => void;
-  activeTransfersCount: number;
+interface navigation_props {
+  active_tab: view_tab;
+  on_select_tab: (tab: view_tab) => void;
+  active_transfers_count: number;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({
-  activeTab,
-  onSelectTab,
-  activeTransfersCount,
+export const Navigation: React.FC<navigation_props> = ({
+  active_tab,
+  on_select_tab,
+  active_transfers_count,
 }) => {
   return (
     <nav className={styles.sidebar} aria-label="Main Navigation">
       <button
         type="button"
-        className={`${styles.navItem} ${activeTab === "devices" ? styles.active : ""}`}
-        onClick={() => onSelectTab("devices")}
-        aria-current={activeTab === "devices" ? "page" : undefined}
+        className={`${styles.navItem} ${active_tab === "devices" ? styles.active : ""}`}
+        onClick={() => on_select_tab("devices")}
+        aria-current={active_tab === "devices" ? "page" : undefined}
       >
         <Monitor size={22} strokeWidth={1.5} />
         <span>Devices</span>
@@ -29,27 +29,27 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       <button
         type="button"
-        className={`${styles.navItem} ${activeTab === "transfers" ? styles.active : ""}`}
-        onClick={() => onSelectTab("transfers")}
-        aria-current={activeTab === "transfers" ? "page" : undefined}
+        className={`${styles.navItem} ${active_tab === "transfers" ? styles.active : ""}`}
+        onClick={() => on_select_tab("transfers")}
+        aria-current={active_tab === "transfers" ? "page" : undefined}
       >
         <ArrowLeftRight size={22} strokeWidth={1.5} />
         <span>Transfers</span>
-        {activeTransfersCount > 0 && (
+        {active_transfers_count > 0 && (
           <span
             className={styles.badge}
-            aria-label={`${activeTransfersCount} active transfers`}
+            aria-label={`${active_transfers_count} active transfers`}
           >
-            {activeTransfersCount}
+            {active_transfers_count}
           </span>
         )}
       </button>
 
       <button
         type="button"
-        className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
-        onClick={() => onSelectTab("settings")}
-        aria-current={activeTab === "settings" ? "page" : undefined}
+        className={`${styles.navItem} ${active_tab === "settings" ? styles.active : ""}`}
+        onClick={() => on_select_tab("settings")}
+        aria-current={active_tab === "settings" ? "page" : undefined}
       >
         <Settings size={22} strokeWidth={1.5} />
         <span>Settings</span>

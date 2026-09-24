@@ -1,6 +1,6 @@
-export type DeviceStatus = "available" | "connecting" | "busy" | "offline";
-export type DeviceType = "pc" | "mac" | "phone";
-export type OSName =
+export type device_status = "available" | "connecting" | "busy" | "offline";
+export type device_type = "pc" | "mac" | "phone";
+export type os_name =
   | "Windows 11"
   | "Windows 10"
   | "macOS"
@@ -8,24 +8,24 @@ export type OSName =
   | "Android"
   | "Linux";
 
-export interface Device {
+export interface device {
   id: string;
   name: string;
-  os: OSName;
-  type: DeviceType;
-  status: DeviceStatus;
+  os: os_name;
+  type_: device_type;
+  status: device_status;
   ip: string;
-  isTrusted?: boolean;
+  is_trusted?: boolean;
 }
 
-export interface FileItem {
+export interface file_item {
   name: string;
   path: string;
-  sizeBytes: number;
-  isDirectory: boolean;
+  size: number;
+  is_dir: boolean;
 }
 
-export type TransferState =
+export type transfer_state =
   | "pending"
   | "connecting"
   | "transferring"
@@ -33,22 +33,22 @@ export type TransferState =
   | "failed"
   | "cancelled";
 
-export type TransferDirection = "incoming" | "outgoing";
+export type transfer_direction = "incoming" | "outgoing";
 
-export interface TransferRecord {
+export interface transfer_record {
   id: string;
-  direction: TransferDirection;
-  deviceName: string;
-  files: FileItem[];
-  totalSizeBytes: number;
-  bytesTransferred: number;
-  speedBytesPerSec: number;
-  state: TransferState;
+  direction: transfer_direction;
+  device_name: string;
+  files: file_item[];
+  total_size_bytes: number;
+  bytes_transferred: number;
+  speed_bytes_per_sec: number;
+  state: transfer_state;
   timestamp: Date;
-  errorMessage?: string;
+  error_message?: string;
 }
 
-export interface AppSettings {
+export interface app_settings {
   deviceName: string;
   autoStart: boolean;
   showNotifications: boolean;
@@ -60,7 +60,7 @@ export interface AppSettings {
   clipboardSync?: boolean;
 }
 
-export interface NetworkDiagnostics {
+export interface network_diagnostics {
   hasActiveLan: boolean;
   interfaces: string[];
   udpDiscoveryBound: boolean;
@@ -68,10 +68,10 @@ export interface NetworkDiagnostics {
   warnings: string[];
 }
 
-export type BackendState = "starting" | "running" | "error" | "stopped";
+export type backend_state = "starting" | "running" | "error" | "stopped";
 
-export interface BackendStatus {
-  state: BackendState;
+export interface backend_status {
+  state: backend_state;
   url: string;
   code?:
     | "PORT_IN_USE"
@@ -83,25 +83,25 @@ export interface BackendStatus {
   error?: string;
   errorDetails?: string;
   networkWarnings?: string[];
-  diagnostics?: NetworkDiagnostics;
+  diagnostics?: network_diagnostics;
 }
 
 declare global {
   interface Window {
     electronAPI?: {
-      selectFiles: () => Promise<FileItem[] | null>;
-      selectFolder: () => Promise<FileItem | null>;
-      getSettings: () => Promise<AppSettings>;
-      saveSettings: (settings: Partial<AppSettings>) => Promise<boolean>;
+      selectFiles: () => Promise<file_item[] | null>;
+      selectFolder: () => Promise<file_item | null>;
+      getSettings: () => Promise<app_settings>;
+      saveSettings: (settings: Partial<app_settings>) => Promise<boolean>;
       minimizeWindow: () => void;
       maximizeWindow: () => void;
       closeWindow: () => void;
       getBackendUrl?: () => Promise<string>;
-      getBackendStatus?: () => Promise<BackendStatus>;
-      restartBackend?: () => Promise<BackendStatus>;
+      getBackendStatus?: () => Promise<backend_status>;
+      restartBackend?: () => Promise<backend_status>;
       getBackendState?: () => Promise<any>;
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
-      transferRespond?: (transferId: string, accept: boolean) => Promise<any>;
+      transferRespond?: (transfer_id: string, accept: boolean) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
 
       updates: {

@@ -6,45 +6,46 @@ import {
   ShieldAlert,
   FolderTree,
 } from "lucide-react";
-import { TransferRecord } from "../../shared/types";
+import { transfer_record } from "../../shared/types";
 import styles from "./TransferProgress.module.css";
 
-interface TransferProgressProps {
-  transfer: TransferRecord;
-  onCancel: () => void;
+interface transfer_progress_props {
+  transfer: transfer_record;
+  on_cancel: () => void;
 }
 
-export const TransferProgress: React.FC<TransferProgressProps> = ({
+export const TransferProgress: React.FC<transfer_progress_props> = ({
   transfer,
-  onCancel,
+  on_cancel,
 }) => {
   const percentage = Math.min(
     100,
     Math.round(
-      (transfer.bytesTransferred / Math.max(transfer.totalSizeBytes, 1)) * 100,
+      (transfer.bytes_transferred / Math.max(transfer.total_size_bytes, 1)) *
+        100,
     ) || 0,
   );
 
-  const formatSize = (bytes: number) =>
+  const format_size = (bytes: number) =>
     bytes < 1024 * 1024
       ? `${(bytes / 1024).toFixed(1)} KB`
       : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
-  const speedMB = (transfer.speedBytesPerSec / (1024 * 1024)).toFixed(1);
-  const fileCount = transfer.files.length;
+  const speed_mb = (transfer.speed_bytes_per_sec / (1024 * 1024)).toFixed(1);
+  const file_count = transfer.files.length;
 
   return (
     <div
       className={styles.card}
       role="region"
-      aria-label={`Transfer progress for ${transfer.deviceName}`}
+      aria-label={`Transfer progress for ${transfer.device_name}`}
     >
       <div className={styles.header}>
         <div className={styles.titleGroup}>
           <span className={styles.title}>
             {transfer.state === "completed"
               ? "Transfer complete"
-              : `Sending ${fileCount} file${fileCount === 1 ? "" : "s"} to ${transfer.deviceName}`}
+              : `Sending ${file_count} file${file_count === 1 ? "" : "s"} to ${transfer.device_name}`}
           </span>
           <span className={styles.subtitle}>
             {transfer.state === "completed"
@@ -77,10 +78,10 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
 
       <div className={styles.progressCopy} aria-label="Transfer status details">
         <span>
-          <Clock size={13} /> {formatSize(transfer.bytesTransferred)} /{" "}
-          {formatSize(transfer.totalSizeBytes)}
+          <Clock size={13} /> {format_size(transfer.bytes_transferred)} /{" "}
+          {format_size(transfer.total_size_bytes)}
         </span>
-        <span>{speedMB} MB/s</span>
+        <span>{speed_mb} MB/s</span>
       </div>
 
       <div className={styles.footer}>
@@ -103,7 +104,7 @@ export const TransferProgress: React.FC<TransferProgressProps> = ({
         {transfer.state !== "completed" && (
           <button
             className={styles.cancelBtn}
-            onClick={onCancel}
+            onClick={on_cancel}
             aria-label="Cancel active transfer"
           >
             Cancel

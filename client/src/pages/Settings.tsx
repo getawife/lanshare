@@ -1,19 +1,19 @@
 import React from "react";
-import { AppSettings } from "../shared/types";
+import { app_settings } from "../shared/types";
 import styles from "./Settings.module.css";
 
-interface SettingsProps {
-  settings: AppSettings;
-  onUpdateSettings: (updates: Partial<AppSettings>) => void;
+interface settings_props {
+  settings: app_settings;
+  on_update_settings: (updates: Partial<app_settings>) => void;
 }
 
-export const SettingsPage: React.FC<SettingsProps> = ({
+export const SettingsPage: React.FC<settings_props> = ({
   settings,
-  onUpdateSettings,
+  on_update_settings,
 }) => {
-  const handleBrowse = async () => {
+  const handle_browse = async () => {
     const folder = await window.electronAPI?.selectFolder();
-    if (folder) onUpdateSettings({ downloadFolder: folder.path });
+    if (folder) on_update_settings({ downloadFolder: folder.path });
   };
 
   return (
@@ -32,7 +32,9 @@ export const SettingsPage: React.FC<SettingsProps> = ({
               type="text"
               className={styles.textInput}
               value={settings.deviceName}
-              onChange={(e) => onUpdateSettings({ deviceName: e.target.value })}
+              onChange={(e) =>
+                on_update_settings({ deviceName: e.target.value })
+              }
             />
           </div>
           <div className={styles.checkboxRow}>
@@ -42,7 +44,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
               id="autoStart"
               checked={settings.autoStart}
               onChange={(e) =>
-                onUpdateSettings({ autoStart: e.target.checked })
+                on_update_settings({ autoStart: e.target.checked })
               }
             />
           </div>
@@ -53,7 +55,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
               id="notifications"
               checked={settings.showNotifications}
               onChange={(e) =>
-                onUpdateSettings({ showNotifications: e.target.checked })
+                on_update_settings({ showNotifications: e.target.checked })
               }
             />
           </div>
@@ -75,7 +77,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
                 className={styles.textInput}
                 value={settings.downloadFolder}
               />
-              <button className={styles.browseBtn} onClick={handleBrowse}>
+              <button className={styles.browseBtn} onClick={handle_browse}>
                 Browse
               </button>
             </div>
@@ -87,7 +89,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
               id="askAccept"
               checked={settings.askBeforeAccepting}
               onChange={(e) =>
-                onUpdateSettings({ askBeforeAccepting: e.target.checked })
+                on_update_settings({ askBeforeAccepting: e.target.checked })
               }
             />
           </div>
@@ -99,7 +101,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({
         <div className={styles.cardGroup}>
           <div className={styles.aboutRow}>
             <span>Lanshare Desktop</span>
-            <span className={styles.version}>v1.0.0</span>
+            <span className={styles.version}>v1.0.4</span>
           </div>
         </div>
       </div>

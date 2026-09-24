@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import styles from "./UpdateUI.module.css";
 
-type UpdateState =
+type update_state =
   | { status: "idle" }
   | { status: "checking" }
   | {
@@ -14,7 +14,7 @@ type UpdateState =
   | { status: "ready"; version: string }
   | { status: "error"; message: string };
 
-function formatBytes(bytes: number) {
+function format_bytes(bytes: number) {
   if (!bytes || bytes < 1024) {
     return `${bytes || 0} B`;
   }
@@ -33,16 +33,16 @@ function formatBytes(bytes: number) {
   )} ${units[unit]}`;
 }
 
-function formatSpeed(bytesPerSecond: number) {
-  if (!bytesPerSecond) {
+function format_speed(bytes_per_second: number) {
+  if (!bytes_per_second) {
     return "Preparing...";
   }
 
-  return `${formatBytes(bytesPerSecond)}/s`;
+  return `${format_bytes(bytes_per_second)}/s`;
 }
 
 export default function UpdateUI() {
-  const [state, setState] = useState<UpdateState>({
+  const [state, set_state] = useState<update_state>({
     status: "idle",
   });
 
@@ -57,7 +57,7 @@ export default function UpdateUI() {
 
     cleanup.push(
       updates.onChecking(() => {
-        setState({
+        set_state({
           status: "checking",
         });
       }),
@@ -65,7 +65,7 @@ export default function UpdateUI() {
 
     cleanup.push(
       updates.onAvailable(() => {
-        setState({
+        set_state({
           status: "downloading",
           percent: 0,
         });
@@ -74,7 +74,7 @@ export default function UpdateUI() {
 
     cleanup.push(
       updates.onProgress((progress) => {
-        setState({
+        set_state({
           status: "downloading",
           percent: Math.max(0, Math.min(100, progress.percent)),
           speed: progress.bytesPerSecond,
@@ -86,7 +86,7 @@ export default function UpdateUI() {
 
     cleanup.push(
       updates.onDownloaded((info) => {
-        setState({
+        set_state({
           status: "ready",
           version: info.version,
         });
@@ -95,7 +95,7 @@ export default function UpdateUI() {
 
     cleanup.push(
       updates.onError((error) => {
-        setState({
+        set_state({
           status: "error",
           message:
             error.message ??
@@ -159,8 +159,8 @@ export default function UpdateUI() {
               Downloading{" "}
               {state.total ? (
                 <strong className={styles.fileTarget}>
-                  {formatBytes(state.transferred ?? 0)} of{" "}
-                  {formatBytes(state.total)}
+                  {format_bytes(state.transferred ?? 0)} of{" "}
+                  {format_bytes(state.total)}
                 </strong>
               ) : (
                 <strong className={styles.fileTarget}>update</strong>
@@ -179,7 +179,7 @@ export default function UpdateUI() {
 
           <div className={styles.progressCopy}>
             <span>
-              {state.speed ? formatSpeed(state.speed) : "Preparing download"}
+              {state.speed ? format_speed(state.speed) : "Preparing download"}
             </span>
 
             <span>{Math.round(state.percent)}%</span>

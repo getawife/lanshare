@@ -6,7 +6,7 @@ import {
   MonitorX,
   ChevronDown,
 } from "lucide-react";
-import { Device, FileItem, TransferRecord } from "../shared/types";
+import { device, file_item, transfer_record } from "../shared/types";
 import { DeviceCard } from "../components/DeviceCard/DeviceCard";
 import { DropZone } from "../components/DropZone/DropZone";
 import { SendConfirmation } from "../components/SendConfirmation/SendConfirmation";
@@ -14,141 +14,139 @@ import { TransferProgress } from "../components/TransferProgress/TransferProgres
 import { IncomingTransfer } from "../components/IncomingTransfer/IncomingTransfer";
 import styles from "./Home.module.css";
 
-interface HomeProps {
-  devices: Device[];
-  onRefreshDevices: () => void;
-  isRefreshing?: boolean;
-  activeTransfer?: TransferRecord;
-  onInitiateTransfer: (device: Device, files: FileItem[]) => void;
-  onCancelTransfer: () => void;
-  discoveryStatus: "discovering" | "found" | "empty";
-  isConnected: boolean;
-  networkWarnings?: string[];
-  onNotify?: (title: string, details: string, code?: string) => void;
+interface home_props {
+  devices: device[];
+  on_refresh_devices: () => void;
+  is_refreshing?: boolean;
+  active_transfer?: transfer_record | undefined;
+  on_initiate_transfer: (device: device, files: file_item[]) => void;
+  on_cancel_transfer: () => void;
+  discovery_status: "discovering" | "found" | "empty";
+  is_connected: boolean;
+  network_warnings?: string[];
+  on_notify?: (title: string, details: string, code?: string) => void;
 }
 
-export const Home: React.FC<HomeProps> = ({
+export const Home: React.FC<home_props> = ({
   devices,
-  onRefreshDevices,
-  isRefreshing = false,
-  activeTransfer,
-  onInitiateTransfer,
-  onCancelTransfer,
-  discoveryStatus,
-  isConnected,
-  networkWarnings = [],
-  onNotify,
+  on_refresh_devices,
+  is_refreshing = false,
+  active_transfer,
+  on_initiate_transfer,
+  on_cancel_transfer,
+  discovery_status,
+  is_connected,
+  network_warnings = [],
+  on_notify,
 }) => {
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [selected_device_id, set_selected_device_id] = useState<string | null>(
+    null,
+  );
 
-  const selectedDevice = useMemo(
-    () => devices.find((d) => d.id === selectedDeviceId) ?? null,
-    [devices, selectedDeviceId],
+  const selected_device = useMemo(
+    () => devices.find((d) => d.id === selected_device_id) ?? null,
+    [devices, selected_device_id],
   );
 
   useEffect(() => {
-    if (!selectedDeviceId) return;
+    if (!selected_device_id) return;
 
-    // 1. If the current ID is invalid, try to find a device with the SAME NAME
-    // and automatically promote it to the selected device[cite: 18].
-    const deviceExists = devices.some((d) => d.id === selectedDeviceId);
-    if (!deviceExists) {
-      const oldDevice = devices.find((d) => d.name === selectedDevice?.name);
-      if (oldDevice) {
-        setSelectedDeviceId(oldDevice.id);
+    const device_exists = devices.some((d) => d.id === selected_device_id);
+    if (!device_exists) {
+      const old_device = devices.find((d) => d.name === selected_device?.name);
+      if (old_device) {
+        set_selected_device_id(old_device.id);
       } else {
-        // If we can't find the name either, clear the selection[cite: 18].
-        setSelectedDeviceId(null);
-        setStagedFiles(null);
+        set_selected_device_id(null);
+        set_staged_files(null);
       }
     }
-  }, [devices, selectedDeviceId, selectedDevice?.name]);
-  // -------------------------------------------------------
+  }, [devices, selected_device_id, selected_device?.name]);
 
-  const [stagedFiles, setStagedFiles] = useState<FileItem[] | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [staged_files, set_staged_files] = useState<file_item[] | null>(null);
+  const [is_dragging, set_is_dragging] = useState(false);
+  const [show_troubleshooting, set_show_troubleshooting] = useState(false);
 
-  const isSending = Boolean(activeTransfer);
-  const hasDevices = devices.length > 0;
-  const hasRecipient = Boolean(selectedDevice);
-  const dropZoneEnabled = hasRecipient && !isSending;
+  const is_sending = Boolean(active_transfer);
+  const has_devices = devices.length > 0;
+  const has_recipient = Boolean(selected_device);
+  const drop_zone_enabled = has_recipient && !is_sending;
 
-  const headerLabel = useMemo(() => {
-    if (isSending) return "Transfer in progress";
-    if (!hasDevices)
-      return discoveryStatus === "discovering"
+  const header_label = useMemo(() => {
+    if (is_sending) return "Transfer in progress";
+    if (!has_devices)
+      return discovery_status === "discovering"
         ? "Looking for devices"
         : "Nearby devices";
-    if (hasRecipient) return `Send to ${selectedDevice?.name}`;
+    if (has_recipient) return `Send to ${selected_device?.name}`;
     return "Choose a device to continue";
   }, [
-    discoveryStatus,
-    hasDevices,
-    hasRecipient,
-    isSending,
-    selectedDevice?.name,
+    discovery_status,
+    has_devices,
+    has_recipient,
+    is_sending,
+    selected_device?.name,
   ]);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handle_drag_over = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    set_is_dragging(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
+  const handle_drag_leave = () => {
+    set_is_dragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handle_drop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
-    if (!hasRecipient) return;
+    set_is_dragging(false);
+    if (!has_recipient) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const files: FileItem[] = Array.from(e.dataTransfer.files).map((f) => ({
+      const files: file_item[] = Array.from(e.dataTransfer.files).map((f) => ({
         name: f.name,
         path: f.path,
-        sizeBytes: f.size,
-        isDirectory: false,
+        size: f.size,
+        is_dir: false,
       }));
-      setStagedFiles(files);
+      set_staged_files(files);
     }
   };
 
-  const handleSelectFiles = async () => {
-    if (!hasRecipient) return;
+  const handle_select_files = async () => {
+    if (!has_recipient) return;
     const files = await window.electronAPI?.selectFiles();
-    if (files) setStagedFiles(files);
+    if (files) set_staged_files(files);
   };
 
-  const handleSelectFolder = async () => {
-    if (!hasRecipient) return;
+  const handle_select_folder = async () => {
+    if (!has_recipient) return;
     const folder = await window.electronAPI?.selectFolder();
-    if (folder) setStagedFiles([folder]);
+    if (folder) set_staged_files([folder]);
   };
 
-  const clearSelection = () => {
-    setSelectedDeviceId(null);
-    setStagedFiles(null);
+  const clear_selection = () => {
+    set_selected_device_id(null);
+    set_staged_files(null);
   };
 
   return (
     <div
       className={styles.container}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDragOver={handle_drag_over}
+      onDragLeave={handle_drag_leave}
+      onDrop={handle_drop}
     >
       <div className={styles.header}>
         <div className={styles.headerCopy}>
-          <h1 className={styles.title}>{headerLabel}</h1>
+          <h1 className={styles.title}>{header_label}</h1>
           <div className={styles.subtitle}>
-            {isSending
+            {is_sending
               ? "The recipient stays visible while the transfer completes."
-              : hasDevices
-                ? hasRecipient
+              : has_devices
+                ? has_recipient
                   ? "Files and folders can be added now."
                   : `${devices.length} device${devices.length === 1 ? "" : "s"} discovered on the network.`
-                : discoveryStatus === "discovering"
+                : discovery_status === "discovering"
                   ? "Checking the local network for nearby Lanshare devices."
                   : "Open Lanshare on the other device and keep both devices on the same network."}
           </div>
@@ -156,26 +154,26 @@ export const Home: React.FC<HomeProps> = ({
         <button
           type="button"
           className={styles.refreshBtn}
-          onClick={onRefreshDevices}
-          disabled={isRefreshing}
+          onClick={on_refresh_devices}
+          disabled={is_refreshing}
           title="Scan again"
           aria-label="Scan again"
         >
           <RefreshCw
             size={14}
-            className={isRefreshing ? styles.spinning : ""}
+            className={is_refreshing ? styles.spinning : ""}
           />
         </button>
       </div>
 
-      {discoveryStatus === "discovering" && !hasDevices && (
+      {discovery_status === "discovering" && !has_devices && (
         <div className={styles.discoveryBar} aria-live="polite">
           <CircleDashed size={14} className={styles.spinning} />
           <span>Scanning for devices…</span>
         </div>
       )}
 
-      {!hasDevices ? (
+      {!has_devices ? (
         <section className={styles.emptyState} aria-label="No nearby devices">
           <MonitorX size={32} className={styles.emptyIcon} />
           <div className={styles.emptyTitle}>No nearby devices</div>
@@ -186,35 +184,35 @@ export const Home: React.FC<HomeProps> = ({
           <div className={styles.emptyActions}>
             <button
               className={styles.scanBtn}
-              onClick={onRefreshDevices}
-              disabled={isRefreshing}
+              onClick={on_refresh_devices}
+              disabled={is_refreshing}
             >
               <RefreshCw
                 size={14}
-                className={isRefreshing ? styles.spinning : ""}
+                className={is_refreshing ? styles.spinning : ""}
               />
-              <span>{isRefreshing ? "Scanning…" : "Scan Again"}</span>
+              <span>{is_refreshing ? "Scanning…" : "Scan Again"}</span>
             </button>
             <button
               className={styles.troubleshootBtn}
-              onClick={() => setShowTroubleshooting((value) => !value)}
-              aria-expanded={showTroubleshooting}
+              onClick={() => set_show_troubleshooting((value) => !value)}
+              aria-expanded={show_troubleshooting}
             >
               Having trouble?
               <ChevronDown
                 size={14}
                 className={
-                  showTroubleshooting ? styles.chevronOpen : styles.chevron
+                  show_troubleshooting ? styles.chevronOpen : styles.chevron
                 }
               />
             </button>
           </div>
-          {showTroubleshooting && (
+          {show_troubleshooting && (
             <div
               className={styles.troubleshooting}
               aria-label="Troubleshooting tips"
             >
-              {networkWarnings.length > 0 && (
+              {network_warnings.length > 0 && (
                 <div
                   style={{
                     color: "#fbbf24",
@@ -223,7 +221,7 @@ export const Home: React.FC<HomeProps> = ({
                   }}
                 >
                   Active Network Issues:
-                  {networkWarnings.map((w, i) => (
+                  {network_warnings.map((w, i) => (
                     <div
                       key={i}
                       style={{
@@ -252,13 +250,13 @@ export const Home: React.FC<HomeProps> = ({
           <div className={styles.sectionHeader}>
             <div>
               <div className={styles.sectionMeta}>
-                {discoveryStatus === "discovering" && " · discovering"}
+                {discovery_status === "discovering" && " · discovering"}
               </div>
             </div>
-            {hasRecipient && (
+            {has_recipient && (
               <button
                 className={styles.clearSelectionBtn}
-                onClick={clearSelection}
+                onClick={clear_selection}
               >
                 Change device
               </button>
@@ -270,10 +268,10 @@ export const Home: React.FC<HomeProps> = ({
               <DeviceCard
                 key={`${device.name.toLowerCase().trim()}-${device.ip}`}
                 device={device}
-                isSelected={selectedDeviceId === device.id}
-                onSelect={(dev) => setSelectedDeviceId(dev.id)}
-                actionLabel={
-                  selectedDeviceId === device.id
+                is_selected={selected_device_id === device.id}
+                on_select={(dev) => set_selected_device_id(dev.id)}
+                action_label={
+                  selected_device_id === device.id
                     ? "Selected"
                     : "Send to this device"
                 }
@@ -283,16 +281,16 @@ export const Home: React.FC<HomeProps> = ({
         </section>
       )}
 
-      {(hasDevices || activeTransfer) && (
+      {(has_devices || active_transfer) && (
         <section className={styles.transferArea}>
-          {activeTransfer ? (
-            activeTransfer.direction === "incoming" ? (
+          {active_transfer ? (
+            active_transfer.direction === "incoming" ? (
               <IncomingTransfer
-                transfer={activeTransfer}
-                onAccept={async () => {
-                  if (!activeTransfer) return;
+                transfer={active_transfer}
+                on_accept={async () => {
+                  if (!active_transfer) return;
                   const resp = await window.electronAPI?.transferRespond?.(
-                    activeTransfer.id,
+                    active_transfer.id,
                     true,
                   );
                   if (resp?.ok) {
@@ -307,22 +305,22 @@ export const Home: React.FC<HomeProps> = ({
                       const message =
                         parsed?.message ??
                         (body ? String(body) : "Failed to accept transfer");
-                      if (onNotify)
-                        onNotify("Failed to accept transfer", message, code);
+                      if (on_notify)
+                        on_notify("Failed to accept transfer", message, code);
                     } catch (e) {
-                      if (onNotify)
-                        onNotify(
+                      if (on_notify)
+                        on_notify(
                           "Failed to accept transfer",
                           "An unknown error occurred",
                         );
                     }
-                    onCancelTransfer();
+                    on_cancel_transfer();
                   }
                 }}
-                onDecline={async () => {
-                  if (!activeTransfer) return;
+                on_decline={async () => {
+                  if (!active_transfer) return;
                   const resp = await window.electronAPI?.transferRespond?.(
-                    activeTransfer.id,
+                    active_transfer.id,
                     false,
                   );
                   if (resp && !resp.ok) {
@@ -336,33 +334,33 @@ export const Home: React.FC<HomeProps> = ({
                       const message =
                         parsed?.message ??
                         (body ? String(body) : "Failed to decline transfer");
-                      if (onNotify)
-                        onNotify("Failed to decline transfer", message, code);
+                      if (on_notify)
+                        on_notify("Failed to decline transfer", message, code);
                     } catch (e) {
-                      if (onNotify)
-                        onNotify(
+                      if (on_notify)
+                        on_notify(
                           "Failed to decline transfer",
                           "An unknown error occurred",
                         );
                     }
                   }
-                  onCancelTransfer();
+                  on_cancel_transfer();
                 }}
               />
             ) : (
               <TransferProgress
-                transfer={activeTransfer}
-                onCancel={onCancelTransfer}
+                transfer={active_transfer}
+                on_cancel={on_cancel_transfer}
               />
             )
-          ) : hasRecipient ? (
+          ) : has_recipient ? (
             <DropZone
-              isDragging={isDragging}
-              selectedDeviceName={selectedDevice?.name}
-              hasRecipient={dropZoneEnabled}
-              stagedCount={stagedFiles?.length ?? 0}
-              onSelectFiles={handleSelectFiles}
-              onSelectFolder={handleSelectFolder}
+              is_dragging={is_dragging}
+              selected_device_name={selected_device?.name}
+              has_recipient={drop_zone_enabled}
+              staged_count={staged_files?.length ?? 0}
+              on_select_files={handle_select_files}
+              on_select_folder={handle_select_folder}
             />
           ) : (
             <div className={styles.guidanceState}>
@@ -377,19 +375,19 @@ export const Home: React.FC<HomeProps> = ({
         </section>
       )}
 
-      {stagedFiles && selectedDevice && !activeTransfer && (
+      {staged_files && selected_device && !active_transfer && (
         <SendConfirmation
-          device={selectedDevice}
-          files={stagedFiles}
-          onCancel={() => setStagedFiles(null)}
-          onSend={() => {
-            onInitiateTransfer(selectedDevice, stagedFiles);
-            setStagedFiles(null);
+          device={selected_device}
+          files={staged_files}
+          on_cancel={() => set_staged_files(null)}
+          on_send={() => {
+            on_initiate_transfer(selected_device, staged_files);
+            set_staged_files(null);
           }}
         />
       )}
 
-      {isDragging && !hasRecipient && (
+      {is_dragging && !has_recipient && (
         <div className={styles.dragHint} role="status" aria-live="polite">
           Select a device first to send files.
         </div>

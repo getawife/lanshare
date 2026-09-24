@@ -9,34 +9,34 @@ import {
   ShieldAlert,
   WifiOff,
 } from "lucide-react";
-import { BackendStatus } from "../../shared/types";
+import { backend_status } from "../../shared/types";
 import styles from "./BackendStatusBanner.module.css";
 
-interface BackendStatusBannerProps {
-  status: BackendStatus | null;
-  onRestart: () => Promise<void>;
-  isRestarting?: boolean;
+interface backend_status_banner_props {
+  status: backend_status | null;
+  on_restart: () => Promise<void>;
+  is_restarting?: boolean;
 }
 
-export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
+export const BackendStatusBanner: React.FC<backend_status_banner_props> = ({
   status,
-  onRestart,
-  isRestarting = false,
+  on_restart,
+  is_restarting = false,
 }) => {
-  const [showDetails, setShowDetails] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [show_details, set_show_details] = useState(false);
+  const [is_dismissed, set_is_dismissed] = useState(false);
 
   if (!status) return null;
 
-  const isError = status.state === "error" || status.state === "stopped";
-  const hasWarnings =
+  const is_error = status.state === "error" || status.state === "stopped";
+  const has_warnings =
     (status.networkWarnings && status.networkWarnings.length > 0) || false;
 
-  if (!isError && !hasWarnings) return null;
-  if (!isError && isDismissed) return null;
+  if (!is_error && !has_warnings) return null;
+  if (!is_error && is_dismissed) return null;
 
-  const getTitleAndDescription = () => {
-    if (isError) {
+  const get_title_and_description = () => {
+    if (is_error) {
       switch (status.code) {
         case "PORT_IN_USE":
           return {
@@ -113,19 +113,19 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
     };
   };
 
-  const { title, icon, message, tips } = getTitleAndDescription();
+  const { title, icon, message, tips } = get_title_and_description();
 
   return (
     <div className={styles.bannerContainer} role="alert" aria-live="assertive">
       <div
         className={`${styles.banner} ${
-          isError ? styles.errorBanner : styles.warningBanner
+          is_error ? styles.errorBanner : styles.warningBanner
         }`}
       >
         <div className={styles.bannerMain}>
           <div
             className={`${styles.iconWrapper} ${
-              isError ? styles.errorIcon : styles.warningIcon
+              is_error ? styles.errorIcon : styles.warningIcon
             }`}
             aria-hidden="true"
           >
@@ -135,11 +135,11 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
           <div className={styles.contentWrapper}>
             <div className={styles.headerRow}>
               <span className={styles.title}>{title}</span>
-              {!isError && (
+              {!is_error && (
                 <button
                   type="button"
                   className={styles.dismissBtn}
-                  onClick={() => setIsDismissed(true)}
+                  onClick={() => set_is_dismissed(true)}
                   title="Dismiss warning"
                   aria-label="Dismiss warning"
                 >
@@ -150,7 +150,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
 
             <div className={styles.message}>{message}</div>
 
-            {hasWarnings && (
+            {has_warnings && (
               <ul className={styles.warningsList}>
                 {status.networkWarnings?.map((w, idx) => (
                   <li key={idx} className={styles.warningItem}>
@@ -161,21 +161,21 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
             )}
 
             <div className={styles.actionsRow}>
-              {isError && (
+              {is_error && (
                 <button
                   type="button"
                   className={styles.restartBtn}
-                  onClick={onRestart}
-                  disabled={isRestarting}
-                  aria-busy={isRestarting}
+                  onClick={on_restart}
+                  disabled={is_restarting}
+                  aria-busy={is_restarting}
                 >
                   <RefreshCw
                     size={14}
                     strokeWidth={2.5}
-                    className={isRestarting ? styles.spinning : ""}
+                    className={is_restarting ? styles.spinning : ""}
                   />
                   <span>
-                    {isRestarting ? "Restarting…" : "Restart Service"}
+                    {is_restarting ? "Restarting…" : "Restart Service"}
                   </span>
                 </button>
               )}
@@ -184,13 +184,13 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
                 <button
                   type="button"
                   className={styles.detailsToggleBtn}
-                  onClick={() => setShowDetails((prev) => !prev)}
-                  aria-expanded={showDetails}
+                  onClick={() => set_show_details((prev) => !prev)}
+                  aria-expanded={show_details}
                 >
                   <span>
-                    {showDetails ? "Hide Details" : "Troubleshooting & Logs"}
+                    {show_details ? "Hide Details" : "Troubleshooting & Logs"}
                   </span>
-                  {showDetails ? (
+                  {show_details ? (
                     <ChevronUp size={14} strokeWidth={2} />
                   ) : (
                     <ChevronDown size={14} strokeWidth={2} />
@@ -199,7 +199,7 @@ export const BackendStatusBanner: React.FC<BackendStatusBannerProps> = ({
               )}
             </div>
 
-            {showDetails && (
+            {show_details && (
               <div className={styles.detailsContainer}>
                 {tips.length > 0 && (
                   <div className={styles.troubleshootTips}>

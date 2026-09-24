@@ -2,33 +2,33 @@ import React from "react";
 import { Minus, Square, X } from "lucide-react";
 import styles from "./TitleBar.module.css";
 
-interface TitleBarProps {
-  isConnected: boolean;
-  isRestricted?: boolean;
-  discoveryStatus: "discovering" | "found" | "empty";
-  statusDetail?: string;
+interface title_bar_props {
+  is_connected: boolean;
+  is_restricted?: boolean;
+  discovery_status: "discovering" | "found" | "empty";
+  status_detail?: string;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({
-  isConnected,
-  isRestricted = false,
-  discoveryStatus,
-  statusDetail,
+export const TitleBar: React.FC<title_bar_props> = ({
+  is_connected,
+  is_restricted = false,
+  discovery_status,
+  status_detail,
 }) => {
-  const logAndRun = (action: string, fn: () => void) => {
+  const log_and_run = (action: string, fn: () => void) => {
     console.log(`[TitleBar] ${action} clicked`);
     fn();
   };
 
-  const getStatusLabel = () => {
-    if (!isConnected) return "Offline";
-    if (isRestricted) return "Network Restricted";
+  const get_status_label = () => {
+    if (!is_connected) return "Offline";
+    if (is_restricted) return "Network Restricted";
     return "Connected";
   };
 
-  const dotClass = !isConnected
+  const dot_class = !is_connected
     ? styles.offline
-    : isRestricted
+    : is_restricted
       ? styles.restricted
       : styles.online;
 
@@ -47,7 +47,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           type="button"
           draggable={false}
           onClick={() =>
-            logAndRun("minimize", () => window.electronAPI?.minimizeWindow())
+            log_and_run("minimize", () => window.electronAPI?.minimizeWindow())
           }
           className={styles.controlBtn}
           aria-label="Minimize window"
@@ -58,7 +58,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           type="button"
           draggable={false}
           onClick={() =>
-            logAndRun("maximize", () => window.electronAPI?.maximizeWindow())
+            log_and_run("maximize", () => window.electronAPI?.maximizeWindow())
           }
           className={styles.controlBtn}
           aria-label="Maximize window"
@@ -69,7 +69,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           type="button"
           draggable={false}
           onClick={() =>
-            logAndRun("close", () => window.electronAPI?.closeWindow())
+            log_and_run("close", () => window.electronAPI?.closeWindow())
           }
           className={`${styles.controlBtn} ${styles.closeBtn}`}
           aria-label="Close window"

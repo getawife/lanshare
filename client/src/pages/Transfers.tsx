@@ -1,20 +1,20 @@
 import React from "react";
-import { ArrowUp, ArrowDown, Folder, RotateCcw, Trash2 } from "lucide-react";
-import { TransferRecord } from "../shared/types";
+import { ArrowUp, ArrowDown, Folder, RotateCcw } from "lucide-react";
+import { transfer_record } from "../shared/types";
 import styles from "./Transfers.module.css";
 
-interface TransfersProps {
-  records: TransferRecord[];
-  onClearHistory: () => void;
-  onRetryTransfer?: (record: TransferRecord) => void;
+interface transfers_props {
+  records: transfer_record[];
+  on_clear_history: () => void;
+  on_retry_transfer?: (record: transfer_record) => void;
 }
 
-export const Transfers: React.FC<TransfersProps> = ({
+export const Transfers: React.FC<transfers_props> = ({
   records,
-  onClearHistory,
-  onRetryTransfer,
+  on_clear_history,
+  on_retry_transfer,
 }) => {
-  const formatSize = (bytes: number) => {
+  const format_size = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
@@ -30,7 +30,7 @@ export const Transfers: React.FC<TransfersProps> = ({
         {records.length > 0 && (
           <button
             className={styles.clearBtn}
-            onClick={onClearHistory}
+            onClick={on_clear_history}
             aria-label="Clear transfer history"
           >
             <span>Clear History</span>
@@ -66,9 +66,9 @@ export const Transfers: React.FC<TransfersProps> = ({
                   </div>
                   <div className={styles.meta}>
                     {record.direction === "outgoing"
-                      ? `To ${record.deviceName}`
-                      : `From ${record.deviceName}`}{" "}
-                    · {formatSize(record.totalSizeBytes)}
+                      ? `To ${record.device_name}`
+                      : `From ${record.device_name}`}{" "}
+                    · {format_size(record.total_size_bytes)}
                   </div>
                 </div>
 
@@ -81,13 +81,13 @@ export const Transfers: React.FC<TransfersProps> = ({
                 </div>
 
                 <div className={styles.actionsCol}>
-                  {record.state === "completed" && (
+                  {record.state === "completed" && record.files[0]?.path && (
                     <button
                       className={styles.actionBtn}
                       title="Open in folder"
                       aria-label="Open in folder"
                       onClick={() =>
-                        window.electronAPI?.openFolder?.(record.files[0]?.path)
+                        window.electronAPI?.openFolder?.(record.files[0]!.path)
                       }
                     >
                       <Folder size={14} />
@@ -98,7 +98,7 @@ export const Transfers: React.FC<TransfersProps> = ({
                       className={styles.actionBtn}
                       title="Retry transfer"
                       aria-label="Retry transfer"
-                      onClick={() => onRetryTransfer?.(record)}
+                      onClick={() => on_retry_transfer?.(record)}
                     >
                       <RotateCcw size={14} />
                     </button>

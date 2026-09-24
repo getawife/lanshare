@@ -25,23 +25,23 @@ import (
 	"time"
 )
 
-const defaultHTTPPort = 43821
-const defaultLoopbackPeerPort = 43822
+const default_http_port = 43821
+const default_loopback_peer_port = 43822
 
 func main() {
-	state, err := NewServerState()
+	state, err := new_server_state()
 	if err != nil {
 		log.Fatal(err)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	server := NewBackend(state)
-	if err := server.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+	server := new_backend(state)
+	if err := server.start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}
 }
 
-func randomToken(n int) string {
+func random_token(n int) string {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		panic(err)
@@ -49,103 +49,103 @@ func randomToken(n int) string {
 	return hex.EncodeToString(b)
 }
 
-type Backend struct {
-	state      *ServerState
-	httpServer *http.Server
+type backend struct {
+	state      *server_state
+	http_server *http.Server
 }
 
-func NewBackend(state *ServerState) *Backend {
+func new_backend(state *server_state) *backend {
 	mux := http.NewServeMux()
-	b := &Backend{state: state}
+	b := &backend{state: state}
 	mux.HandleFunc("/api/health", b.health)
-	mux.HandleFunc("/api/state", b.stateHandler)
+	mux.HandleFunc("/api/state", b.state_handler)
 	mux.HandleFunc("/api/devices", b.devices)
 	mux.HandleFunc("/api/events", b.events)
 	mux.HandleFunc("/api/transfer", b.transfer)
-	mux.HandleFunc("/api/prepare-transfer", b.prepareTransfer)
-	mux.HandleFunc("/api/respond-transfer", b.respondTransfer)
+	mux.HandleFunc("/api/prepare-transfer", b.prepare_transfer)
+	mux.HandleFunc("/api/respond-transfer", b.respond_transfer)
 	mux.HandleFunc("/api/receive", b.receive)
 	mux.HandleFunc("/api/share", b.share)
-	mux.HandleFunc("/api/settings", b.settingsHandler)
-	mux.HandleFunc("/s/", b.serveShare)
-	b.httpServer = &http.Server{Handler: withCORS(mux)}
+	mux.HandleFunc("/api/settings", b.settings_handler)
+	mux.HandleFunc("/s/", b.serve_share)
+	b.http_server = &http.Server{Handler: with_cors(mux)}
 	return b
 }
 
-func (b *Backend) Start(ctx context.Context) error {
-	httpPort := defaultHTTPPort
+func (b *backend) start(ctx context.Context) error {
+	http_port := default_http_port
 	if v := os.Getenv("LANSHARE_HTTP_PORT"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
-			httpPort = parsed
+			http_port = parsed
 		}
 	}
-	var httpLn net.Listener
+	var http_ln net.Listener
 	var err error
-	for _, candidate := range candidatePorts(httpPort, 10) {
-		httpLn, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", candidate))
+	for _, candidate := range candidate_ports(http_port, 10) {
+		http_ln, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", candidate))
 		if err == nil {
-			httpPort = candidate
+			http_port = candidate
 			break
 		}
 	}
-	if httpLn == nil {
+	if http_ln == nil {
 		return fmt.Errorf(
 			"failed to bind HTTP server: all candidate ports (%d-%d) are in use",
-			httpPort,
-			httpPort+9,
+			http_port,
+			http_port+9,
 		)
 	}
-	b.state.HTTPPort = httpLn.Addr().(*net.TCPAddr).Port
-	b.state.AdminToken = os.Getenv("LANSHARE_ADMIN_TOKEN")
-	if b.state.AdminToken == "" {
+	b.state.http_port = http_ln.Addr().(*net.TCPAddr).Port
+	b.state.admin_token = os.Getenv("LANSHARE_ADMIN_TOKEN")
+	if b.state.admin_token == "" {
 		log.Printf("[Security] no LANSHARE_ADMIN_TOKEN provided; privileged endpoints will be disabled")
 	}
-	lanLn, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", discoveryPort))
+	lan_ln, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", discovery_port))
 	if err == nil {
-		b.state.UDPDiscoveryBound = true
+		b.state.udp_discovery_bound = true
 	} else {
-		b.state.UDPDiscoveryBound = false
-		lanLn, err = net.ListenPacket("udp4", ":0")
+		b.state.udp_discovery_bound = false
+		lan_ln, err = net.ListenPacket("udp4", ":0")
 		if err != nil {
 			return fmt.Errorf("failed to bind UDP discovery packet listener: %w", err)
 		}
 	}
-	b.state.LANPort = lanLn.LocalAddr().(*net.UDPAddr).Port
-	go b.state.RunDiscovery(ctx, lanLn)
-	go b.state.RunExpiredPeerSweep(ctx)
-	go b.state.RunLoopbackPeerProbe(ctx)
+	b.state.lan_port = lan_ln.LocalAddr().(*net.UDPAddr).Port
+	go b.state.run_discovery(ctx, lan_ln)
+	go b.state.run_expired_peer_sweep(ctx)
+	go b.state.run_loopback_peer_probe(ctx)
 	log.Printf(
 		"LANShare backend ready: http=127.0.0.1:%d lan=%d",
-		b.state.HTTPPort,
-		b.state.LANPort,
+		b.state.http_port,
+		b.state.lan_port,
 	)
 	go func() {
 		<-ctx.Done()
-		_ = httpLn.Close()
-		_ = lanLn.Close()
+		_ = http_ln.Close()
+		_ = lan_ln.Close()
 	}()
-	errCh := make(chan error, 2)
+	err_ch := make(chan error, 2)
 	go func() {
-		errCh <- b.httpServer.Serve(httpLn)
+		err_ch <- b.http_server.Serve(http_ln)
 	}()
 	go func() {
-		errCh <- b.state.RunDiscoveryListener(ctx, lanLn)
+		err_ch <- b.state.run_discovery_listener(ctx, lan_ln)
 	}()
 	select {
 	case <-ctx.Done():
-	case err := <-errCh:
+	case err := <-err_ch:
 		if err != nil && !errors.Is(err, net.ErrClosed) {
 			return err
 		}
 	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdown_ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = b.httpServer.Shutdown(shutdownCtx)
-	_ = lanLn.Close()
+	_ = b.http_server.Shutdown(shutdown_ctx)
+	_ = lan_ln.Close()
 	return nil
 }
 
-func isAllowedOrigin(origin string) bool {
+func is_allowed_origin(origin string) bool {
 	if origin == "null" {
 		return true
 	}
@@ -157,11 +157,11 @@ func isAllowedOrigin(origin string) bool {
 	return hostname == "127.0.0.1" || hostname == "localhost"
 }
 
-func withCORS(next http.Handler) http.Handler {
+func with_cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			if !isAllowedOrigin(origin) {
+			if !is_allowed_origin(origin) {
 				if r.Method == http.MethodOptions {
 					w.WriteHeader(http.StatusForbidden)
 					return
@@ -187,99 +187,99 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
-func (b *Backend) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]any{
+func (b *backend) health(w http.ResponseWriter, r *http.Request) {
+	write_json(w, map[string]any{
 		"ok":          true,
 		"platform":    runtime.GOOS,
-		"diagnostics": b.state.GetDiagnostics(),
+		"diagnostics": b.state.get_diagnostics(),
 	})
 }
 
-func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
+func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
+		write_error_json(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
 		return
 	}
-	var req TransferRequest
+	var req transfer_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErrorJSON(w, http.StatusBadRequest, "B-P001", "invalid prepare transfer payload")
+		write_error_json(w, http.StatusBadRequest, "B-P001", "invalid prepare transfer payload")
 		return
 	}
-	if req.PeerID == "" || len(req.Files) == 0 {
-		writeErrorJSON(w, http.StatusBadRequest, "B-P002", "missing peer or files")
+	if req.peer_id == "" || len(req.files) == 0 {
+		write_error_json(w, http.StatusBadRequest, "B-P002", "missing peer or files")
 		return
 	}
-	transferID := req.TransferID
-	if transferID == "" {
-		transferID = randomToken(8)
+	transfer_id := req.transfer_id
+	if transfer_id == "" {
+		transfer_id = random_token(8)
 	}
-	settings := b.state.GetSettings()
-	if !settings.AskBeforeAccepting {
-		token := randomToken(16)
+	settings := b.state.get_settings()
+	if !settings.ask_before_accepting {
+		token := random_token(16)
 		b.state.mu.Lock()
-		b.state.allowedTransferTokens[token] = allowedToken{
-			TransferID: transferID,
-			ExpiresAt:  time.Now().Add(30 * time.Second),
+		b.state.allowed_transfer_tokens[token] = allowed_token{
+			transfer_id: transfer_id,
+			expires_at:  time.Now().Add(30 * time.Second),
 		}
 		b.state.mu.Unlock()
-		writeJSON(w, map[string]any{
+		write_json(w, map[string]any{
 			"ok":    true,
 			"token": token,
 		})
 		return
 	}
-	peer := b.state.findPeer(req.PeerID)
-	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted {
-		token := randomToken(16)
+	peer := b.state.find_peer(req.peer_id)
+	if settings.auto_accept_trusted && peer.id != "" && peer.trusted {
+		token := random_token(16)
 		b.state.mu.Lock()
-		b.state.allowedTransferTokens[token] = allowedToken{
-			TransferID: transferID,
-			ExpiresAt:  time.Now().Add(30 * time.Second),
+		b.state.allowed_transfer_tokens[token] = allowed_token{
+			transfer_id: transfer_id,
+			expires_at:  time.Now().Add(30 * time.Second),
 		}
 		b.state.mu.Unlock()
-		writeJSON(w, map[string]any{
+		write_json(w, map[string]any{
 			"ok":    true,
 			"token": token,
 		})
 		return
 	}
-	deviceName := req.DeviceName
-	if deviceName == "" {
-		if peer.ID != "" && peer.Name != "" {
-			deviceName = peer.Name
+	device_name := req.device_name
+	if device_name == "" {
+		if peer.id != "" && peer.name != "" {
+			device_name = peer.name
 		} else {
-			deviceName = "Nearby device"
+			device_name = "Nearby device"
 		}
 	}
-	ch := make(chan transferDecision, 1)
+	ch := make(chan transfer_decision, 1)
 	b.state.mu.Lock()
-	b.state.pendingTransfers[transferID] = ch
+	b.state.pending_transfers[transfer_id] = ch
 	b.state.mu.Unlock()
 	b.state.publish(event{
-		Type: "incoming-transfer-request",
-		Data: map[string]any{
-			"transferId": transferID,
-			"peerId":     req.PeerID,
-			"deviceName": deviceName,
-			"files":      req.Files,
+		type_: "incoming-transfer-request",
+		data: map[string]any{
+			"transferId": transfer_id,
+			"peerId":     req.peer_id,
+			"deviceName": device_name,
+			"files":      req.files,
 		},
 	})
 	select {
 	case dec := <-ch:
-		if dec.Accepted {
+		if dec.accepted {
 			b.state.mu.Lock()
-			b.state.allowedTransferTokens[dec.Token] = allowedToken{
-				TransferID: transferID,
-				ExpiresAt:  time.Now().Add(30 * time.Second),
+			b.state.allowed_transfer_tokens[dec.token] = allowed_token{
+				transfer_id: transfer_id,
+				expires_at:  time.Now().Add(30 * time.Second),
 			}
 			b.state.mu.Unlock()
-			writeJSON(w, map[string]any{
+			write_json(w, map[string]any{
 				"ok":    true,
-				"token": dec.Token,
+				"token": dec.token,
 			})
 			return
 		}
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusForbidden,
 			"B-P003",
@@ -287,9 +287,9 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 		)
 	case <-time.After(30 * time.Second):
 		b.state.mu.Lock()
-		delete(b.state.pendingTransfers, transferID)
+		delete(b.state.pending_transfers, transfer_id)
 		b.state.mu.Unlock()
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusRequestTimeout,
 			"B-P004",
@@ -298,14 +298,14 @@ func (b *Backend) prepareTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
+func (b *backend) respond_transfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeErrorJSON(w, http.StatusMethodNotAllowed, "B-RP000", "method not allowed")
+		write_error_json(w, http.StatusMethodNotAllowed, "B-RP000", "method not allowed")
 		return
 	}
 	header := r.Header.Get("X-Lanshare-Token")
-	if b.state.AdminToken == "" {
-		writeErrorJSON(
+	if b.state.admin_token == "" {
+		write_error_json(
 			w,
 			http.StatusUnauthorized,
 			"B-RP004",
@@ -313,8 +313,8 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if header != b.state.AdminToken {
-		writeErrorJSON(
+	if header != b.state.admin_token {
+		write_error_json(
 			w,
 			http.StatusUnauthorized,
 			"B-RP001",
@@ -327,14 +327,14 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		Accept     bool   `json:"accept"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErrorJSON(w, http.StatusBadRequest, "B-RP002", "invalid payload")
+		write_error_json(w, http.StatusBadRequest, "B-RP002", "invalid payload")
 		return
 	}
 	b.state.mu.Lock()
-	ch, ok := b.state.pendingTransfers[req.TransferID]
+	ch, ok := b.state.pending_transfers[req.TransferID]
 	if !ok {
 		b.state.mu.Unlock()
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusNotFound,
 			"B-RP003",
@@ -343,33 +343,33 @@ func (b *Backend) respondTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Accept {
-		token := randomToken(16)
-		ch <- transferDecision{
-			Accepted: true,
-			Token:    token,
+		token := random_token(16)
+		ch <- transfer_decision{
+			accepted: true,
+			token:    token,
 		}
-		delete(b.state.pendingTransfers, req.TransferID)
+		delete(b.state.pending_transfers, req.TransferID)
 		b.state.mu.Unlock()
-		writeJSON(w, map[string]any{"ok": true})
+		write_json(w, map[string]any{"ok": true})
 		return
 	}
-	ch <- transferDecision{
-		Accepted: false,
+	ch <- transfer_decision{
+		accepted: false,
 	}
-	delete(b.state.pendingTransfers, req.TransferID)
+	delete(b.state.pending_transfers, req.TransferID)
 	b.state.mu.Unlock()
-	writeJSON(w, map[string]any{"ok": true})
+	write_json(w, map[string]any{"ok": true})
 }
 
-func (b *Backend) stateHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, b.state.Snapshot())
+func (b *backend) state_handler(w http.ResponseWriter, r *http.Request) {
+	write_json(w, b.state.snapshot())
 }
 
-func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
+func (b *backend) settings_handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		header := r.Header.Get("X-Lanshare-Token")
-		if b.state.AdminToken == "" {
-			writeErrorJSON(
+		if b.state.admin_token == "" {
+			write_error_json(
 				w,
 				http.StatusUnauthorized,
 				"B-S003",
@@ -377,8 +377,8 @@ func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		if header != b.state.AdminToken {
-			writeErrorJSON(
+		if header != b.state.admin_token {
+			write_error_json(
 				w,
 				http.StatusUnauthorized,
 				"B-S002",
@@ -389,11 +389,11 @@ func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, b.state.GetSettings())
+		write_json(w, b.state.get_settings())
 	case http.MethodPost:
-		var cfg BackendSettings
+		var cfg backend_settings
 		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusBadRequest,
 				"B-S001",
@@ -401,10 +401,10 @@ func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		b.state.UpdateSettings(cfg)
-		writeJSON(w, map[string]any{"ok": true})
+		b.state.update_settings(cfg)
+		write_json(w, map[string]any{"ok": true})
 	default:
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusMethodNotAllowed,
 			"B-S000",
@@ -413,7 +413,7 @@ func (b *Backend) settingsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func candidatePorts(start, n int) []int {
+func candidate_ports(start, n int) []int {
 	out := make([]int, n)
 	for i := range out {
 		out[i] = start + i
@@ -421,11 +421,11 @@ func candidatePorts(start, n int) []int {
 	return out
 }
 
-func (b *Backend) devices(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, b.state.PeersSnapshot())
+func (b *backend) devices(w http.ResponseWriter, r *http.Request) {
+	write_json(w, b.state.peers_snapshot())
 }
 
-func (b *Backend) events(w http.ResponseWriter, r *http.Request) {
+func (b *backend) events(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(
@@ -438,24 +438,24 @@ func (b *Backend) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	ch := b.state.Subscribe()
-	defer b.state.Unsubscribe(ch)
+	ch := b.state.subscribe()
+	defer b.state.unsubscribe(ch)
 	for {
 		select {
 		case <-r.Context().Done():
 			return
 		case evt := <-ch:
 			payload, _ := json.Marshal(evt)
-			fmt.Fprintf(w, "event: %s\n", evt.Type)
+			fmt.Fprintf(w, "event: %s\n", evt.type_)
 			fmt.Fprintf(w, "data: %s\n\n", payload)
 			flusher.Flush()
 		}
 	}
 }
 
-func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
+func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusMethodNotAllowed,
 			"B-T000",
@@ -463,9 +463,9 @@ func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	var req TransferRequest
+	var req transfer_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-T001",
@@ -473,8 +473,8 @@ func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if req.PeerID == "" || len(req.Files) == 0 {
-		writeErrorJSON(
+	if req.peer_id == "" || len(req.files) == 0 {
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-T002",
@@ -483,28 +483,28 @@ func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
-			"id":        req.TransferID,
-			"peerId":    req.PeerID,
+		type_: "transfer",
+		data: map[string]any{
+			"id":        req.transfer_id,
+			"peerId":    req.peer_id,
 			"state":     "transferring",
 			"direction": "outgoing",
-			"files":     req.Files,
+			"files":     req.files,
 		},
 	})
-	if err := b.state.SendFiles(r.Context(), req); err != nil {
+	if err := b.state.send_files(r.Context(), req); err != nil {
 		b.state.publish(event{
-			Type: "transfer",
-			Data: map[string]any{
-				"id":           req.TransferID,
-				"peerId":       req.PeerID,
+			type_: "transfer",
+			data: map[string]any{
+				"id":           req.transfer_id,
+				"peerId":       req.peer_id,
 				"state":        "failed",
 				"direction":    "outgoing",
-				"files":        req.Files,
+				"files":        req.files,
 				"errorMessage": err.Error(),
 			},
 		})
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusBadGateway,
 			"B-T010",
@@ -513,21 +513,21 @@ func (b *Backend) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
-			"id":        req.TransferID,
-			"peerId":    req.PeerID,
+		type_: "transfer",
+		data: map[string]any{
+			"id":        req.transfer_id,
+			"peerId":    req.peer_id,
 			"state":     "completed",
 			"direction": "outgoing",
-			"files":     req.Files,
+			"files":     req.files,
 		},
 	})
-	writeJSON(w, map[string]any{"ok": true})
+	write_json(w, map[string]any{"ok": true})
 }
 
-func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
+func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusMethodNotAllowed,
 			"B-R000",
@@ -537,7 +537,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 	}
 	token := r.Header.Get("X-Lanshare-Transfer-Token")
 	if token == "" {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusUnauthorized,
 			"B-R020",
@@ -546,10 +546,10 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.state.mu.Lock()
-	at, ok := b.state.allowedTransferTokens[token]
-	if !ok || time.Now().After(at.ExpiresAt) {
+	at, ok := b.state.allowed_transfer_tokens[token]
+	if !ok || time.Now().After(at.expires_at) {
 		b.state.mu.Unlock()
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusForbidden,
 			"B-R021",
@@ -557,13 +557,13 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	delete(b.state.allowedTransferTokens, token)
+	delete(b.state.allowed_transfer_tokens, token)
 	b.state.mu.Unlock()
-	mediaType, params, err := mime.ParseMediaType(
+	media_type, params, err := mime.ParseMediaType(
 		r.Header.Get("Content-Type"),
 	)
-	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
-		writeErrorJSON(
+	if err != nil || !strings.HasPrefix(media_type, "multipart/") {
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-R001",
@@ -572,9 +572,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reader := multipart.NewReader(r.Body, params["boundary"])
-	metaPart, err := reader.NextPart()
+	meta_part, err := reader.NextPart()
 	if err != nil {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-R002",
@@ -582,8 +582,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if metaPart.FormName() != "metadata" {
-		writeErrorJSON(
+	if meta_part.FormName() != "metadata" {
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-R003",
@@ -602,8 +602,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			Checksum     string `json:"checksum"`
 		} `json:"files"`
 	}
-	if err := json.NewDecoder(metaPart).Decode(&meta); err != nil {
-		writeErrorJSON(
+	if err := json.NewDecoder(meta_part).Decode(&meta); err != nil {
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-R004",
@@ -612,7 +612,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(meta.Files) == 0 {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusBadRequest,
 			"B-R005",
@@ -628,8 +628,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
+		type_: "transfer",
+		data: map[string]any{
 			"id":               meta.TransferID,
 			"peerId":           meta.PeerID,
 			"deviceName":       meta.PeerName,
@@ -640,12 +640,12 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			"totalSizeBytes":   total,
 		},
 	})
-	downloads := defaultDownloads()
-	if custom := b.state.GetSettings().DownloadFolder; custom != "" {
+	downloads := default_downloads()
+	if custom := b.state.get_settings().download_folder; custom != "" {
 		downloads = custom
 	}
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
-		writeErrorJSON(
+		write_error_json(
 			w,
 			http.StatusInternalServerError,
 			"B-R006",
@@ -655,12 +655,12 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 	}
 	for idx, file := range meta.Files {
 		if file.IsDir {
-			targetDir, err := safeDownloadPath(
+			target_dir, err := safe_download_path(
 				downloads,
 				file.RelativePath,
 			)
 			if err != nil {
-				writeErrorJSON(
+				write_error_json(
 					w,
 					http.StatusBadRequest,
 					"B-R007",
@@ -668,8 +668,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 				)
 				return
 			}
-			if err := os.MkdirAll(targetDir, 0o755); err != nil {
-				writeErrorJSON(
+			if err := os.MkdirAll(target_dir, 0o755); err != nil {
+				write_error_json(
 					w,
 					http.StatusInternalServerError,
 					"B-R008",
@@ -678,7 +678,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if _, err := reader.NextPart(); err != nil && !errors.Is(err, io.EOF) {
-				writeErrorJSON(
+				write_error_json(
 					w,
 					http.StatusBadRequest,
 					"B-R017",
@@ -690,7 +690,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		part, err := reader.NextPart()
 		if err != nil {
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusBadRequest,
 				"B-R009",
@@ -698,9 +698,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		expectedName := fmt.Sprintf("file-%d", idx)
-		if part.FormName() != expectedName {
-			writeErrorJSON(
+		expected_name := fmt.Sprintf("file-%d", idx)
+		if part.FormName() != expected_name {
+			write_error_json(
 				w,
 				http.StatusBadRequest,
 				"B-R010",
@@ -708,12 +708,12 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		targetPath, err := safeDownloadPath(
+		target_path, err := safe_download_path(
 			downloads,
 			file.RelativePath,
 		)
 		if err != nil {
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusBadRequest,
 				"B-R011",
@@ -721,9 +721,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		targetPath = getUniqueFilePath(targetPath)
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			writeErrorJSON(
+		target_path = get_unique_file_path(target_path)
+		if err := os.MkdirAll(filepath.Dir(target_path), 0o755); err != nil {
+			write_error_json(
 				w,
 				http.StatusInternalServerError,
 				"B-R012",
@@ -731,10 +731,10 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		tmp := targetPath + ".part"
+		tmp := target_path + ".part"
 		dst, err := os.Create(tmp)
 		if err != nil {
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusInternalServerError,
 				"B-R013",
@@ -743,26 +743,26 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		hasher := sha256.New()
-		multiWriter := io.MultiWriter(dst, hasher)
-		written, copyErr := io.Copy(multiWriter, part)
+		multi_writer := io.MultiWriter(dst, hasher)
+		written, copy_err := io.Copy(multi_writer, part)
 		_ = dst.Close()
-		if copyErr != nil {
+		if copy_err != nil {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
-				Type: "transfer",
-				Data: map[string]any{
+				type_: "transfer",
+				data: map[string]any{
 					"id":               meta.TransferID,
 					"peerId":           meta.PeerID,
 					"deviceName":       meta.PeerName,
 					"state":            "failed",
 					"direction":        "incoming",
 					"files":            meta.Files,
-					"errorMessage":     copyErr.Error(),
+					"errorMessage":     copy_err.Error(),
 					"bytesTransferred": uploaded,
 					"totalSizeBytes":   total,
 				},
 			})
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusBadGateway,
 				"B-R014",
@@ -770,12 +770,12 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		computedChecksum := hex.EncodeToString(hasher.Sum(nil))
-		if file.Checksum != "" && computedChecksum != file.Checksum {
+		computed_checksum := hex.EncodeToString(hasher.Sum(nil))
+		if file.Checksum != "" && computed_checksum != file.Checksum {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
-				Type: "transfer",
-				Data: map[string]any{
+				type_: "transfer",
+				data: map[string]any{
 					"id":               meta.TransferID,
 					"peerId":           meta.PeerID,
 					"deviceName":       meta.PeerName,
@@ -787,7 +787,7 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 					"totalSizeBytes":   total,
 				},
 			})
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusBadRequest,
 				"B-R016",
@@ -797,8 +797,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		uploaded += written
 		b.state.publish(event{
-			Type: "transfer",
-			Data: map[string]any{
+			type_: "transfer",
+			data: map[string]any{
 				"id":               meta.TransferID,
 				"peerId":           meta.PeerID,
 				"deviceName":       meta.PeerName,
@@ -809,9 +809,9 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 				"totalSizeBytes":   total,
 			},
 		})
-		if err := os.Rename(tmp, targetPath); err != nil {
+		if err := os.Rename(tmp, target_path); err != nil {
 			_ = os.Remove(tmp)
-			writeErrorJSON(
+			write_error_json(
 				w,
 				http.StatusInternalServerError,
 				"B-R015",
@@ -821,8 +821,8 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
+		type_: "transfer",
+		data: map[string]any{
 			"id":               meta.TransferID,
 			"peerId":           meta.PeerID,
 			"deviceName":       meta.PeerName,
@@ -833,10 +833,10 @@ func (b *Backend) receive(w http.ResponseWriter, r *http.Request) {
 			"totalSizeBytes":   total,
 		},
 	})
-	writeJSON(w, map[string]any{"ok": true})
+	write_json(w, map[string]any{"ok": true})
 }
 
-func (b *Backend) share(w http.ResponseWriter, r *http.Request) {
+func (b *backend) share(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(
 			w,
@@ -845,7 +845,7 @@ func (b *Backend) share(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	var req ShareRequest
+	var req share_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(
 			w,
@@ -854,7 +854,7 @@ func (b *Backend) share(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	share, err := b.state.CreateShare(req)
+	share, err := b.state.create_share(req)
 	if err != nil {
 		http.Error(
 			w,
@@ -863,26 +863,26 @@ func (b *Backend) share(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	writeJSON(w, share)
+	write_json(w, share)
 }
 
-func (b *Backend) serveShare(w http.ResponseWriter, r *http.Request) {
-	b.state.ServeShare(w, r)
+func (b *backend) serve_share(w http.ResponseWriter, r *http.Request) {
+	b.state.serve_share(w, r)
 }
 
-func defaultDownloads() string {
+func default_downloads() string {
 	if d, err := os.UserHomeDir(); err == nil && d != "" {
 		return filepath.Join(d, "Downloads")
 	}
 	return "."
 }
 
-func writeJSON(w http.ResponseWriter, v any) {
+func write_json(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeErrorJSON(
+func write_error_json(
 	w http.ResponseWriter,
 	status int,
 	code string,
@@ -897,12 +897,12 @@ func writeErrorJSON(
 	})
 }
 
-func safeDownloadPath(
-	baseDir string,
-	relativePath string,
+func safe_download_path(
+	base_dir string,
+	relative_path string,
 ) (string, error) {
 	clean := filepath.Clean(
-		filepath.FromSlash(relativePath),
+		filepath.FromSlash(relative_path),
 	)
 	if clean == "." || clean == string(filepath.Separator) {
 		return "", fmt.Errorf("invalid path")
@@ -914,31 +914,31 @@ func safeDownloadPath(
 	if clean == "" {
 		return "", fmt.Errorf("invalid path")
 	}
-	target := filepath.Join(baseDir, clean)
-	baseAbs, err := filepath.Abs(baseDir)
+	target := filepath.Join(base_dir, clean)
+	base_abs, err := filepath.Abs(base_dir)
 	if err != nil {
 		return "", err
 	}
-	targetAbs, err := filepath.Abs(target)
+	target_abs, err := filepath.Abs(target)
 	if err != nil {
 		return "", err
 	}
-	prefix := baseAbs + string(filepath.Separator)
-	if targetAbs != baseAbs &&
-		!strings.HasPrefix(targetAbs, prefix) {
+	prefix := base_abs + string(filepath.Separator)
+	if target_abs != base_abs &&
+		!strings.HasPrefix(target_abs, prefix) {
 		return "", fmt.Errorf("unsafe path rejected")
 	}
 	return target, nil
 }
 
-func getUniqueFilePath(targetPath string) string {
-	if _, err := os.Stat(targetPath); errors.Is(err, os.ErrNotExist) {
-		return targetPath
+func get_unique_file_path(target_path string) string {
+	if _, err := os.Stat(target_path); errors.Is(err, os.ErrNotExist) {
+		return target_path
 	}
-	dir := filepath.Dir(targetPath)
-	ext := filepath.Ext(targetPath)
+	dir := filepath.Dir(target_path)
+	ext := filepath.Ext(target_path)
 	base := strings.TrimSuffix(
-		filepath.Base(targetPath),
+		filepath.Base(target_path),
 		ext,
 	)
 	for i := 1; i < 10000; i++ {
@@ -950,5 +950,5 @@ func getUniqueFilePath(targetPath string) string {
 			return candidate
 		}
 	}
-	return targetPath
+	return target_path
 }

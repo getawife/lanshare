@@ -2,38 +2,38 @@ import React from "react";
 import { Upload, File, Folder, SearchX } from "lucide-react";
 import styles from "./DropZone.module.css";
 
-interface DropZoneProps {
-  isDragging: boolean;
-  selectedDeviceName?: string | undefined;
-  hasRecipient: boolean;
-  stagedCount?: number;
-  onSelectFiles: () => void;
-  onSelectFolder: () => void;
+interface drop_zone_props {
+  is_dragging: boolean;
+  selected_device_name?: string | undefined;
+  has_recipient: boolean;
+  staged_count?: number;
+  on_select_files: () => void;
+  on_select_folder: () => void;
 }
 
-export const DropZone: React.FC<DropZoneProps> = ({
-  isDragging,
-  selectedDeviceName,
-  hasRecipient,
-  stagedCount = 0,
-  onSelectFiles,
-  onSelectFolder,
+export const DropZone: React.FC<drop_zone_props> = ({
+  is_dragging,
+  selected_device_name,
+  has_recipient,
+  staged_count = 0,
+  on_select_files,
+  on_select_folder,
 }) => {
   return (
     <div
-      className={`${styles.dropZone} ${isDragging ? styles.dragging : ""}`}
+      className={`${styles.dropZone} ${is_dragging ? styles.dragging : ""}`}
       aria-live="polite"
     >
-      {isDragging ? (
+      {is_dragging ? (
         <div className={styles.contentContainer}>
           <div>
             <h3 className={styles.title}>Release to Drop</h3>
             <div className={styles.subtitle}>
-              {selectedDeviceName ? (
+              {selected_device_name ? (
                 <>
                   Sending to{" "}
                   <span className={styles.accentText}>
-                    {selectedDeviceName}
+                    {selected_device_name}
                   </span>
                 </>
               ) : (
@@ -44,7 +44,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
         </div>
       ) : (
         <div className={styles.contentContainer}>
-          {!hasRecipient ? (
+          {!has_recipient ? (
             <>
               <div>
                 <h3 className={styles.title}>Select a recipient</h3>
@@ -57,11 +57,11 @@ export const DropZone: React.FC<DropZoneProps> = ({
           ) : (
             <>
               <h3 className={styles.title}>Drop files here</h3>
-              {stagedCount > 0 && (
+              {staged_count > 0 && (
                 <div className={styles.subtitle}>
-                  <span className={styles.accentText}>{stagedCount}</span> item
-                  {stagedCount === 1 ? "" : "s"} ready
-                  {selectedDeviceName ? ` for ${selectedDeviceName}` : ""}
+                  <span className={styles.accentText}>{staged_count}</span> item
+                  {staged_count === 1 ? "" : "s"} ready
+                  {selected_device_name ? ` for ${selected_device_name}` : ""}
                 </div>
               )}
             </>
@@ -70,7 +70,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <div className={styles.buttonGroup}>
             <button
               className={styles.actionBtn}
-              onClick={onSelectFiles}
+              onClick={on_select_files}
               aria-label="Select files to send"
             >
               <File size={16} strokeWidth={2} />
@@ -78,7 +78,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
             </button>
             <button
               className={styles.secondaryBtn}
-              onClick={onSelectFolder}
+              onClick={on_select_folder}
               aria-label="Select folder to send"
             >
               <Folder size={16} strokeWidth={2} />

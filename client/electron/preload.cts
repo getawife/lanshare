@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-type AppSettings = {
+type app_settings = {
   deviceName: string;
   autoStart: boolean;
   showNotifications: boolean;
@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getSettings: () => ipcRenderer.invoke("settings:get"),
 
-  saveSettings: (settings: Partial<AppSettings>) =>
+  saveSettings: (settings: Partial<app_settings>) =>
     ipcRenderer.invoke("settings:save", settings),
 
   getBackendUrl: () => ipcRenderer.invoke("backend:get-url"),
@@ -33,8 +33,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   fetchBackend: (path: string, init?: RequestInit) =>
     ipcRenderer.invoke("backend:fetch", path, init),
 
-  transferRespond: (transferId: string, accept: boolean) =>
-    ipcRenderer.invoke("transfer:respond", transferId, accept),
+  transferRespond: (transfer_id: string, accept: boolean) =>
+    ipcRenderer.invoke("transfer:respond", transfer_id, accept),
 
   openFolder: (path?: string) => ipcRenderer.invoke("folder:open", path),
 
