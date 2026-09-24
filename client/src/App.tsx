@@ -53,6 +53,7 @@ export const App: React.FC = () => {
     theme: "dark",
     clipboardSync: false,
   });
+  const [settings_loaded, set_settings_loaded] = useState(false);
 
   const upsert_transfer_record = (record: transfer_record) => {
     set_transfer_history((prev) => {
@@ -223,6 +224,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     window.electronAPI?.getSettings().then((saved) => {
       if (saved) set_settings((prev) => ({ ...prev, ...saved, theme: "dark" }));
+      set_settings_loaded(true);
     });
   }, []);
 
@@ -324,8 +326,9 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!settings_loaded) return;
     void window.electronAPI?.saveSettings(settings);
-  }, [settings]);
+  }, [settings, settings_loaded]);
 
   const handle_initiate_transfer = async (
     device: device,
