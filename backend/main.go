@@ -29,12 +29,24 @@ const default_http_port = 43821
 const default_loopback_peer_port = 43822
 
 func main() {
-	state, err := new_server_state()
+	user_data_dir := os.Getenv("LANSHARE_USER_DATA_DIR")
+	if user_data_dir == "" {
+		user_data_dir = default_user_data_dir()
+	}
+
+	identity, err := load_or_create_identity(user_data_dir)
+	if err != nil {
+		log.Fatalf("failed to load device identity: %v", err)
+	}
+
+	state, err := new_server_state(identity)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
 	server := new_backend(state)
 	if err := server.start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
@@ -50,7 +62,7 @@ func random_token(n int) string {
 }
 
 type backend struct {
-	state      *server_state
+	state       *server_state
 	http_server *http.Server
 }
 

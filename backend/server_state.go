@@ -35,20 +35,20 @@ type share_record struct {
 }
 
 type server_state struct {
-	device_id             string
-	device_name           string
-	version               string
-	http_port             int
-	lan_port              int
-	udp_discovery_bound   bool
-	peers                 map[string]device
-	events                map[chan event]struct{}
-	mu                    sync.Mutex
-	shares                map[string]share_record
-	warnings              []string
-	settings              backend_settings
-	admin_token           string
-	pending_transfers     map[string]chan transfer_decision
+	device_id               string
+	device_name             string
+	version                 string
+	http_port               int
+	lan_port                int
+	udp_discovery_bound     bool
+	peers                   map[string]device
+	events                  map[chan event]struct{}
+	mu                      sync.Mutex
+	shares                  map[string]share_record
+	warnings                []string
+	settings                backend_settings
+	admin_token             string
+	pending_transfers       map[string]chan transfer_decision
 	allowed_transfer_tokens map[string]allowed_token
 }
 
@@ -62,13 +62,13 @@ type allowed_token struct {
 	expires_at  time.Time
 }
 
-func new_server_state() (*server_state, error) {
+func new_server_state(identity device_identity) (*server_state, error) {
 	name := "LANShare Desktop"
 	if h, err := os.Hostname(); err == nil && h != "" {
 		name = h
 	}
 	return &server_state{
-		device_id:           random_token(8),
+		device_id:           identity.DeviceID,
 		device_name:         name,
 		version:             "1.0.3",
 		udp_discovery_bound: false,
@@ -372,8 +372,11 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 			http_port = port
 		}
 
-		if name == "" || strings.EqualFold(name, s.device_name) || id == s.device_id {
+		if id == "" || id == s.device_id {
 			continue
+		}
+		if name == "" {
+			name = "Nearby device"
 		}
 
 		var peer_settings backend_settings
@@ -399,13 +402,10 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 			settings:      peer_settings,
 		}
 
-		key := strings.ToLower(name)
-
 		s.mu.Lock()
-		s.peers[key] = peer
+		s.peers[id] = peer
 		s.mu.Unlock()
 		s.publish(event{type_: "peer", data: peer})
-
 	}
 }
 
@@ -760,10 +760,8 @@ func copy_file_with_progress(dst io.Writer, source_path string, on_chunk func(in
 func (s *server_state) find_peer(id string) device {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, p := range s.peers {
-		if p.id == id {
-			return p
-		}
+	if peer, ok := s.peers[id]; ok {
+		return peer
 	}
 	return device{}
 }
