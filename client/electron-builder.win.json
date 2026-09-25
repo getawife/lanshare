@@ -11,6 +11,13 @@
       "to": "backend/windows"
     }
   ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "getawife",
+      "repo": "lanshare"
+    }
+  ],
   "win": {
     "target": "nsis",
     "icon": "build/icon.ico"

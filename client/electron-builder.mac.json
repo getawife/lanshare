@@ -11,6 +11,13 @@
       "to": "backend/macos/arm64"
     }
   ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "getawife",
+      "repo": "lanshare"
+    }
+  ],
   "mac": {
     "target": [
       {

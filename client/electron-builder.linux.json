@@ -11,6 +11,13 @@
       "to": "backend/linux"
     }
   ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "getawife",
+      "repo": "lanshare"
+    }
+  ],
   "linux": {
     "target": [
       {
