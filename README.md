@@ -112,7 +112,7 @@ Include the following in your report:
 - Any error message shown in the app.
 
 For security-sensitive reports, please do not open a public issue.
-Contact me at contactgetawife@gmail.com with the details.
+Contact me at contactgetawife@protonmail.com with the details.
 
 ### Pull Requests
 
