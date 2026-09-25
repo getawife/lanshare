@@ -243,7 +243,10 @@ func (s *server_state) run_discovery(ctx context.Context, conn net.PacketConn) {
 			"httpPort":     s.http_port,
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
-			"settings":     s.settings,
+			"settings": map[string]any{
+				"askBeforeAccepting": s.settings.ask_before_accepting,
+				"autoAcceptTrusted":  s.settings.auto_accept_trusted,
+			},
 		})
 
 		for _, pair := range get_interface_broadcast_pairs(discovery_port) {
