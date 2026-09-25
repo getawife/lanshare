@@ -47,15 +47,10 @@ export const Home: React.FC<home_props> = ({
 
     const device_exists = devices.some((d) => d.id === selected_device_id);
     if (!device_exists) {
-      const old_device = devices.find((d) => d.name === selected_device?.name);
-      if (old_device) {
-        set_selected_device_id(old_device.id);
-      } else {
-        set_selected_device_id(null);
-        set_staged_files(null);
-      }
+      set_selected_device_id(null);
+      set_staged_files(null);
     }
-  }, [devices, selected_device_id, selected_device?.name]);
+  }, [devices, selected_device_id]);
 
   const [staged_files, set_staged_files] = useState<file_item[] | null>(null);
   const [is_dragging, set_is_dragging] = useState(false);
@@ -265,7 +260,7 @@ export const Home: React.FC<home_props> = ({
           <div className={styles.deviceGrid}>
             {devices.map((device) => (
               <DeviceCard
-                key={`${device.name.toLowerCase().trim()}-${device.ip}`}
+                key={device.id}
                 device={device}
                 is_selected={selected_device_id === device.id}
                 on_select={(dev) => set_selected_device_id(dev.id)}

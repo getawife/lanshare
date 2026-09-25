@@ -159,27 +159,18 @@ export const App: React.FC = () => {
         set_backend_status(status);
       }
       const state = await window.electronAPI?.getBackendState?.();
-      const peers = state?.peers ?? [];
+      const peers: device[] = state?.peers ?? [];
 
       set_devices_map((prev_map) => {
-        if (prev_map.size === 0) {
-          const new_map = new Map<string, device>();
-          for (const peer of peers) {
-            new_map.set(peer.name.toLowerCase().trim(), peer);
-          }
-          return new_map;
-        }
-
-        const current_keys = new Set<string>();
+        const current_ids = new Set<string>();
         for (const peer of peers) {
-          const key = peer.name.toLowerCase().trim();
-          current_keys.add(key);
-          prev_map.set(key, peer);
+          current_ids.add(peer.id);
+          prev_map.set(peer.id, peer);
         }
 
-        for (const key of prev_map.keys()) {
-          if (!current_keys.has(key)) {
-            prev_map.delete(key);
+        for (const id of prev_map.keys()) {
+          if (!current_ids.has(id)) {
+            prev_map.delete(id);
           }
         }
 
@@ -239,13 +230,11 @@ export const App: React.FC = () => {
       source.addEventListener("peer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);
-          const new_device = payload?.data;
-          if (!new_device) return;
-
-          const lower_name = new_device.name.toLowerCase().trim();
+          const new_device: device | undefined = payload?.data;
+          if (!new_device || !new_device.id) return;
 
           set_devices_map((prev_map) => {
-            prev_map.set(lower_name, new_device);
+            prev_map.set(new_device.id, new_device);
             return prev_map;
           });
 

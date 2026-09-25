@@ -315,6 +315,7 @@ async function start_backend(): Promise<backend_status> {
         GOTOOLCHAIN: "local",
         LANSHARE_HTTP_PORT: String(default_backend_port),
         LANSHARE_ADMIN_TOKEN: admin_token,
+        LANSHARE_USER_DATA_DIR: app.getPath("userData"),
       },
     });
   } catch (err: any) {
