@@ -14,10 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 )
 
 const discovery_port = 43821
@@ -41,6 +42,7 @@ type server_state struct {
 	http_port               int
 	lan_port                int
 	udp_discovery_bound     bool
+	user_data_dir           string
 	peers                   map[string]device
 	events                  map[chan event]struct{}
 	mu                      sync.Mutex
@@ -50,6 +52,7 @@ type server_state struct {
 	admin_token             string
 	pending_transfers       map[string]chan transfer_decision
 	allowed_transfer_tokens map[string]allowed_token
+	trusted_ids             map[string]struct{}
 }
 
 type transfer_decision struct {
@@ -62,16 +65,20 @@ type allowed_token struct {
 	expires_at  time.Time
 }
 
-func new_server_state(identity device_identity) (*server_state, error) {
+func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
 	name := "LANShare Desktop"
 	if h, err := os.Hostname(); err == nil && h != "" {
 		name = h
+	}
+	if trusted_ids == nil {
+		trusted_ids = map[string]struct{}{}
 	}
 	return &server_state{
 		device_id:           identity.DeviceID,
 		device_name:         name,
 		version:             "1.0.3",
 		udp_discovery_bound: false,
+		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},
 		events:              map[chan event]struct{}{},
 		shares:              map[string]share_record{},
@@ -83,6 +90,7 @@ func new_server_state(identity device_identity) (*server_state, error) {
 		},
 		pending_transfers:       map[string]chan transfer_decision{},
 		allowed_transfer_tokens: map[string]allowed_token{},
+		trusted_ids:             trusted_ids,
 	}, nil
 }
 
@@ -99,6 +107,53 @@ func (s *server_state) get_settings() backend_settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.settings
+}
+
+func (s *server_state) set_trusted(peer_id string, trusted bool) error {
+	if peer_id == "" {
+		return fmt.Errorf("peer id required")
+	}
+
+	s.mu.Lock()
+	if trusted {
+		s.trusted_ids[peer_id] = struct{}{}
+	} else {
+		delete(s.trusted_ids, peer_id)
+	}
+	snapshot := make(map[string]struct{}, len(s.trusted_ids))
+	for id := range s.trusted_ids {
+		snapshot[id] = struct{}{}
+	}
+
+	var updated *device
+	if peer, ok := s.peers[peer_id]; ok {
+		peer.trusted = trusted
+		s.peers[peer_id] = peer
+		copied := peer
+		updated = &copied
+	}
+	user_data_dir := s.user_data_dir
+	s.mu.Unlock()
+
+	if err := save_trusted_ids(user_data_dir, snapshot); err != nil {
+		return err
+	}
+
+	if updated != nil {
+		s.publish(event{type_: "peer", data: *updated})
+	}
+	return nil
+}
+
+func (s *server_state) list_trusted() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.trusted_ids))
+	for id := range s.trusted_ids {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (s *server_state) add_warning(w string) {
@@ -385,6 +440,11 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 				_ = json.Unmarshal(b, &peer_settings)
 			}
 		}
+
+		s.mu.Lock()
+		_, is_trusted := s.trusted_ids[id]
+		s.mu.Unlock()
+
 		peer := device{
 			id:            id,
 			name:          name,
@@ -394,7 +454,7 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 			port:          port,
 			http_port:     http_port,
 			status:        "available",
-			trusted:       false,
+			trusted:       is_trusted,
 			protocol:      int_from(packet["protocol"]),
 			version:       string_from(packet["version"]),
 			capabilities:  string_slice(packet["capabilities"]),

@@ -735,6 +735,43 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle("trust:list", async () => {
+  const headers: Record<string, string> = {};
+  if (admin_token) {
+    headers["X-Lanshare-Token"] = admin_token;
+  }
+  const response = await fetch(`${backend_url}/api/trust`, { headers });
+  const text = await response.text();
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: text,
+  };
+});
+
+ipcMain.handle(
+  "trust:set",
+  async (_event, peer_id: string, trusted: boolean) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (admin_token) {
+      headers["X-Lanshare-Token"] = admin_token;
+    }
+    const response = await fetch(`${backend_url}/api/trust`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ peerId: peer_id, trusted }),
+    });
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      body: text,
+    };
+  },
+);
+
 ipcMain.handle("backend:state", async () => {
   const response = await fetch(`${backend_url}/api/state`);
   return response.json();

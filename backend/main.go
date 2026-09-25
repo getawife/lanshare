@@ -39,7 +39,12 @@ func main() {
 		log.Fatalf("failed to load device identity: %v", err)
 	}
 
-	state, err := new_server_state(identity)
+	trusted_ids, err := load_trusted_ids(user_data_dir)
+	if err != nil {
+		log.Fatalf("failed to load trusted devices: %v", err)
+	}
+
+	state, err := new_server_state(identity, user_data_dir, trusted_ids)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,6 +84,7 @@ func new_backend(state *server_state) *backend {
 	mux.HandleFunc("/api/receive", b.receive)
 	mux.HandleFunc("/api/share", b.share)
 	mux.HandleFunc("/api/settings", b.settings_handler)
+	mux.HandleFunc("/api/trust", b.trust_handler)
 	mux.HandleFunc("/s/", b.serve_share)
 	b.http_server = &http.Server{Handler: with_cors(mux)}
 	return b
@@ -420,6 +426,66 @@ func (b *backend) settings_handler(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusMethodNotAllowed,
 			"B-S000",
+			"method not allowed",
+		)
+	}
+}
+
+func (b *backend) trust_handler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		write_json(w, map[string]any{
+			"ok":          true,
+			"trusted_ids": b.state.list_trusted(),
+		})
+	case http.MethodPost:
+		header := r.Header.Get("X-Lanshare-Token")
+		if b.state.admin_token == "" {
+			write_error_json(
+				w,
+				http.StatusUnauthorized,
+				"B-TR003",
+				"admin token not configured on server",
+			)
+			return
+		}
+		if header != b.state.admin_token {
+			write_error_json(
+				w,
+				http.StatusUnauthorized,
+				"B-TR002",
+				"invalid admin token",
+			)
+			return
+		}
+		var req struct {
+			PeerID  string `json:"peerId"`
+			Trusted bool   `json:"trusted"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			write_error_json(
+				w,
+				http.StatusBadRequest,
+				"B-TR001",
+				"invalid trust payload",
+			)
+			return
+		}
+		if err := b.state.set_trusted(req.PeerID, req.Trusted); err != nil {
+			write_error_json(
+				w,
+				http.StatusInternalServerError,
+				"B-TR004",
+				"failed to persist trust change",
+			)
+			return
+		}
+		write_json(w, map[string]any{"ok": true})
+	default:
+		write_error_json(
+			w,
+			http.StatusMethodNotAllowed,
+			"B-TR000",
 			"method not allowed",
 		)
 	}

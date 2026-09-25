@@ -40,6 +40,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   notify: (title: string, body: string) =>
     ipcRenderer.invoke("notify", title, body),
 
+  listTrusted: () => ipcRenderer.invoke("trust:list"),
+
+  setTrusted: (peer_id: string, trusted: boolean) =>
+    ipcRenderer.invoke("trust:set", peer_id, trusted),
+
   minimizeWindow: () => {
     ipcRenderer.send("window:minimize");
   },
