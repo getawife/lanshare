@@ -258,3 +258,54 @@
   background: transparent;
   color: #ffffff;
 }
+
+.card {
+  position: relative;
+}
+
+.starBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-muted, #8b94a7);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+  z-index: 1;
+}
+
+.starBtn:hover {
+  color: var(--accent, #4f8cff);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.starBtn:focus-visible {
+  outline: 2px solid var(--accent, #4f8cff);
+  outline-offset: 2px;
+}
+
+.starBtnActive {
+  color: var(--accent, #4f8cff);
+}
+
+.trusted {
+  border-color: var(--accent, #4f8cff);
+}
+
+.trusted::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--accent, #4f8cff);
+  opacity: 0.35;
+}

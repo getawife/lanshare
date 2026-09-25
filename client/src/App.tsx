@@ -26,6 +26,7 @@ export const App: React.FC = () => {
   const [devices_map, set_devices_map] = useState<Map<string, device>>(
     new Map(),
   );
+  const devices_map_ref = React.useRef(devices_map);
   const [is_connected, set_is_connected] = useState(false);
   const [backend_status, set_backend_status] = useState<backend_status | null>(
     null,
@@ -53,6 +54,10 @@ export const App: React.FC = () => {
     theme: "dark",
   });
   const [settings_loaded, set_settings_loaded] = useState(false);
+
+  useEffect(() => {
+    devices_map_ref.current = devices_map;
+  }, [devices_map]);
 
   const upsert_transfer_record = (record: transfer_record) => {
     set_transfer_history((prev) => {
@@ -159,13 +164,17 @@ export const App: React.FC = () => {
         set_backend_status(status);
       }
       const state = await window.electronAPI?.getBackendState?.();
-      const peers: device[] = state?.peers ?? [];
+      const peers: any[] = state?.peers ?? [];
 
       set_devices_map((prev_map) => {
         const current_ids = new Set<string>();
         for (const peer of peers) {
-          current_ids.add(peer.id);
-          prev_map.set(peer.id, peer);
+          const normalized: device = {
+            ...peer,
+            is_trusted: Boolean(peer.is_trusted ?? peer.trusted),
+          };
+          current_ids.add(normalized.id);
+          prev_map.set(normalized.id, normalized);
         }
 
         for (const id of prev_map.keys()) {
@@ -184,6 +193,35 @@ export const App: React.FC = () => {
       set_discovery_status("discovering");
       const status = await window.electronAPI?.getBackendStatus?.();
       if (status) set_backend_status(status);
+    }
+  };
+
+  const handle_toggle_trust = async (peer: device, trusted: boolean) => {
+    set_devices_map((prev_map) => {
+      const existing = prev_map.get(peer.id);
+      if (!existing) return prev_map;
+      prev_map.set(peer.id, { ...existing, is_trusted: trusted });
+      return prev_map;
+    });
+
+    try {
+      const response = await window.electronAPI?.setTrusted?.(peer.id, trusted);
+      if (!response?.ok) {
+        throw new Error(response?.body || "Failed to update trust");
+      }
+    } catch (err) {
+      set_devices_map((prev_map) => {
+        const existing = prev_map.get(peer.id);
+        if (!existing) return prev_map;
+        prev_map.set(peer.id, { ...existing, is_trusted: !trusted });
+        return prev_map;
+      });
+      const details =
+        err instanceof Error ? safe_text(err.message) : "Unknown error";
+      push_notice({
+        title: trusted ? "Could not trust device" : "Could not remove trust",
+        details,
+      });
     }
   };
 
@@ -230,8 +268,13 @@ export const App: React.FC = () => {
       source.addEventListener("peer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);
-          const new_device: device | undefined = payload?.data;
-          if (!new_device || !new_device.id) return;
+          const raw = payload?.data;
+          if (!raw || !raw.id) return;
+
+          const new_device: device = {
+            ...raw,
+            is_trusted: Boolean(raw.is_trusted ?? raw.trusted),
+          };
 
           set_devices_map((prev_map) => {
             prev_map.set(new_device.id, new_device);
@@ -322,12 +365,23 @@ export const App: React.FC = () => {
           set_active_transfer(record);
           set_active_tab("devices");
 
-          const file_count = record.files.length;
-          const file_word = file_count === 1 ? "file" : "files";
-          void window.electronAPI?.notify?.(
-            `${record.device_name} wants to send you ${file_count} ${file_word}`,
-            "Open Lanshare to accept or decline.",
-          );
+          const sender_id =
+            typeof payload.peerId === "string" ? payload.peerId : "";
+          let sender_is_trusted = false;
+          if (sender_id) {
+            sender_is_trusted = Boolean(
+              devices_map_ref.current.get(sender_id)?.is_trusted,
+            );
+          }
+
+          if (!sender_is_trusted) {
+            const file_count = record.files.length;
+            const file_word = file_count === 1 ? "file" : "files";
+            void window.electronAPI?.notify?.(
+              `${record.device_name} wants to send you ${file_count} ${file_word}`,
+              "Open Lanshare to accept or decline.",
+            );
+          }
         } catch {
           void 0;
         }
@@ -474,6 +528,7 @@ export const App: React.FC = () => {
               active_transfer={active_transfer}
               on_initiate_transfer={handle_initiate_transfer}
               on_cancel_transfer={() => set_active_transfer(undefined)}
+              on_toggle_trust={handle_toggle_trust}
               discovery_status={discovery_status}
               is_connected={is_connected}
               on_notify={(title, details, code) =>
@@ -484,8 +539,12 @@ export const App: React.FC = () => {
           {active_tab === "transfers" && (
             <Transfers
               records={transfer_history}
+              trusted_devices={Array.from(devices_map.values()).filter(
+                (d) => d.is_trusted,
+              )}
               on_clear_history={() => set_transfer_history([])}
               on_retry_transfer={handle_retry_transfer}
+              on_toggle_trust={handle_toggle_trust}
             />
           )}
           {active_tab === "settings" && (

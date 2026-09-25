@@ -15,6 +15,7 @@ interface home_props {
   active_transfer?: transfer_record | undefined;
   on_initiate_transfer: (device: device, files: file_item[]) => void;
   on_cancel_transfer: () => void;
+  on_toggle_trust: (device: device, trusted: boolean) => void;
   discovery_status: "discovering" | "found" | "empty";
   is_connected: boolean;
   network_warnings?: string[];
@@ -28,8 +29,8 @@ export const Home: React.FC<home_props> = ({
   active_transfer,
   on_initiate_transfer,
   on_cancel_transfer,
+  on_toggle_trust,
   discovery_status,
-  is_connected,
   network_warnings = [],
   on_notify,
 }) => {
@@ -264,6 +265,7 @@ export const Home: React.FC<home_props> = ({
                 device={device}
                 is_selected={selected_device_id === device.id}
                 on_select={(dev) => set_selected_device_id(dev.id)}
+                on_toggle_trust={on_toggle_trust}
                 action_label={
                   selected_device_id === device.id
                     ? "Selected"

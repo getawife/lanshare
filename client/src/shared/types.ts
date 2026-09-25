@@ -107,6 +107,19 @@ declare global {
       transferRespond?: (transfer_id: string, accept: boolean) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
       notify?: (title: string, body: string) => Promise<boolean>;
+      listTrusted?: () => Promise<{
+        ok: boolean;
+        status: number;
+        body: string;
+      }>;
+      setTrusted?: (
+        peer_id: string,
+        trusted: boolean,
+      ) => Promise<{
+        ok: boolean;
+        status: number;
+        body: string;
+      }>;
 
       updates: {
         onChecking: (callback: () => void) => () => void;
