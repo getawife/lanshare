@@ -255,16 +255,19 @@ export const App: React.FC = () => {
           void 0;
         }
       });
-
       source.addEventListener("transfer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);
           const record = record_from_transfer_event(payload?.data);
           if (!record) return;
           upsert_transfer_record(record);
+
           if (record.state === "transferring") {
             set_active_transfer(record);
-          } else if (
+            return;
+          }
+
+          if (
             record.state === "completed" ||
             record.state === "failed" ||
             record.state === "cancelled"
@@ -272,6 +275,26 @@ export const App: React.FC = () => {
             set_active_transfer((current) =>
               current?.id === record.id ? undefined : current,
             );
+
+            const file_count = record.files.length;
+            const file_word = file_count === 1 ? "file" : "files";
+
+            if (record.state === "completed") {
+              const title =
+                record.direction === "outgoing"
+                  ? "Transfer complete"
+                  : "Files received";
+              const body =
+                record.direction === "outgoing"
+                  ? `Sent ${file_count} ${file_word} to ${record.device_name}`
+                  : `Received ${file_count} ${file_word} from ${record.device_name}`;
+              void window.electronAPI?.notify?.(title, body);
+            } else if (record.state === "failed") {
+              void window.electronAPI?.notify?.(
+                "Transfer failed",
+                `Could not transfer ${file_word} with ${record.device_name}`,
+              );
+            }
           }
         } catch {
           void 0;
@@ -308,6 +331,14 @@ export const App: React.FC = () => {
           };
           upsert_transfer_record(record);
           set_active_transfer(record);
+          set_active_tab("devices");
+
+          const file_count = record.files.length;
+          const file_word = file_count === 1 ? "file" : "files";
+          void window.electronAPI?.notify?.(
+            `${record.device_name} wants to send you ${file_count} ${file_word}`,
+            "Open Lanshare to accept or decline.",
+          );
         } catch {
           void 0;
         }

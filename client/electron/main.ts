@@ -4,6 +4,7 @@ import {
   dialog,
   ipcMain,
   nativeTheme,
+  Notification,
   shell,
 } from "electron";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
@@ -95,6 +96,28 @@ function apply_auto_start(enabled: boolean) {
     openAtLogin: enabled,
     openAsHidden: process.platform === "darwin",
   });
+}
+
+async function show_notification(title: string, body: string) {
+  if (!Notification.isSupported()) return;
+  if (main_window && main_window.isFocused()) return;
+
+  const saved = await read_settings();
+  if (saved && saved.showNotifications === false) return;
+
+  const notification = new Notification({ title, body });
+
+  notification.on("click", () => {
+    if (!main_window) {
+      create_window();
+      return;
+    }
+    if (main_window.isMinimized()) main_window.restore();
+    main_window.show();
+    main_window.focus();
+  });
+
+  notification.show();
 }
 
 function backend_binary_path() {
@@ -735,6 +758,11 @@ ipcMain.handle("folder:open", async (_event, folder_path?: string) => {
   }
 
   await shell.openPath(target);
+  return true;
+});
+
+ipcMain.handle("notify", async (_event, title: string, body: string) => {
+  await show_notification(title, body);
   return true;
 });
 

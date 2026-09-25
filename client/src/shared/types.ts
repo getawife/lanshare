@@ -103,6 +103,7 @@ declare global {
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
       transferRespond?: (transfer_id: string, accept: boolean) => Promise<any>;
       openFolder?: (path: string) => Promise<void>;
+      notify?: (title: string, body: string) => Promise<boolean>;
 
       updates: {
         onChecking: (callback: () => void) => () => void;

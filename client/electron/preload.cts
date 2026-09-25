@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   openFolder: (path?: string) => ipcRenderer.invoke("folder:open", path),
 
+  notify: (title: string, body: string) =>
+    ipcRenderer.invoke("notify", title, body),
+
   minimizeWindow: () => {
     ipcRenderer.send("window:minimize");
   },
