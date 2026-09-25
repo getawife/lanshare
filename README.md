@@ -2,6 +2,13 @@
 
 Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network.
 
+## Features
+
+- Send files and folders between computers.
+- Works entirely over the local network, no internet connection required.
+- Native desktop app for Windows, macOS, and Linux.
+- SHA-256 verification on every transferred file.
+
 ## Requirements
 
 Two or more computers connected to the same Wi-Fi or Ethernet network.
@@ -16,9 +23,13 @@ Supported platforms:
 
 Download the installer for your platform from the [latest release](https://github.com/getawife/lanshare/releases/latest):
 
-- **Windows:** `Lanshare Setup <version>.exe`. Runs on Windows 10 and later. if SmartScreen warns, choose "More info" then "Run anyway."
+- **Windows:** `Lanshare Setup <version>.exe`. Runs on Windows 10 and later. If SmartScreen warns, choose "More info" then "Run anyway."
 - **macOS:** `Lanshare-<version>-arm64.dmg`. Open the disk image, drag Lanshare into Applications, and launch it. Gatekeeper will require a right-click → Open on first launch because the app is not yet notarized.
 - **Linux:** `Lanshare-<version>.AppImage` for a portable build, or `lanshare_<version>_amd64.deb` / `lanshare_<version>_arm64.deb` for Debian and Ubuntu. Mark the AppImage executable (`chmod +x Lanshare-*.AppImage`) before running.
+
+## Screenshots
+
+Screenshots are available in [assets/screenshots](./assets/screenshots)
 
 ## Build from source
 
@@ -42,7 +53,7 @@ Run the app in development mode.
 pnpm dev
 ```
 
-Produce a installer for your current platform:
+Produce an installer for your current platform:
 
 ```bash
 pnpm dist:win
@@ -51,27 +62,17 @@ pnpm dist:linux
 
 ```
 
-## Issues
+## How to use
 
-Found a bug or something behaving unexpectedly? Open an issue on the [Issue tracker](https://github.com/getawife/lanshare/issues)
+- Open Lanshare on each computer.
 
-Before opening a new issue, please:
+- Wait a moment for the other machines to appear in the device list.
 
-- Search existing issues to avoid duplicates.
-- Check that you are running the latest release.
+- Select the files or folders to send, then choose the receiving computer.
 
-Include the following in your report:
+- Accept the transfer on the other computer.
 
-- Your operating system and version.
-- The Lanshare version (visible in Settings under "About").
-- A clear description of what you expected and what actually happened.
-- Reproduction steps if you can determine them.
-- Any error message shown in the app.
-
-For security sensitive reports, please do not open a public issue.
-Contact me at contactgetawife@gmail.com with the details.
-
-## Contributing
+## Contributing & Issues
 
 Bug fixes, performance improvements, documentation updates, and feature suggestions are all welcome.
 
@@ -91,9 +92,29 @@ pnpm exec tsc --noEmit
 pnpm lint
 ```
 
-Both must pass with no errors. Warnings are fine if they already exist on main.
+Both must pass with no errors. Warnings are fine if they already exist on `main`.
 
-## Pull Requests
+### Issues
+
+Found a bug or something behaving unexpectedly? Open an issue on the [Issue tracker](https://github.com/getawife/lanshare/issues).
+
+Before opening a new issue, please:
+
+- Search existing issues to avoid duplicates.
+- Check that you are running the latest release.
+
+Include the following in your report:
+
+- Your operating system and version.
+- The Lanshare version (visible in Settings under "About").
+- A clear description of what you expected and what actually happened.
+- Reproduction steps if you can determine them.
+- Any error message shown in the app.
+
+For security-sensitive reports, please do not open a public issue.
+Contact me at contactgetawife@gmail.com with the details.
+
+### Pull Requests
 
 - Fork the repository and create a branch from main.
 
@@ -101,12 +122,10 @@ Both must pass with no errors. Warnings are fine if they already exist on main.
 
 - Open a pull request against main. Include a short description of the change, why it is needed, and how you tested it.
 
-- It will be reviewed and may require additional changes. Push additional commits to the same branch in response. Do not force-push over review comments!
+- It will be reviewed and may require additional changes. Push additional commits to the same branch in response.
+
+- Do not force-push over review comments.
 
 ## License
 
-Please click [here](./license) for more information.
-
-## Screenshots
-
-Screenshots are available in [assets/screenshots](./assets/screenshots)
+Please click [here](./LICENSE) for more information.
