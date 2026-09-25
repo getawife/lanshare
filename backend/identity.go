@@ -88,3 +88,10 @@ func short_hash_from_id(device_id string) string {
 	}
 	return clean[:4]
 }
+
+func default_user_data_dir() string {
+	if dir, err := os.UserConfigDir(); err == nil && dir != "" {
+		return filepath.Join(dir, "lanshare")
+	}
+	return "."
+}

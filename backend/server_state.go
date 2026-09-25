@@ -76,7 +76,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 	return &server_state{
 		device_id:           identity.DeviceID,
 		device_name:         name,
-		version:             "1.0.3",
+		version:             "1.0.4",
 		udp_discovery_bound: false,
 		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},

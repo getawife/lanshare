@@ -10,6 +10,23 @@ import (
 	"testing"
 )
 
+func test_identity() device_identity {
+	return device_identity{
+		DeviceID:      "test-device-0000000000000000",
+		ShortHash:     "test",
+		SchemaVersion: 1,
+	}
+}
+
+func test_state(t *testing.T) (*server_state, *backend) {
+	t.Helper()
+	state, err := new_server_state(test_identity(), "", map[string]struct{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state, new_backend(state)
+}
+
 func TestSafeDownloadPath(t *testing.T) {
 	temp_dir := t.TempDir()
 
@@ -47,9 +64,9 @@ func TestSafeDownloadPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := safeDownloadPath(temp_dir, tt.relative_path)
+			got, err := safe_download_path(temp_dir, tt.relative_path)
 			if (err != nil) != tt.want_err {
-				t.Errorf("safeDownloadPath() error = %v, wantErr %v", err, tt.want_err)
+				t.Errorf("safe_download_path() error = %v, wantErr %v", err, tt.want_err)
 				return
 			}
 			if err == nil {
@@ -57,7 +74,7 @@ func TestSafeDownloadPath(t *testing.T) {
 				target_abs, _ := filepath.Abs(got)
 				prefix := base_abs + string(filepath.Separator)
 				if target_abs != base_abs && !strings.HasPrefix(target_abs, prefix) {
-					t.Errorf("safeDownloadPath() resulted in path %v outside base %v", target_abs, base_abs)
+					t.Errorf("safe_download_path() resulted in path %v outside base %v", target_abs, base_abs)
 				}
 			}
 		})
@@ -68,7 +85,7 @@ func TestGetUniqueFilePath(t *testing.T) {
 	temp_dir := t.TempDir()
 	file1 := filepath.Join(temp_dir, "test.txt")
 
-	got1 := getUniqueFilePath(file1)
+	got1 := get_unique_file_path(file1)
 	if got1 != file1 {
 		t.Errorf("Expected %s, got %s", file1, got1)
 	}
@@ -77,7 +94,7 @@ func TestGetUniqueFilePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got2 := getUniqueFilePath(file1)
+	got2 := get_unique_file_path(file1)
 	expected2 := filepath.Join(temp_dir, "test (1).txt")
 	if got2 != expected2 {
 		t.Errorf("Expected %s, got %s", expected2, got2)
@@ -87,7 +104,7 @@ func TestGetUniqueFilePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got3 := getUniqueFilePath(file1)
+	got3 := get_unique_file_path(file1)
 	expected3 := filepath.Join(temp_dir, "test (2).txt")
 	if got3 != expected3 {
 		t.Errorf("Expected %s, got %s", expected3, got3)
@@ -103,9 +120,9 @@ func TestComputeFileSHA256(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hash, err := computeFileSHA256(file_path)
+	hash, err := compute_file_sha256(file_path)
 	if err != nil {
-		t.Fatalf("computeFileSHA256 failed: %v", err)
+		t.Fatalf("compute_file_sha256 failed: %v", err)
 	}
 	if len(hash) != 64 {
 		t.Errorf("Expected 64 hex characters, got %d (%s)", len(hash), hash)
@@ -115,9 +132,9 @@ func TestComputeFileSHA256(t *testing.T) {
 	if err := os.WriteFile(empty_file, []byte{}, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	empty_hash, err := computeFileSHA256(empty_file)
+	empty_hash, err := compute_file_sha256(empty_file)
 	if err != nil {
-		t.Fatalf("computeFileSHA256 empty file failed: %v", err)
+		t.Fatalf("compute_file_sha256 empty file failed: %v", err)
 	}
 	expected_empty := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	if empty_hash != expected_empty {
@@ -126,7 +143,7 @@ func TestComputeFileSHA256(t *testing.T) {
 }
 
 func TestGetBroadcastAddresses(t *testing.T) {
-	addrs := getBroadcastAddresses(43821)
+	addrs := get_broadcast_addresses(43821)
 	if len(addrs) == 0 {
 		t.Fatal("Expected at least 1 broadcast address (255.255.255.255), got 0")
 	}
@@ -137,18 +154,14 @@ func TestGetBroadcastAddresses(t *testing.T) {
 }
 
 func TestPrepareTransferAutoAccept(t *testing.T) {
-	state, err := NewServerState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	state.UpdateSettings(BackendSettings{AskBeforeAccepting: false})
-	backend := NewBackend(state)
+	state, backend := test_state(t)
+	state.update_settings(backend_settings{ask_before_accepting: false})
 
 	req_body := `{"transferId":"tx-123","peerId":"peer-abc","deviceName":"Test Sender","files":[{"name":"test.txt","size":100}]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/prepare-transfer", strings.NewReader(req_body))
 	rec := httptest.NewRecorder()
 
-	backend.prepareTransfer(rec, req)
+	backend.prepare_transfer(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -165,19 +178,15 @@ func TestPrepareTransferAutoAccept(t *testing.T) {
 	}
 
 	state.mu.Lock()
-	_, ok := state.allowedTransferTokens[res.Token]
+	_, ok := state.allowed_transfer_tokens[res.Token]
 	state.mu.Unlock()
 	if !ok {
-		t.Fatalf("Expected token %s to be registered in allowedTransferTokens", res.Token)
+		t.Fatalf("Expected token %s to be registered in allowed_transfer_tokens", res.Token)
 	}
 }
 
 func TestReceiveTokenValidation(t *testing.T) {
-	state, err := NewServerState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	backend := NewBackend(state)
+	_, backend := test_state(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/receive", nil)
 	rec := httptest.NewRecorder()
@@ -196,24 +205,21 @@ func TestReceiveTokenValidation(t *testing.T) {
 }
 
 func TestUpdateSettingsDeviceName(t *testing.T) {
-	state, err := NewServerState()
-	if err != nil {
-		t.Fatal(err)
-	}
+	state, _ := test_state(t)
 
-	state.UpdateSettings(BackendSettings{
-		DeviceName:         "My Custom Laptop",
-		AskBeforeAccepting: true,
-		DownloadFolder:     "C:/Downloads",
+	state.update_settings(backend_settings{
+		device_name:          "My Custom Laptop",
+		ask_before_accepting: true,
+		download_folder:      "C:/Downloads",
 	})
 
-	if state.DeviceName != "My Custom Laptop" {
-		t.Errorf("Expected state.DeviceName to be 'My Custom Laptop', got '%s'", state.DeviceName)
+	if state.device_name != "My Custom Laptop" {
+		t.Errorf("Expected state.device_name to be 'My Custom Laptop', got '%s'", state.device_name)
 	}
 
-	snap := state.Snapshot()
-	if snap.Device.Name != "My Custom Laptop" {
-		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.Device.Name)
+	snap := state.snapshot()
+	if snap.device.name != "My Custom Laptop" {
+		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.device.name)
 	}
 }
 
@@ -233,9 +239,9 @@ func TestIsAllowedOrigin(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := isAllowedOrigin(tt.origin)
+		got := is_allowed_origin(tt.origin)
 		if got != tt.allowed {
-			t.Errorf("isAllowedOrigin(%q) = %v, want %v", tt.origin, got, tt.allowed)
+			t.Errorf("is_allowed_origin(%q) = %v, want %v", tt.origin, got, tt.allowed)
 		}
 	}
 }
