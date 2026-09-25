@@ -4,7 +4,7 @@
   "version": "1.0.4",
   "type": "module",
   "main": "dist-electron/main.js",
-  "description": "Fast local network file transfers between your devices.",
+  "description": "Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network.",
   "author": {
     "name": "getawife",
     "email": "contactgetawife@protonmail.com"

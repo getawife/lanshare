@@ -654,7 +654,6 @@ ipcMain.handle("settings:get", async () => {
       autoAcceptTrusted: false,
       currentNetwork: "Unknown",
       theme: "dark",
-      clipboardSync: false,
     }
   );
 });

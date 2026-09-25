@@ -9,7 +9,6 @@ type app_settings = {
   autoAcceptTrusted: boolean;
   currentNetwork: string;
   theme: "system" | "light" | "dark";
-  clipboardSync: boolean;
 };
 
 contextBridge.exposeInMainWorld("electronAPI", {

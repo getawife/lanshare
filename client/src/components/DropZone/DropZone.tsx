@@ -1,5 +1,6 @@
-import React from "react";
-import { Upload, File, Folder, SearchX } from "lucide-react";
+import React, { useEffect } from "react";
+import { File, Folder } from "lucide-react";
+import { file_item } from "../../shared/types";
 import styles from "./DropZone.module.css";
 
 interface drop_zone_props {
@@ -9,6 +10,7 @@ interface drop_zone_props {
   staged_count?: number;
   on_select_files: () => void;
   on_select_folder: () => void;
+  on_paste_files: (files: file_item[]) => void;
 }
 
 export const DropZone: React.FC<drop_zone_props> = ({
@@ -18,7 +20,41 @@ export const DropZone: React.FC<drop_zone_props> = ({
   staged_count = 0,
   on_select_files,
   on_select_folder,
+  on_paste_files,
 }) => {
+  useEffect(() => {
+    if (!has_recipient) return;
+
+    const handle_paste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (files.length === 0) return;
+
+      event.preventDefault();
+
+      on_paste_files(
+        files.map((f) => ({
+          name: f.name,
+          path: (f as File & { path: string }).path,
+          size: f.size,
+          is_dir: false,
+        })),
+      );
+    };
+
+    window.addEventListener("paste", handle_paste);
+    return () => window.removeEventListener("paste", handle_paste);
+  }, [has_recipient, on_paste_files]);
+
   return (
     <div
       className={`${styles.dropZone} ${is_dragging ? styles.dragging : ""}`}
@@ -85,6 +121,10 @@ export const DropZone: React.FC<drop_zone_props> = ({
               <span>Select Folder</span>
             </button>
           </div>
+
+          <p className={styles.pasteHint}>
+            Paste a file to upload its contents automatically
+          </p>
         </div>
       )}
     </div>

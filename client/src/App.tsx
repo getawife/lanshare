@@ -51,7 +51,6 @@ export const App: React.FC = () => {
     autoAcceptTrusted: false,
     currentNetwork: "Unknown",
     theme: "dark",
-    clipboardSync: false,
   });
   const [settings_loaded, set_settings_loaded] = useState(false);
 
@@ -255,6 +254,7 @@ export const App: React.FC = () => {
           void 0;
         }
       });
+
       source.addEventListener("transfer", (event) => {
         try {
           const payload = JSON.parse((event as MessageEvent).data);

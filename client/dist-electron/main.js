@@ -65,6 +65,14 @@ async function write_settings(settings) {
     await fs.mkdir(path.dirname(settings_path), { recursive: true });
     await fs.writeFile(settings_path, JSON.stringify(settings, null, 2), "utf8");
 }
+function apply_auto_start(enabled) {
+    if (!app.isPackaged)
+        return;
+    app.setLoginItemSettings({
+        openAtLogin: enabled,
+        openAsHidden: process.platform === "darwin",
+    });
+}
 function backend_binary_path() {
     const backend_root = path.join(process.resourcesPath, "backend");
     if (process.platform === "win32") {
@@ -481,6 +489,9 @@ ipcMain.handle("settings:get", async () => {
 ipcMain.handle("settings:save", async (_event, settings) => {
     await write_settings(settings);
     nativeTheme.themeSource = settings.theme ?? "system";
+    if (typeof settings.autoStart === "boolean") {
+        apply_auto_start(settings.autoStart);
+    }
     try {
         await push_settings_to_backend();
     }
@@ -559,6 +570,8 @@ app.whenReady().then(async () => {
     catch (e) {
         console.warn("Failed to push settings to backend:", e);
     }
+    const saved = await read_settings();
+    apply_auto_start(Boolean(saved?.autoStart));
     create_window();
     if (app.isPackaged) {
         await autoUpdater.checkForUpdatesAndNotify();

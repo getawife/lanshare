@@ -1,11 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import {
-  AlertCircle,
-  CircleDashed,
-  RefreshCw,
-  MonitorX,
-  ChevronDown,
-} from "lucide-react";
+import { CircleDashed, RefreshCw, MonitorX, ChevronDown } from "lucide-react";
 import { device, file_item, transfer_record } from "../shared/types";
 import { DeviceCard } from "../components/DeviceCard/DeviceCard";
 import { DropZone } from "../components/DropZone/DropZone";
@@ -122,6 +116,11 @@ export const Home: React.FC<home_props> = ({
     if (!has_recipient) return;
     const folder = await window.electronAPI?.selectFolder();
     if (folder) set_staged_files([folder]);
+  };
+
+  const handle_paste_files = (files: file_item[]) => {
+    if (!has_recipient) return;
+    set_staged_files(files);
   };
 
   const clear_selection = () => {
@@ -361,6 +360,7 @@ export const Home: React.FC<home_props> = ({
               staged_count={staged_files?.length ?? 0}
               on_select_files={handle_select_files}
               on_select_folder={handle_select_folder}
+              on_paste_files={handle_paste_files}
             />
           ) : (
             <div className={styles.guidanceState}>

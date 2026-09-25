@@ -57,7 +57,6 @@ export interface app_settings {
   autoAcceptTrusted: boolean;
   currentNetwork: string;
   theme: "dark";
-  clipboardSync?: boolean;
 }
 
 export interface network_diagnostics {
@@ -87,6 +86,10 @@ export interface backend_status {
 }
 
 declare global {
+  interface File {
+    path: string;
+  }
+
   interface Window {
     electronAPI?: {
       selectFiles: () => Promise<file_item[] | null>;
