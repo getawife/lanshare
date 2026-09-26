@@ -232,7 +232,7 @@ export const Home: React.FC<home_props> = ({
               )}
               <div>Confirm both devices are on the same LAN</div>
               <div>
-                Check firewall permissions (allow LANShare on Private Networks)
+                Check firewall permissions (allow Lanshare on Private Networks)
               </div>
               <div>Check whether a VPN or virtual adapter is interfering</div>
               <div>Confirm Lanshare is running on the recipient device</div>

@@ -98,7 +98,6 @@ function apply_auto_start(enabled: boolean) {
 
   app.setLoginItemSettings({
     openAtLogin: enabled,
-    openAsHidden: process.platform === "darwin",
   });
 }
 
@@ -234,7 +233,7 @@ function analyze_backend_error(): {
     return {
       code: "BLOCKED_BY_FIREWALL",
       error:
-        "LANShare backend access was blocked by system permissions or security software.",
+        "Lanshare backend access was blocked by system permissions or security software.",
     };
   }
 
@@ -245,7 +244,7 @@ function analyze_backend_error(): {
   ) {
     return {
       code: "BINARY_NOT_FOUND",
-      error: "The LANShare backend executable could not be found.",
+      error: "The Lanshare backend executable could not be found.",
     };
   }
 

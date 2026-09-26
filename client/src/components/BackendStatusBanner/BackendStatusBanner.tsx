@@ -44,9 +44,9 @@ export const BackendStatusBanner: React.FC<backend_status_banner_props> = ({
             icon: <AlertOctagon size={20} strokeWidth={2} />,
             message:
               status.error ||
-              "Port 43821 is already occupied by another application or an existing LANShare process.",
+              "Port 43821 is already occupied by another application or an existing Lanshare process.",
             tips: [
-              "Close any other LANShare windows or background processes.",
+              "Close any other Lanshare windows or background processes.",
               "Ensure no other local server is using port 43821.",
               "Click 'Restart Service' to attempt binding again.",
             ],
@@ -57,9 +57,9 @@ export const BackendStatusBanner: React.FC<backend_status_banner_props> = ({
             icon: <ShieldAlert size={20} strokeWidth={2} />,
             message:
               status.error ||
-              "LANShare was blocked from starting by system security, Windows Firewall, or antivirus software.",
+              "Lanshare was blocked from starting by system security, Windows Firewall, or antivirus software.",
             tips: [
-              "Allow LANShare through Windows Defender Firewall (Private Networks).",
+              "Allow Lanshare through Windows Defender Firewall (Private Networks).",
               "Check your third-party antivirus for blocked local loopback sockets.",
               "Verify administrator execution permissions.",
             ],
@@ -71,7 +71,7 @@ export const BackendStatusBanner: React.FC<backend_status_banner_props> = ({
             message: status.error || "The local Go backend could not be found.",
             tips: [
               "If running in development mode, ensure Go is installed and available in your PATH.",
-              "If packaged, verify the installation directory contains lanshare-backend.",
+              "If packaged, verify the installation directory contains Lanshare-backend.",
             ],
           };
         case "HEALTHCHECK_TIMEOUT":

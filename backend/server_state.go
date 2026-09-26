@@ -66,7 +66,7 @@ type allowed_token struct {
 }
 
 func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
-	name := "LANShare Desktop"
+	name := "Lanshare Desktop"
 	if h, err := os.Hostname(); err == nil && h != "" {
 		name = h
 	}
@@ -76,7 +76,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 	return &server_state{
 		device_id:           identity.DeviceID,
 		device_name:         name,
-		version:             "1.0.4",
+		version:             "1.0.5",
 		udp_discovery_bound: false,
 		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},
@@ -99,6 +99,7 @@ func (s *server_state) update_settings(cfg backend_settings) {
 	defer s.mu.Unlock()
 	if name := strings.TrimSpace(cfg.device_name); name != "" {
 		s.device_name = name
+		cfg.device_name = name  
 	}
 	s.settings = cfg
 }
