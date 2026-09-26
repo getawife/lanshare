@@ -18,9 +18,9 @@
     "build": "vite build && tsc -p electron/tsconfig.json",
     "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "dist": "pnpm build && electron-builder",
-    "dist:win": "pnpm build && electron-builder --config electron-builder.win.json",
-    "dist:mac": "pnpm build && electron-builder --config electron-builder.mac.json",
-    "dist:linux": "pnpm build && electron-builder --config electron-builder.linux.json",
+    "dist:win": "pnpm build && electron-builder --config electron-builder.win.json --publish never",
+    "dist:mac": "pnpm build && electron-builder --config electron-builder.mac.json --publish never",
+    "dist:linux": "pnpm build && electron-builder --config electron-builder.linux.json --publish never",
     "dev:clean": "npx kill-port 43821 43822 43823 43824 43825 43826 43827 43828 43829 43830",
     "lint": "eslint .",
     "preview": "vite preview"
