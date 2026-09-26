@@ -53,17 +53,10 @@ jobs:
           go build -trimpath -ldflags="-s -w" -o ../client/backend/windows/arm64/lanshare-backend.exe .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build Windows app
+      - name: Build and publish Windows app
         run: pnpm dist:win
-
-      - name: Upload Windows installers
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: |
-            releases/windows/*.exe
-            releases/windows/*.exe.blockmap
-            releases/windows/latest.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos:
     runs-on: macos-14
@@ -103,19 +96,10 @@ jobs:
       - name: Make backend executable
         run: chmod +x backend/macos/arm64/lanshare-backend
 
-      - name: Build macOS app
+      - name: Build and publish macOS app
         run: pnpm dist:mac
-
-      - name: Upload macOS installers
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: |
-            releases/mac/*.dmg
-            releases/mac/*.dmg.blockmap
-            releases/mac/*.zip
-            releases/mac/*.zip.blockmap
-            releases/mac/latest-mac.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linux:
     runs-on: ubuntu-24.04
@@ -159,48 +143,7 @@ jobs:
           chmod +x backend/linux/x64/lanshare-backend
           chmod +x backend/linux/arm64/lanshare-backend
 
-      - name: Build Linux app
+      - name: Build and publish Linux app
         run: pnpm dist:linux
-
-      - name: Upload Linux installers
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: |
-            releases/linux/*.AppImage
-            releases/linux/*.AppImage.blockmap
-            releases/linux/*.deb
-            releases/linux/*.deb.blockmap
-            releases/linux/latest-linux.yml
-
-  release:
-    runs-on: ubuntu-latest
-    needs:
-      - windows
-      - macos
-      - linux
-
-    steps:
-      - name: Download Windows installers
-        uses: actions/download-artifact@v4
-        with:
-          name: windows
-          path: release-assets
-
-      - name: Download macOS installers
-        uses: actions/download-artifact@v4
-        with:
-          name: macos
-          path: release-assets
-
-      - name: Download Linux installers
-        uses: actions/download-artifact@v4
-        with:
-          name: linux
-          path: release-assets
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-assets/**/*
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
