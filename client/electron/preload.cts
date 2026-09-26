@@ -81,6 +81,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
       };
     },
 
+    onNotAvailable: (callback: () => void) => {
+      const listener = () => callback();
+
+      ipcRenderer.on("update:not-available", listener);
+
+      return () => {
+        ipcRenderer.removeListener("update:not-available", listener);
+      };
+    },
+
     onProgress: (
       callback: (progress: {
         percent: number;

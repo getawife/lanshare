@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import styles from "./UpdateUI.module.css";
+import styles from "./updateUI.module.css";
 
 type update_state =
   | { status: "idle" }
@@ -68,6 +68,14 @@ export default function UpdateUI() {
         set_state({
           status: "downloading",
           percent: 0,
+        });
+      }),
+    );
+
+    cleanup.push(
+      updates.onNotAvailable(() => {
+        set_state({
+          status: "idle",
         });
       }),
     );

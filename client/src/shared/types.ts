@@ -128,6 +128,8 @@ declare global {
           callback: (info: { version: string }) => void,
         ) => () => void;
 
+        onNotAvailable: (callback: () => void) => () => void;
+
         onProgress: (
           callback: (progress: {
             percent: number;

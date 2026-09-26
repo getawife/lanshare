@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { TitleBar } from "./components/TitleBar/TitleBar.js";
 import { Navigation, view_tab } from "./components/Navigation/Navigation.js";
 import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
+import UpdateUI from "./components/updateUI/updateUI.js";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
@@ -513,6 +514,7 @@ export const App: React.FC = () => {
         on_restart={handle_restart_backend}
         is_restarting={is_restarting_backend}
       />
+      <UpdateUI />
       <div className="content-container">
         <Navigation
           active_tab={active_tab}

@@ -48,6 +48,10 @@ autoUpdater.on("update-available", (info) => {
   });
 });
 
+autoUpdater.on("update-not-available", () => {
+  main_window?.webContents.send("update:not-available");
+});
+
 autoUpdater.on("download-progress", (progress) => {
   main_window?.webContents.send("update:progress", {
     percent: progress.percent,
