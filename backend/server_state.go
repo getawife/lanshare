@@ -22,6 +22,7 @@ import (
 )
 
 const discovery_port = 43821
+const max_device_name_length = 64
 
 type event struct {
 	type_ string `json:"type"`
@@ -97,9 +98,14 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 func (s *server_state) update_settings(cfg backend_settings) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if name := strings.TrimSpace(cfg.device_name); name != "" {
-		s.device_name = name
-		cfg.device_name = name  
+if name := strings.TrimSpace(cfg.device_name); name != "" {
+    if len(name) > max_device_name_length {
+        name = name[:max_device_name_length]
+    }
+    		s.device_name = name
+    		cfg.device_name = name
+	} else {
+   		 cfg.device_name = s.device_name
 	}
 	s.settings = cfg
 }
