@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -41,6 +43,9 @@ type server_state struct {
 	device_name             string
 	version                 string
 	http_port               int
+	lan_http_port           int
+	cert                    tls.Certificate
+	cert_fp                 string
 	lan_port                int
 	udp_discovery_bound     bool
 	user_data_dir           string
@@ -67,6 +72,10 @@ type allowed_token struct {
 }
 
 func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
+	cert, cert_fp, err := load_or_create_cert(user_data_dir)
+	if err != nil {
+		return nil, err
+	}
 	name := "Lanshare Desktop"
 	if h, err := os.Hostname(); err == nil && h != "" {
 		name = h
@@ -76,6 +85,8 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 	}
 	return &server_state{
 		device_id:           identity.DeviceID,
+		cert:                cert,
+		cert_fp:             cert_fp,
 		device_name:         name,
 		version:             "1.0.5",
 		udp_discovery_bound: false,
@@ -120,20 +131,26 @@ func (s *server_state) set_trusted(peer_id string, trusted bool) error {
 	if peer_id == "" {
 		return fmt.Errorf("peer id required")
 	}
-
 	s.mu.Lock()
+	peer, known := s.peers[peer_id]
+	if trusted && (!known || peer.CertFP == "") {
+		s.mu.Unlock()
+		return fmt.Errorf("peer is not currently visible")
+	}
+	for key := range s.trusted_ids {
+		if key == peer_id || strings.HasPrefix(key, peer_id+"@") {
+			delete(s.trusted_ids, key)
+		}
+	}
 	if trusted {
-		s.trusted_ids[peer_id] = struct{}{}
-	} else {
-		delete(s.trusted_ids, peer_id)
+		s.trusted_ids[trust_key(peer_id, peer.CertFP)] = struct{}{}
 	}
 	snapshot := make(map[string]struct{}, len(s.trusted_ids))
 	for id := range s.trusted_ids {
 		snapshot[id] = struct{}{}
 	}
-
 	var updated *device
-	if peer, ok := s.peers[peer_id]; ok {
+	if known {
 		peer.Trusted = trusted
 		s.peers[peer_id] = peer
 		copied := peer
@@ -141,11 +158,9 @@ func (s *server_state) set_trusted(peer_id string, trusted bool) error {
 	}
 	user_data_dir := s.user_data_dir
 	s.mu.Unlock()
-
 	if err := save_trusted_ids(user_data_dir, snapshot); err != nil {
 		return err
 	}
-
 	if updated != nil {
 		s.publish(event{Type: "peer", Data: *updated})
 	}
@@ -302,7 +317,8 @@ func (s *server_state) run_discovery(ctx context.Context, conn net.PacketConn) {
 			"type":         device_type(runtime.GOOS),
 			"version":      s.version,
 			"port":         s.lan_port,
-			"httpPort":     s.http_port,
+			"httpPort":     s.lan_http_port,
+			"certFp":       s.cert_fp,
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
 			"settings": map[string]any{
@@ -449,7 +465,7 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 		}
 
 		s.mu.Lock()
-		_, is_trusted := s.trusted_ids[id]
+		_, is_trusted := s.trusted_ids[trust_key(id, string_from(packet["certFp"]))]
 		s.mu.Unlock()
 
 		peer := device{
@@ -462,6 +478,7 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 			HTTPPort:     http_port,
 			Status:       "available",
 			Trusted:      is_trusted,
+			CertFP:       string_from(packet["certFp"]),
 			Protocol:     int_from(packet["protocol"]),
 			Version:      string_from(packet["version"]),
 			Capabilities: string_slice(packet["capabilities"]),
@@ -539,14 +556,18 @@ func (s *server_state) run_loopback_peer_probe(ctx context.Context) {
 }
 
 func probe_loopback_peer(port int, id string) (device, bool) {
-	url := fmt.Sprintf("http://127.0.0.1:%d/api/health", port)
-	client := &http.Client{Timeout: 750 * time.Millisecond}
-	resp, err := client.Get(url)
+	client := &http.Client{
+		Timeout: 750 * time.Millisecond,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS13},
+		},
+	}
+	resp, err := client.Get(fmt.Sprintf("https://127.0.0.1:%d/api/health", port))
 	if err != nil {
 		return device{}, false
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode >= 300 || resp.TLS == nil || len(resp.TLS.PeerCertificates) == 0 {
 		return device{}, false
 	}
 	return device{
@@ -563,7 +584,8 @@ func probe_loopback_peer(port int, id string) (device, bool) {
 		Version:      "local-test",
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
-		Settings:     backend_settings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
+		CertFP:       cert_fingerprint(resp.TLS.PeerCertificates[0].Raw),
+		Settings:     backend_settings{AskBeforeAccepting: true},
 	}, true
 }
 
@@ -585,7 +607,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 		target_port = peer.Port
 	}
 
-	prep_url := fmt.Sprintf("http://%s:%d/api/prepare-transfer", peer.IP, target_port)
+	prep_url := fmt.Sprintf("https://%s:%d/api/prepare-transfer", peer.IP, target_port)
 	prep_payload, err := json.Marshal(map[string]any{
 		"transferId": req.TransferID,
 		"peerId":     s.device_id,
@@ -602,7 +624,14 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	}
 	prep_req.Header.Set("Content-Type", "application/json")
 
-	prep_client := &http.Client{Timeout: 35 * time.Second}
+	prep_client, err := s.peer_client(peer.CertFP, 35*time.Second)
+	if err != nil {
+		return err
+	}
+	recv_client, err := s.peer_client(peer.CertFP, 0)
+	if err != nil {
+		return err
+	}
 	prep_resp, err := prep_client.Do(prep_req)
 	if err != nil {
 		return fmt.Errorf("failed to contact peer: %w", err)
@@ -630,7 +659,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
-	receive_url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, target_port)
+	receive_url := fmt.Sprintf("https://%s:%d/api/receive", peer.IP, target_port)
 	http_req, err := http.NewRequestWithContext(ctx, http.MethodPost, receive_url, pr)
 	if err != nil {
 		return err
@@ -657,7 +686,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 			_ = pw.CloseWithError(err)
 		}
 	}()
-	resp, err := http.DefaultClient.Do(http_req)
+	resp, err := recv_client.Do(http_req)
 	if err != nil {
 		return err
 	}
@@ -843,19 +872,22 @@ func (s *server_state) create_share(req share_request) (map[string]any, error) {
 		expires = time.Now().Add(time.Duration(req.ExpiresIn) * time.Second)
 	}
 	path := req.Files[0]
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return nil, fmt.Errorf("share path must be an existing file")
+	}
 	s.mu.Lock()
 	s.shares[token] = share_record{token: token, path: path, expires_at: expires, password: req.Password}
 	s.mu.Unlock()
 	return map[string]any{
-		"url":       fmt.Sprintf("http://127.0.0.1:%d/s/%s", s.http_port, token),
+		"url":       fmt.Sprintf("https://%s:%d/s/%s", lan_ip(), s.lan_http_port, token),
 		"token":     token,
 		"expiresAt": expires,
+		"protected": req.Password != "",
 	}, nil
 }
 
 func (s *server_state) serve_share(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/s/"), "/")
-	token := parts[0]
+	token := strings.Split(strings.TrimPrefix(r.URL.Path, "/s/"), "/")[0]
 	s.mu.Lock()
 	share, ok := s.shares[token]
 	s.mu.Unlock()
@@ -863,15 +895,27 @@ func (s *server_state) serve_share(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method == http.MethodGet {
-		if info, err := os.Stat(share.path); err == nil && !info.IsDir() {
-			http.ServeFile(w, r, share.path)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if share.password != "" {
+		_, given, has := r.BasicAuth()
+		want := sha256.Sum256([]byte(share.password))
+		got := sha256.Sum256([]byte(given))
+		if !has || subtle.ConstantTimeCompare(want[:], got[:]) != 1 {
+			time.Sleep(time.Second)
+			w.Header().Set("WWW-Authenticate", `Basic realm="Lanshare"`)
+			http.Error(w, "password required", http.StatusUnauthorized)
 			return
 		}
+	}
+	info, err := os.Stat(share.path)
+	if err != nil || info.IsDir() {
 		http.Error(w, "share path unavailable", http.StatusNotFound)
 		return
 	}
-	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	http.ServeFile(w, r, share.path)
 }
 
 func device_type(os_name string) string {

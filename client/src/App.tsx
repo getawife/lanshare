@@ -262,9 +262,9 @@ export const App: React.FC = () => {
     let cancelled = false;
 
     const connect_events = async () => {
-      const backend_url = await window.electronAPI?.getBackendUrl?.();
-      if (cancelled || !backend_url) return;
-      source = new EventSource(`${backend_url}/api/events`);
+      const events_url = await window.electronAPI?.getEventsUrl?.();
+      if (cancelled || !events_url) return;
+      source = new EventSource(events_url);
 
       source.addEventListener("peer", (event) => {
         try {

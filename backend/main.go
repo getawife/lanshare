@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -67,56 +69,49 @@ func random_token(n int) string {
 }
 
 type backend struct {
-	state       *server_state
-	http_server *http.Server
+	state      *server_state
+	ui_server  *http.Server
+	lan_server *http.Server
 }
 
 func new_backend(state *server_state) *backend {
-	mux := http.NewServeMux()
 	b := &backend{state: state}
-	mux.HandleFunc("/api/health", b.health)
-	mux.HandleFunc("/api/state", b.state_handler)
-	mux.HandleFunc("/api/devices", b.devices)
-	mux.HandleFunc("/api/events", b.events)
-	mux.HandleFunc("/api/transfer", b.transfer)
-	mux.HandleFunc("/api/prepare-transfer", b.prepare_transfer)
-	mux.HandleFunc("/api/respond-transfer", b.respond_transfer)
-	mux.HandleFunc("/api/receive", b.receive)
-	mux.HandleFunc("/api/share", b.share)
-	mux.HandleFunc("/api/settings", b.settings_handler)
-	mux.HandleFunc("/api/trust", b.trust_handler)
-	mux.HandleFunc("/s/", b.serve_share)
-	b.http_server = &http.Server{Handler: with_cors(mux)}
+	ui := http.NewServeMux()
+	ui.HandleFunc("/api/health", b.health)
+	ui.HandleFunc("/api/state", b.state_handler)
+	ui.HandleFunc("/api/devices", b.devices)
+	ui.HandleFunc("/api/events", b.events)
+	ui.HandleFunc("/api/transfer", b.transfer)
+	ui.HandleFunc("/api/respond-transfer", b.respond_transfer)
+	ui.HandleFunc("/api/share", b.share)
+	ui.HandleFunc("/api/settings", b.settings_handler)
+	ui.HandleFunc("/api/trust", b.trust_handler)
+	lan := http.NewServeMux()
+	lan.HandleFunc("/api/health", b.lan_health)
+	lan.HandleFunc("/api/prepare-transfer", b.prepare_transfer)
+	lan.HandleFunc("/api/receive", b.receive)
+	lan.HandleFunc("/s/", b.serve_share)
+	b.ui_server = &http.Server{Handler: b.ui_guard(ui)}
+	b.lan_server = &http.Server{Handler: lan, ReadHeaderTimeout: 10 * time.Second}
 	return b
 }
 
 func (b *backend) start(ctx context.Context) error {
-	http_port := default_http_port
-	if v := os.Getenv("LANSHARE_HTTP_PORT"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			http_port = parsed
-		}
+	ui_ln, err := listen_first("127.0.0.1", env_port("LANSHARE_HTTP_PORT", default_http_port))
+	if err != nil {
+		return fmt.Errorf("failed to bind UI server: %w", err)
 	}
-	var http_ln net.Listener
-	var err error
-	for _, candidate := range candidate_ports(http_port, 10) {
-		http_ln, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", candidate))
-		if err == nil {
-			http_port = candidate
-			break
-		}
+	peer_raw_ln, err := listen_first("0.0.0.0", env_port("LANSHARE_LAN_HTTP_PORT", default_http_port+20))
+	if err != nil {
+		_ = ui_ln.Close()
+		return fmt.Errorf("failed to bind LAN server: %w", err)
 	}
-	if http_ln == nil {
-		return fmt.Errorf(
-			"failed to bind HTTP server: all candidate ports (%d-%d) are in use",
-			http_port,
-			http_port+9,
-		)
-	}
-	b.state.http_port = http_ln.Addr().(*net.TCPAddr).Port
+	peer_ln := tls.NewListener(peer_raw_ln, b.state.tls_config())
+	b.state.http_port = ui_ln.Addr().(*net.TCPAddr).Port
+	b.state.lan_http_port = peer_raw_ln.Addr().(*net.TCPAddr).Port
 	b.state.admin_token = os.Getenv("LANSHARE_ADMIN_TOKEN")
 	if b.state.admin_token == "" {
-		log.Printf("[Security] no LANSHARE_ADMIN_TOKEN provided; privileged endpoints will be disabled")
+		log.Printf("[Security] no LANSHARE_ADMIN_TOKEN provided; the local API will reject all requests")
 	}
 	lan_ln, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", discovery_port))
 	if err == nil {
@@ -133,22 +128,21 @@ func (b *backend) start(ctx context.Context) error {
 	go b.state.run_expired_peer_sweep(ctx)
 	go b.state.run_loopback_peer_probe(ctx)
 	log.Printf(
-		"LANShare backend ready: http=127.0.0.1:%d lan=%d",
+		"LANShare backend ready: ui=127.0.0.1:%d peers=%d discovery=%d",
 		b.state.http_port,
+		b.state.lan_http_port,
 		b.state.lan_port,
 	)
 	go func() {
 		<-ctx.Done()
-		_ = http_ln.Close()
+		_ = ui_ln.Close()
+		_ = peer_ln.Close()
 		_ = lan_ln.Close()
 	}()
-	err_ch := make(chan error, 2)
-	go func() {
-		err_ch <- b.http_server.Serve(http_ln)
-	}()
-	go func() {
-		err_ch <- b.state.run_discovery_listener(ctx, lan_ln)
-	}()
+	err_ch := make(chan error, 3)
+	go func() { err_ch <- b.ui_server.Serve(ui_ln) }()
+	go func() { err_ch <- b.lan_server.Serve(peer_ln) }()
+	go func() { err_ch <- b.state.run_discovery_listener(ctx, lan_ln) }()
 	select {
 	case <-ctx.Done():
 	case err := <-err_ch:
@@ -158,9 +152,31 @@ func (b *backend) start(ctx context.Context) error {
 	}
 	shutdown_ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = b.http_server.Shutdown(shutdown_ctx)
+	_ = b.ui_server.Shutdown(shutdown_ctx)
+	_ = b.lan_server.Shutdown(shutdown_ctx)
 	_ = lan_ln.Close()
 	return nil
+}
+
+func env_port(name string, fallback int) int {
+	if v := os.Getenv(name); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed < 65536 {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func listen_first(host string, start int) (net.Listener, error) {
+	var last error
+	for _, candidate := range candidate_ports(start, 10) {
+		ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, candidate))
+		if err == nil {
+			return ln, nil
+		}
+		last = err
+	}
+	return nil, last
 }
 
 func is_allowed_origin(origin string) bool {
@@ -175,42 +191,59 @@ func is_allowed_origin(origin string) bool {
 	return hostname == "127.0.0.1" || hostname == "localhost"
 }
 
-func with_cors(next http.Handler) http.Handler {
+func (b *backend) token_valid(r *http.Request) bool {
+	want := b.state.admin_token
+	if want == "" {
+		return false
+	}
+	got := r.Header.Get("X-Lanshare-Token")
+	if got == "" && r.URL.Path == "/api/events" {
+		got = r.URL.Query().Get("token")
+	}
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+func (b *backend) ui_guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin != "" {
+		host := strings.ToLower(r.Host)
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if host != "127.0.0.1" && host != "localhost" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
 			if !is_allowed_origin(origin) {
-				if r.Method == http.MethodOptions {
-					w.WriteHeader(http.StatusForbidden)
-					return
-				}
-				next.ServeHTTP(w, r)
+				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set(
-				"Access-Control-Allow-Headers",
-				"Content-Type, Authorization, X-Lanshare-Token, X-Lanshare-Transfer-Token",
-			)
-			w.Header().Set(
-				"Access-Control-Allow-Methods",
-				"GET,POST,OPTIONS",
-			)
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Lanshare-Token")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.URL.Path != "/api/health" && !b.token_valid(r) {
+			write_error_json(w, http.StatusUnauthorized, "B-A001", "missing or invalid admin token")
+			return
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
 func (b *backend) health(w http.ResponseWriter, r *http.Request) {
-	write_json(w, map[string]any{
-		"ok":          true,
-		"platform":    runtime.GOOS,
-		"diagnostics": b.state.get_diagnostics(),
-	})
+	out := map[string]any{"ok": true, "platform": runtime.GOOS}
+	if b.token_valid(r) {
+		out["diagnostics"] = b.state.get_diagnostics()
+	}
+	write_json(w, out)
+}
+
+func (b *backend) lan_health(w http.ResponseWriter, r *http.Request) {
+	write_json(w, map[string]any{"ok": true})
 }
 
 func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +251,7 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		write_error_json(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req transfer_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		write_error_json(w, http.StatusBadRequest, "B-P001", "invalid prepare transfer payload")
@@ -247,7 +281,7 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	peer := b.state.find_peer(req.PeerID)
-	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted {
+	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted && peer.CertFP != "" && peer.CertFP == sender_fingerprint(r) {
 		token := random_token(16)
 		b.state.mu.Lock()
 		b.state.allowed_transfer_tokens[token] = allowed_token{

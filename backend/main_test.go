@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -242,6 +245,115 @@ func TestIsAllowedOrigin(t *testing.T) {
 		got := is_allowed_origin(tt.origin)
 		if got != tt.allowed {
 			t.Errorf("is_allowed_origin(%q) = %v, want %v", tt.origin, got, tt.allowed)
+		}
+	}
+}
+
+func TestUIGuard(t *testing.T) {
+	state, backend := test_state(t)
+	state.admin_token = "secret"
+	handler := backend.ui_server.Handler
+	do := func(host string, origin string, token string) int {
+		req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
+		req.Host = host
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if token != "" {
+			req.Header.Set("X-Lanshare-Token", token)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := do("127.0.0.1:1", "", ""); got != http.StatusUnauthorized {
+		t.Errorf("no token: got %d", got)
+	}
+	if got := do("127.0.0.1:1", "", "wrong"); got != http.StatusUnauthorized {
+		t.Errorf("wrong token: got %d", got)
+	}
+	if got := do("127.0.0.1:1", "", "secret"); got != http.StatusOK {
+		t.Errorf("valid token: got %d", got)
+	}
+	if got := do("evil.example:1", "", "secret"); got != http.StatusForbidden {
+		t.Errorf("bad host: got %d", got)
+	}
+	if got := do("127.0.0.1:1", "http://evil.com", "secret"); got != http.StatusForbidden {
+		t.Errorf("bad origin: got %d", got)
+	}
+}
+
+func TestSharePassword(t *testing.T) {
+	state, _ := test_state(t)
+	path := filepath.Join(t.TempDir(), "s.txt")
+	if err := os.WriteFile(path, []byte("secret data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := state.create_share(share_request{Files: []string{path}, Password: "pw"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	url := "/s/" + res["token"].(string)
+	rec := httptest.NewRecorder()
+	state.serve_share(rec, httptest.NewRequest(http.MethodGet, url, nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("no password: got %d", rec.Code)
+	}
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.SetBasicAuth("", "pw")
+	rec = httptest.NewRecorder()
+	state.serve_share(rec, req)
+	if rec.Code != http.StatusOK || rec.Body.String() != "secret data" {
+		t.Errorf("correct password: got %d %q", rec.Code, rec.Body.String())
+	}
+	if _, err := state.create_share(share_request{Files: []string{t.TempDir()}}); err == nil {
+		t.Error("expected directory share to be rejected")
+	}
+}
+
+func TestPinnedTLSTransfer(t *testing.T) {
+	recv_state, recv_backend := test_state(t)
+	downloads := t.TempDir()
+	recv_state.update_settings(backend_settings{AskBeforeAccepting: false, DownloadFolder: downloads})
+	srv := httptest.NewUnstartedServer(recv_backend.lan_server.Handler)
+	srv.TLS = recv_state.tls_config()
+	srv.StartTLS()
+	defer srv.Close()
+	host, port_text, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "https://"))
+	port, _ := strconv.Atoi(port_text)
+
+	send_state, _ := test_state(t)
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "dir", "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "dir", "sub", "b.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	req := transfer_request{
+		TransferID: "t1",
+		PeerID:     "r",
+		Files: []file_item{
+			{Path: filepath.Join(src, "a.txt"), Name: "a.txt", Size: 5},
+			{Path: filepath.Join(src, "dir"), Name: "dir", IsDir: true},
+		},
+	}
+
+	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: "00"}
+	if err := send_state.send_files(context.Background(), req); err == nil {
+		t.Fatal("expected failure when certificate fingerprint does not match")
+	}
+
+	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: recv_state.cert_fp}
+	if err := send_state.send_files(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.txt", filepath.Join("dir", "sub", "b.txt")} {
+		if _, err := os.Stat(filepath.Join(downloads, name)); err != nil {
+			t.Errorf("missing %s: %v", name, err)
 		}
 	}
 }

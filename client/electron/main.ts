@@ -30,6 +30,10 @@ let main_window: BrowserWindow | null = null;
 let backend_port = default_backend_port;
 let admin_token: string | null = null;
 
+function auth_headers(): Record<string, string> {
+  return admin_token ? { "X-Lanshare-Token": admin_token } : {};
+}
+
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.setFeedURL({
@@ -393,7 +397,9 @@ async function wait_for_backend(): Promise<backend_status> {
     }
 
     try {
-      const response = await fetch(`${initial_url}/api/health`);
+      const response = await fetch(`${initial_url}/api/health`, {
+        headers: auth_headers(),
+      });
 
       if (response.ok) {
         const health_data = await response.json().catch(() => ({}));
@@ -401,7 +407,9 @@ async function wait_for_backend(): Promise<backend_status> {
         let actual_port = default_backend_port;
 
         try {
-          const state_response = await fetch(`${initial_url}/api/state`);
+          const state_response = await fetch(`${initial_url}/api/state`, {
+            headers: auth_headers(),
+          });
 
           if (state_response.ok) {
             const state = await state_response.json();
@@ -561,10 +569,18 @@ function create_window() {
 
 ipcMain.handle("backend:get-url", () => backend_url);
 
+ipcMain.handle(
+  "backend:events-url",
+  () =>
+    `${backend_url}/api/events?token=${encodeURIComponent(admin_token ?? "")}`,
+);
+
 ipcMain.handle("backend:status", async () => {
   if (backend_status.state === "running") {
     try {
-      const response = await fetch(`${backend_url}/api/health`);
+      const response = await fetch(`${backend_url}/api/health`, {
+        headers: auth_headers(),
+      });
 
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -683,6 +699,10 @@ ipcMain.handle("settings:save", async (_event, settings) => {
 ipcMain.handle(
   "backend:fetch",
   async (_event, path_name: string, init?: RequestInit) => {
+    if (typeof path_name !== "string" || !path_name.startsWith("/api/")) {
+      throw new Error("Invalid backend path");
+    }
+
     const headers: Record<string, string> = {};
 
     if (init?.headers) {
@@ -776,7 +796,9 @@ ipcMain.handle(
 );
 
 ipcMain.handle("backend:state", async () => {
-  const response = await fetch(`${backend_url}/api/state`);
+  const response = await fetch(`${backend_url}/api/state`, {
+    headers: auth_headers(),
+  });
   return response.json();
 });
 

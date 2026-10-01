@@ -12,7 +12,7 @@ export interface device {
   id: string;
   name: string;
   os: os_name;
-  type_: device_type;
+  type: device_type;
   status: device_status;
   ip: string;
   is_trusted?: boolean;
@@ -100,6 +100,7 @@ declare global {
       maximizeWindow: () => void;
       closeWindow: () => void;
       getBackendUrl?: () => Promise<string>;
+      getEventsUrl?: () => Promise<string>;
       getBackendStatus?: () => Promise<backend_status>;
       restartBackend?: () => Promise<backend_status>;
       getBackendState?: () => Promise<any>;

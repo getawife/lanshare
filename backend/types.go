@@ -23,6 +23,7 @@ type device struct {
 	Version        string           `json:"version"`
 	Capabilities   []string         `json:"capabilities"`
 	LastSeen       time.Time        `json:"lastSeen"`
+	CertFP         string           `json:"certFp"`
 	DeviceHash     string           `json:"deviceHash"`
 	AdvertiseName  string           `json:"advertiseName"`
 	DiscoverableAt time.Time        `json:"discoverableAt"`
