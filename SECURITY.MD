@@ -27,8 +27,8 @@ Only the latest release receives security updates. If you are running an older v
 
 ## Credits
 
-Credit will be given in the [readme](https://github.com/getawife/lanshare/readme.md) unless you prefer to remain anonymous.
+Credit will be given in the [readme](https://github.com/getawife/lanshare/README.md) unless you prefer to remain anonymous.
 
 ## Contact
 
-If you are unable to open a report on Github, feel free to reach out to me through my [email](mailto:contactgetawife@protonmail.com)(`contactgetawife@protonmail.com`).
+If you are unable to open a report on Github, feel free to reach out to me through my [email](mailto:contactgetawife@protonmail.com) (`contactgetawife@protonmail.com`).

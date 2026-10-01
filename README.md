@@ -111,7 +111,7 @@ Include the following in your report:
 - Reproduction steps if you can determine them.
 - Any error message shown in the app.
 
-For security-sensitive reports, please click [here](https://github.com/getawife/lanshare/SECURITY.md)
+For security-sensitive reports, please click [here](https://github.com/getawife/lanshare/SECURITY.MD)
 
 ### Pull Requests
 
