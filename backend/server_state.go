@@ -25,8 +25,8 @@ const discovery_port = 43821
 const max_device_name_length = 64
 
 type event struct {
-	type_ string `json:"type"`
-	data  any    `json:"data"`
+	Type string `json:"type"`
+	Data any    `json:"data"`
 }
 
 type share_record struct {
@@ -85,9 +85,9 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		shares:              map[string]share_record{},
 		warnings:            nil,
 		settings: backend_settings{
-			ask_before_accepting: true,
-			auto_accept_trusted:  false,
-			download_folder:      "",
+			AskBeforeAccepting: true,
+			AutoAcceptTrusted:  false,
+			DownloadFolder:     "",
 		},
 		pending_transfers:       map[string]chan transfer_decision{},
 		allowed_transfer_tokens: map[string]allowed_token{},
@@ -98,14 +98,14 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 func (s *server_state) update_settings(cfg backend_settings) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-if name := strings.TrimSpace(cfg.device_name); name != "" {
-    if len(name) > max_device_name_length {
-        name = name[:max_device_name_length]
-    }
-    		s.device_name = name
-    		cfg.device_name = name
+	if name := strings.TrimSpace(cfg.DeviceName); name != "" {
+		if len(name) > max_device_name_length {
+			name = name[:max_device_name_length]
+		}
+		s.device_name = name
+		cfg.DeviceName = name
 	} else {
-   		 cfg.device_name = s.device_name
+		cfg.DeviceName = s.device_name
 	}
 	s.settings = cfg
 }
@@ -134,7 +134,7 @@ func (s *server_state) set_trusted(peer_id string, trusted bool) error {
 
 	var updated *device
 	if peer, ok := s.peers[peer_id]; ok {
-		peer.trusted = trusted
+		peer.Trusted = trusted
 		s.peers[peer_id] = peer
 		copied := peer
 		updated = &copied
@@ -147,7 +147,7 @@ func (s *server_state) set_trusted(peer_id string, trusted bool) error {
 	}
 
 	if updated != nil {
-		s.publish(event{type_: "peer", data: *updated})
+		s.publish(event{Type: "peer", Data: *updated})
 	}
 	return nil
 }
@@ -210,11 +210,11 @@ func (s *server_state) get_diagnostics() network_diagnostics {
 	}
 
 	return network_diagnostics{
-		has_active_lan:      len(active_ifaces) > 0,
-		interfaces:          active_ifaces,
-		udp_discovery_bound: s.udp_discovery_bound,
-		udp_port:            s.lan_port,
-		warnings:            all_warnings,
+		HasActiveLAN:      len(active_ifaces) > 0,
+		Interfaces:        active_ifaces,
+		UDPDiscoveryBound: s.udp_discovery_bound,
+		UDPPort:           s.lan_port,
+		Warnings:          all_warnings,
 	}
 }
 
@@ -227,31 +227,31 @@ func (s *server_state) snapshot() app_state {
 	s.mu.Unlock()
 
 	return app_state{
-		device:      s.self_device(),
-		port:        s.lan_port,
-		http_port:   s.http_port,
-		peers:       peers,
-		diagnostics: s.get_diagnostics(),
+		Device:      s.self_device(),
+		Port:        s.lan_port,
+		HTTPPort:    s.http_port,
+		Peers:       peers,
+		Diagnostics: s.get_diagnostics(),
 	}
 }
 
 func (s *server_state) self_device() device {
 	return device{
-		id:            s.device_id,
-		name:          s.device_name,
-		os:            format_os_name(runtime.GOOS),
-		type_:         device_type(runtime.GOOS),
-		ip:            "127.0.0.1",
-		port:          s.lan_port,
-		http_port:     s.http_port,
-		status:        "available",
-		trusted:       true,
-		protocol:      1,
-		version:       s.version,
-		capabilities:  []string{"files", "clipboard", "web"},
-		last_seen:     time.Now(),
-		device_hash:   s.device_id,
-		settings:      s.settings,
+		ID:           s.device_id,
+		Name:         s.device_name,
+		OS:           format_os_name(runtime.GOOS),
+		Type:         device_type(runtime.GOOS),
+		IP:           "127.0.0.1",
+		Port:         s.lan_port,
+		HTTPPort:     s.http_port,
+		Status:       "available",
+		Trusted:      true,
+		Protocol:     1,
+		Version:      s.version,
+		Capabilities: []string{"files", "clipboard", "web"},
+		LastSeen:     time.Now(),
+		DeviceHash:   s.device_id,
+		Settings:     s.settings,
 	}
 }
 
@@ -306,8 +306,8 @@ func (s *server_state) run_discovery(ctx context.Context, conn net.PacketConn) {
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
 			"settings": map[string]any{
-				"askBeforeAccepting": s.settings.ask_before_accepting,
-				"autoAcceptTrusted":  s.settings.auto_accept_trusted,
+				"askBeforeAccepting": s.settings.AskBeforeAccepting,
+				"autoAcceptTrusted":  s.settings.AutoAcceptTrusted,
 			},
 		})
 
@@ -453,26 +453,26 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 		s.mu.Unlock()
 
 		peer := device{
-			id:            id,
-			name:          name,
-			os:            format_os_name(string_from(packet["os"])),
-			type_:         device_type(string_from(packet["os"])),
-			ip:            ip,
-			port:          port,
-			http_port:     http_port,
-			status:        "available",
-			trusted:       is_trusted,
-			protocol:      int_from(packet["protocol"]),
-			version:       string_from(packet["version"]),
-			capabilities:  string_slice(packet["capabilities"]),
-			last_seen:     time.Now(),
-			settings:      peer_settings,
+			ID:           id,
+			Name:         name,
+			OS:           format_os_name(string_from(packet["os"])),
+			Type:         device_type(string_from(packet["os"])),
+			IP:           ip,
+			Port:         port,
+			HTTPPort:     http_port,
+			Status:       "available",
+			Trusted:      is_trusted,
+			Protocol:     int_from(packet["protocol"]),
+			Version:      string_from(packet["version"]),
+			Capabilities: string_slice(packet["capabilities"]),
+			LastSeen:     time.Now(),
+			Settings:     peer_settings,
 		}
 
 		s.mu.Lock()
 		s.peers[id] = peer
 		s.mu.Unlock()
-		s.publish(event{type_: "peer", data: peer})
+		s.publish(event{Type: "peer", Data: peer})
 	}
 }
 
@@ -487,15 +487,15 @@ func (s *server_state) run_expired_peer_sweep(ctx context.Context) {
 			s.mu.Lock()
 			var expired []device
 			for key, peer := range s.peers {
-				if peer.status != "offline" && time.Since(peer.last_seen) > 12*time.Second {
-					peer.status = "offline"
+				if peer.Status != "offline" && time.Since(peer.LastSeen) > 12*time.Second {
+					peer.Status = "offline"
 					s.peers[key] = peer
 					expired = append(expired, peer)
 				}
 			}
 			s.mu.Unlock()
 			for _, p := range expired {
-				s.publish(event{type_: "peer", data: p})
+				s.publish(event{Type: "peer", Data: p})
 			}
 		}
 	}
@@ -528,7 +528,7 @@ func (s *server_state) run_loopback_peer_probe(ctx context.Context) {
 		}
 		s.mu.Unlock()
 		if ok {
-			s.publish(event{type_: "peer", data: peer})
+			s.publish(event{Type: "peer", Data: peer})
 		}
 		select {
 		case <-ctx.Done():
@@ -550,29 +550,29 @@ func probe_loopback_peer(port int, id string) (device, bool) {
 		return device{}, false
 	}
 	return device{
-		id:            id,
-		name:          fmt.Sprintf("Local Test Peer %d", port),
-		os:            format_os_name(runtime.GOOS),
-		type_:         device_type(runtime.GOOS),
-		ip:            "127.0.0.1",
-		port:          port,
-		http_port:     port,
-		status:        "available",
-		trusted:       true,
-		protocol:      1,
-		version:       "local-test",
-		capabilities:  []string{"files", "clipboard", "web"},
-		last_seen:     time.Now(),
-		settings:      backend_settings{ask_before_accepting: true, auto_accept_trusted: false, download_folder: ""},
+		ID:           id,
+		Name:         fmt.Sprintf("Local Test Peer %d", port),
+		OS:           format_os_name(runtime.GOOS),
+		Type:         device_type(runtime.GOOS),
+		IP:           "127.0.0.1",
+		Port:         port,
+		HTTPPort:     port,
+		Status:       "available",
+		Trusted:      true,
+		Protocol:     1,
+		Version:      "local-test",
+		Capabilities: []string{"files", "clipboard", "web"},
+		LastSeen:     time.Now(),
+		Settings:     backend_settings{AskBeforeAccepting: true, AutoAcceptTrusted: false, DownloadFolder: ""},
 	}, true
 }
 
 func (s *server_state) send_files(ctx context.Context, req transfer_request) error {
-	peer := s.find_peer(req.peer_id)
-	if peer.id == "" {
+	peer := s.find_peer(req.PeerID)
+	if peer.ID == "" {
 		return fmt.Errorf("peer not found")
 	}
-	manifest, err := s.expand_transfer_files(req.files)
+	manifest, err := s.expand_transfer_files(req.Files)
 	if err != nil {
 		return err
 	}
@@ -580,14 +580,14 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 		return fmt.Errorf("no transferable files found")
 	}
 
-	target_port := peer.http_port
+	target_port := peer.HTTPPort
 	if target_port == 0 {
-		target_port = peer.port
+		target_port = peer.Port
 	}
 
-	prep_url := fmt.Sprintf("http://%s:%d/api/prepare-transfer", peer.ip, target_port)
+	prep_url := fmt.Sprintf("http://%s:%d/api/prepare-transfer", peer.IP, target_port)
 	prep_payload, err := json.Marshal(map[string]any{
-		"transferId": req.transfer_id,
+		"transferId": req.TransferID,
 		"peerId":     s.device_id,
 		"deviceName": s.device_name,
 		"files":      manifest_to_meta(manifest),
@@ -630,7 +630,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
-	receive_url := fmt.Sprintf("http://%s:%d/api/receive", peer.ip, target_port)
+	receive_url := fmt.Sprintf("http://%s:%d/api/receive", peer.IP, target_port)
 	http_req, err := http.NewRequestWithContext(ctx, http.MethodPost, receive_url, pr)
 	if err != nil {
 		return err
@@ -639,13 +639,13 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	http_req.Header.Set("X-Lanshare-Transfer-Token", prep_result.Token)
 
 	progress_path := func(done int64, total int64) {
-		s.publish(event{type_: "transfer", data: map[string]any{
-			"id":               req.transfer_id,
-			"peerId":           req.peer_id,
-			"deviceName":       peer.name,
+		s.publish(event{Type: "transfer", Data: map[string]any{
+			"id":               req.TransferID,
+			"peerId":           req.PeerID,
+			"deviceName":       peer.Name,
 			"state":            "transferring",
 			"direction":        "outgoing",
-			"files":            req.files,
+			"files":            req.Files,
 			"bytesTransferred": done,
 			"totalSizeBytes":   total,
 		}})
@@ -653,7 +653,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	go func() {
 		defer pw.Close()
 		defer mw.Close()
-		if err := s.write_transfer_multipart(mw, req.transfer_id, manifest, progress_path); err != nil {
+		if err := s.write_transfer_multipart(mw, req.TransferID, manifest, progress_path); err != nil {
 			_ = pw.CloseWithError(err)
 		}
 	}()
@@ -686,12 +686,12 @@ type expanded_transfer_file struct {
 func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_transfer_file, error) {
 	var out []expanded_transfer_file
 	for _, file := range files {
-		info, err := os.Stat(file.path)
+		info, err := os.Stat(file.Path)
 		if err != nil {
 			return nil, err
 		}
-		if info.IsDir() || file.is_dir {
-			root := file.path
+		if info.IsDir() || file.IsDir {
+			root := file.Path
 			base := filepath.Base(root)
 			out = append(out, expanded_transfer_file{
 				source_path:   root,
@@ -736,10 +736,10 @@ func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_tran
 			}
 			continue
 		}
-		cs, _ := compute_file_sha256(file.path)
+		cs, _ := compute_file_sha256(file.Path)
 		out = append(out, expanded_transfer_file{
-			source_path:   file.path,
-			relative_path: file.name,
+			source_path:   file.Path,
+			relative_path: file.Name,
 			size_bytes:    info.Size(),
 			checksum:      cs,
 		})
@@ -834,17 +834,17 @@ func (s *server_state) find_peer(id string) device {
 }
 
 func (s *server_state) create_share(req share_request) (map[string]any, error) {
-	if len(req.files) == 0 {
+	if len(req.Files) == 0 {
 		return nil, fmt.Errorf("no files selected")
 	}
 	token := random_token(16)
 	expires := time.Now().Add(10 * time.Minute)
-	if req.expires_in > 0 {
-		expires = time.Now().Add(time.Duration(req.expires_in) * time.Second)
+	if req.ExpiresIn > 0 {
+		expires = time.Now().Add(time.Duration(req.ExpiresIn) * time.Second)
 	}
-	path := req.files[0]
+	path := req.Files[0]
 	s.mu.Lock()
-	s.shares[token] = share_record{token: token, path: path, expires_at: expires, password: req.password}
+	s.shares[token] = share_record{token: token, path: path, expires_at: expires, password: req.Password}
 	s.mu.Unlock()
 	return map[string]any{
 		"url":       fmt.Sprintf("http://127.0.0.1:%d/s/%s", s.http_port, token),

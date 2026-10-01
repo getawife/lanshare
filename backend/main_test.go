@@ -155,7 +155,7 @@ func TestGetBroadcastAddresses(t *testing.T) {
 
 func TestPrepareTransferAutoAccept(t *testing.T) {
 	state, backend := test_state(t)
-	state.update_settings(backend_settings{ask_before_accepting: false})
+	state.update_settings(backend_settings{AskBeforeAccepting: false})
 
 	req_body := `{"transferId":"tx-123","peerId":"peer-abc","deviceName":"Test Sender","files":[{"name":"test.txt","size":100}]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/prepare-transfer", strings.NewReader(req_body))
@@ -208,9 +208,9 @@ func TestUpdateSettingsDeviceName(t *testing.T) {
 	state, _ := test_state(t)
 
 	state.update_settings(backend_settings{
-		device_name:          "My Custom Laptop",
-		ask_before_accepting: true,
-		download_folder:      "C:/Downloads",
+		DeviceName:         "My Custom Laptop",
+		AskBeforeAccepting: true,
+		DownloadFolder:     "C:/Downloads",
 	})
 
 	if state.device_name != "My Custom Laptop" {
@@ -218,8 +218,8 @@ func TestUpdateSettingsDeviceName(t *testing.T) {
 	}
 
 	snap := state.snapshot()
-	if snap.device.name != "My Custom Laptop" {
-		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.device.name)
+	if snap.Device.Name != "My Custom Laptop" {
+		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.Device.Name)
 	}
 }
 

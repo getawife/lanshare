@@ -223,16 +223,16 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		write_error_json(w, http.StatusBadRequest, "B-P001", "invalid prepare transfer payload")
 		return
 	}
-	if req.peer_id == "" || len(req.files) == 0 {
+	if req.PeerID == "" || len(req.Files) == 0 {
 		write_error_json(w, http.StatusBadRequest, "B-P002", "missing peer or files")
 		return
 	}
-	transfer_id := req.transfer_id
+	transfer_id := req.TransferID
 	if transfer_id == "" {
 		transfer_id = random_token(8)
 	}
 	settings := b.state.get_settings()
-	if !settings.ask_before_accepting {
+	if !settings.AskBeforeAccepting {
 		token := random_token(16)
 		b.state.mu.Lock()
 		b.state.allowed_transfer_tokens[token] = allowed_token{
@@ -246,8 +246,8 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	peer := b.state.find_peer(req.peer_id)
-	if settings.auto_accept_trusted && peer.id != "" && peer.trusted {
+	peer := b.state.find_peer(req.PeerID)
+	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted {
 		token := random_token(16)
 		b.state.mu.Lock()
 		b.state.allowed_transfer_tokens[token] = allowed_token{
@@ -261,10 +261,10 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	device_name := req.device_name
+	device_name := req.DeviceName
 	if device_name == "" {
-		if peer.id != "" && peer.name != "" {
-			device_name = peer.name
+		if peer.ID != "" && peer.Name != "" {
+			device_name = peer.Name
 		} else {
 			device_name = "Nearby device"
 		}
@@ -274,12 +274,12 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 	b.state.pending_transfers[transfer_id] = ch
 	b.state.mu.Unlock()
 	b.state.publish(event{
-		type_: "incoming-transfer-request",
-		data: map[string]any{
+		Type: "incoming-transfer-request",
+		Data: map[string]any{
 			"transferId": transfer_id,
-			"peerId":     req.peer_id,
+			"peerId":     req.PeerID,
 			"deviceName": device_name,
-			"files":      req.files,
+			"files":      req.Files,
 		},
 	})
 	select {
@@ -524,7 +524,7 @@ func (b *backend) events(w http.ResponseWriter, r *http.Request) {
 			return
 		case evt := <-ch:
 			payload, _ := json.Marshal(evt)
-			fmt.Fprintf(w, "event: %s\n", evt.type_)
+			fmt.Fprintf(w, "event: %s\n", evt.Type)
 			fmt.Fprintf(w, "data: %s\n\n", payload)
 			flusher.Flush()
 		}
@@ -551,7 +551,7 @@ func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if req.peer_id == "" || len(req.files) == 0 {
+	if req.PeerID == "" || len(req.Files) == 0 {
 		write_error_json(
 			w,
 			http.StatusBadRequest,
@@ -561,24 +561,24 @@ func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.state.publish(event{
-		type_: "transfer",
-		data: map[string]any{
-			"id":        req.transfer_id,
-			"peerId":    req.peer_id,
+		Type: "transfer",
+		Data: map[string]any{
+			"id":        req.TransferID,
+			"peerId":    req.PeerID,
 			"state":     "transferring",
 			"direction": "outgoing",
-			"files":     req.files,
+			"files":     req.Files,
 		},
 	})
 	if err := b.state.send_files(r.Context(), req); err != nil {
 		b.state.publish(event{
-			type_: "transfer",
-			data: map[string]any{
-				"id":           req.transfer_id,
-				"peerId":       req.peer_id,
+			Type: "transfer",
+			Data: map[string]any{
+				"id":           req.TransferID,
+				"peerId":       req.PeerID,
 				"state":        "failed",
 				"direction":    "outgoing",
-				"files":        req.files,
+				"files":        req.Files,
 				"errorMessage": err.Error(),
 			},
 		})
@@ -591,13 +591,13 @@ func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.state.publish(event{
-		type_: "transfer",
-		data: map[string]any{
-			"id":        req.transfer_id,
-			"peerId":    req.peer_id,
+		Type: "transfer",
+		Data: map[string]any{
+			"id":        req.TransferID,
+			"peerId":    req.PeerID,
 			"state":     "completed",
 			"direction": "outgoing",
-			"files":     req.files,
+			"files":     req.Files,
 		},
 	})
 	write_json(w, map[string]any{"ok": true})
@@ -706,8 +706,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	b.state.publish(event{
-		type_: "transfer",
-		data: map[string]any{
+		Type: "transfer",
+		Data: map[string]any{
 			"id":               meta.TransferID,
 			"peerId":           meta.PeerID,
 			"deviceName":       meta.PeerName,
@@ -719,7 +719,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	downloads := default_downloads()
-	if custom := b.state.get_settings().download_folder; custom != "" {
+	if custom := b.state.get_settings().DownloadFolder; custom != "" {
 		downloads = custom
 	}
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
@@ -827,8 +827,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		if copy_err != nil {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
-				type_: "transfer",
-				data: map[string]any{
+				Type: "transfer",
+				Data: map[string]any{
 					"id":               meta.TransferID,
 					"peerId":           meta.PeerID,
 					"deviceName":       meta.PeerName,
@@ -852,8 +852,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		if file.Checksum != "" && computed_checksum != file.Checksum {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
-				type_: "transfer",
-				data: map[string]any{
+				Type: "transfer",
+				Data: map[string]any{
 					"id":               meta.TransferID,
 					"peerId":           meta.PeerID,
 					"deviceName":       meta.PeerName,
@@ -875,8 +875,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		uploaded += written
 		b.state.publish(event{
-			type_: "transfer",
-			data: map[string]any{
+			Type: "transfer",
+			Data: map[string]any{
 				"id":               meta.TransferID,
 				"peerId":           meta.PeerID,
 				"deviceName":       meta.PeerName,
@@ -899,8 +899,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	b.state.publish(event{
-		type_: "transfer",
-		data: map[string]any{
+		Type: "transfer",
+		Data: map[string]any{
 			"id":               meta.TransferID,
 			"peerId":           meta.PeerID,
 			"deviceName":       meta.PeerName,
