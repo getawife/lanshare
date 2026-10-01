@@ -46,6 +46,7 @@ type server_state struct {
 	lan_http_port           int
 	cert                    tls.Certificate
 	cert_fp                 string
+	active_sends            map[string]context.CancelFunc
 	lan_port                int
 	udp_discovery_bound     bool
 	user_data_dir           string
@@ -87,6 +88,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		device_id:           identity.DeviceID,
 		cert:                cert,
 		cert_fp:             cert_fp,
+		active_sends:        map[string]context.CancelFunc{},
 		device_name:         name,
 		version:             "1.0.5",
 		udp_discovery_bound: false,
@@ -1024,4 +1026,30 @@ func string_slice(v any) []string {
 		}
 	}
 	return out
+}
+
+func (s *server_state) register_send(id string, cancel context.CancelFunc) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.active_sends[id]; exists {
+		return false
+	}
+	s.active_sends[id] = cancel
+	return true
+}
+
+func (s *server_state) finish_send(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.active_sends, id)
+}
+
+func (s *server_state) cancel_send(id string) bool {
+	s.mu.Lock()
+	cancel, ok := s.active_sends[id]
+	s.mu.Unlock()
+	if ok {
+		cancel()
+	}
+	return ok
 }

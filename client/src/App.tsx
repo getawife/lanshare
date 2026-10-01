@@ -451,6 +451,9 @@ export const App: React.FC = () => {
 
       if (!response?.ok) {
         const parsed = await parse_error_body(response);
+        if (parsed.code === "B-T011") {
+          return;
+        }
         push_notice({
           title: parsed.code
             ? `Transfer failed (${parsed.code})`
@@ -477,6 +480,29 @@ export const App: React.FC = () => {
         title: "Transfer failed",
         details,
       });
+    }
+  };
+
+  const handle_cancel_transfer = async () => {
+    const current = active_transfer;
+    if (!current || current.direction !== "outgoing") {
+      set_active_transfer(undefined);
+      return;
+    }
+    try {
+      const response = await window.electronAPI?.fetchBackend?.(
+        "/api/cancel-transfer",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transferId: current.id }),
+        },
+      );
+      if (!response?.ok) {
+        set_active_transfer(undefined);
+      }
+    } catch {
+      set_active_transfer(undefined);
     }
   };
 
@@ -529,7 +555,7 @@ export const App: React.FC = () => {
               is_refreshing={is_refreshing}
               active_transfer={active_transfer}
               on_initiate_transfer={handle_initiate_transfer}
-              on_cancel_transfer={() => set_active_transfer(undefined)}
+              on_cancel_transfer={handle_cancel_transfer}
               on_toggle_trust={handle_toggle_trust}
               discovery_status={discovery_status}
               is_connected={is_connected}

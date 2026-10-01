@@ -19,7 +19,7 @@ export const DeviceCard: React.FC<device_card_props> = ({
   action_label = "Send",
 }) => {
   const get_device_icon = () => {
-    switch (device.type_) {
+    switch (device.type) {
       case "pc":
         return <Monitor size={28} strokeWidth={1.5} />;
       case "mac":

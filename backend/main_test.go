@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func test_identity() device_identity {
@@ -355,5 +356,76 @@ func TestPinnedTLSTransfer(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(downloads, name)); err != nil {
 			t.Errorf("missing %s: %v", name, err)
 		}
+	}
+}
+
+func TestCancelTransfer(t *testing.T) {
+	recv_state, recv_backend := test_state(t)
+	srv := httptest.NewUnstartedServer(recv_backend.lan_server.Handler)
+	srv.TLS = recv_state.tls_config()
+	srv.StartTLS()
+	defer srv.Close()
+	host, port_text, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "https://"))
+	port, _ := strconv.Atoi(port_text)
+
+	send_state, send_backend := test_state(t)
+	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: recv_state.cert_fp}
+	src := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(src, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(transfer_request{
+		TransferID: "t1",
+		PeerID:     "r",
+		Files:      []file_item{{Path: src, Name: "a.txt", Size: 5}},
+	})
+
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		send_backend.transfer(rec, httptest.NewRequest(http.MethodPost, "/api/transfer", strings.NewReader(string(body))))
+		done <- rec
+	}()
+
+	pending_count := func() int {
+		recv_state.mu.Lock()
+		defer recv_state.mu.Unlock()
+		return len(recv_state.pending_transfers)
+	}
+	wait_for := func(want int) bool {
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			if pending_count() == want {
+				return true
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		return false
+	}
+	if !wait_for(1) {
+		t.Fatal("receiver never saw the pending transfer")
+	}
+
+	cancel := func() int {
+		rec := httptest.NewRecorder()
+		send_backend.cancel_transfer(rec, httptest.NewRequest(http.MethodPost, "/api/cancel-transfer", strings.NewReader(`{"transferId":"t1"}`)))
+		return rec.Code
+	}
+	if code := cancel(); code != http.StatusOK {
+		t.Fatalf("cancel returned %d", code)
+	}
+	select {
+	case rec := <-done:
+		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "B-T011") {
+			t.Fatalf("expected cancelled response, got %d %s", rec.Code, rec.Body.String())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("transfer handler did not return after cancel")
+	}
+	if !wait_for(0) {
+		t.Error("receiver still has a pending transfer after cancel")
+	}
+	if code := cancel(); code != http.StatusNotFound {
+		t.Errorf("second cancel returned %d, want 404", code)
 	}
 }

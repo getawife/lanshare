@@ -83,6 +83,7 @@ func new_backend(state *server_state) *backend {
 	ui.HandleFunc("/api/events", b.events)
 	ui.HandleFunc("/api/transfer", b.transfer)
 	ui.HandleFunc("/api/respond-transfer", b.respond_transfer)
+	ui.HandleFunc("/api/cancel-transfer", b.cancel_transfer)
 	ui.HandleFunc("/api/share", b.share)
 	ui.HandleFunc("/api/settings", b.settings_handler)
 	ui.HandleFunc("/api/trust", b.trust_handler)
@@ -337,10 +338,10 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 			"B-P003",
 			"transfer rejected by user",
 		)
+	case <-r.Context().Done():
+		b.drop_pending(transfer_id, device_name, req.Files)
 	case <-time.After(30 * time.Second):
-		b.state.mu.Lock()
-		delete(b.state.pending_transfers, transfer_id)
-		b.state.mu.Unlock()
+		b.drop_pending(transfer_id, device_name, req.Files)
 		write_error_json(
 			w,
 			http.StatusRequestTimeout,
@@ -567,74 +568,86 @@ func (b *backend) events(w http.ResponseWriter, r *http.Request) {
 
 func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		write_error_json(
-			w,
-			http.StatusMethodNotAllowed,
-			"B-T000",
-			"method not allowed",
-		)
+		write_error_json(w, http.StatusMethodNotAllowed, "B-T000", "method not allowed")
 		return
 	}
 	var req transfer_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		write_error_json(
-			w,
-			http.StatusBadRequest,
-			"B-T001",
-			"invalid transfer request",
-		)
+		write_error_json(w, http.StatusBadRequest, "B-T001", "invalid transfer request")
 		return
 	}
 	if req.PeerID == "" || len(req.Files) == 0 {
-		write_error_json(
-			w,
-			http.StatusBadRequest,
-			"B-T002",
-			"missing peer or files",
-		)
+		write_error_json(w, http.StatusBadRequest, "B-T002", "missing peer or files")
 		return
 	}
-	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
-			"id":        req.TransferID,
-			"peerId":    req.PeerID,
-			"state":     "transferring",
-			"direction": "outgoing",
-			"files":     req.Files,
-		},
-	})
-	if err := b.state.send_files(r.Context(), req); err != nil {
-		b.state.publish(event{
-			Type: "transfer",
-			Data: map[string]any{
-				"id":           req.TransferID,
-				"peerId":       req.PeerID,
-				"state":        "failed",
-				"direction":    "outgoing",
-				"files":        req.Files,
-				"errorMessage": err.Error(),
-			},
-		})
-		write_error_json(
-			w,
-			http.StatusBadGateway,
-			"B-T010",
-			err.Error(),
-		)
+	if req.TransferID == "" {
+		req.TransferID = random_token(8)
+	}
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	if !b.state.register_send(req.TransferID, cancel) {
+		write_error_json(w, http.StatusConflict, "B-T003", "transfer id already in use")
 		return
 	}
-	b.state.publish(event{
-		Type: "transfer",
-		Data: map[string]any{
+	defer b.state.finish_send(req.TransferID)
+	transfer_event := func(state string, extra map[string]any) {
+		data := map[string]any{
 			"id":        req.TransferID,
 			"peerId":    req.PeerID,
-			"state":     "completed",
+			"state":     state,
 			"direction": "outgoing",
 			"files":     req.Files,
-		},
-	})
+		}
+		for k, v := range extra {
+			data[k] = v
+		}
+		b.state.publish(event{Type: "transfer", Data: data})
+	}
+	transfer_event("transferring", nil)
+	if err := b.state.send_files(ctx, req); err != nil {
+		if ctx.Err() != nil {
+			transfer_event("cancelled", nil)
+			write_error_json(w, http.StatusConflict, "B-T011", "transfer cancelled")
+			return
+		}
+		transfer_event("failed", map[string]any{"errorMessage": err.Error()})
+		write_error_json(w, http.StatusBadGateway, "B-T010", err.Error())
+		return
+	}
+	transfer_event("completed", nil)
 	write_json(w, map[string]any{"ok": true})
+}
+
+func (b *backend) cancel_transfer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		write_error_json(w, http.StatusMethodNotAllowed, "B-C000", "method not allowed")
+		return
+	}
+	var req struct {
+		TransferID string `json:"transferId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		write_error_json(w, http.StatusBadRequest, "B-C001", "invalid cancel request")
+		return
+	}
+	if !b.state.cancel_send(req.TransferID) {
+		write_error_json(w, http.StatusNotFound, "B-C002", "no active transfer")
+		return
+	}
+	write_json(w, map[string]any{"ok": true})
+}
+
+func (b *backend) drop_pending(id string, name string, files []file_item) {
+	b.state.mu.Lock()
+	delete(b.state.pending_transfers, id)
+	b.state.mu.Unlock()
+	b.state.publish(event{Type: "transfer", Data: map[string]any{
+		"id":         id,
+		"deviceName": name,
+		"state":      "cancelled",
+		"direction":  "incoming",
+		"files":      files,
+	}})
 }
 
 func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
@@ -733,6 +746,15 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uploaded := int64(0)
+	var completed_paths []string
+	success := false
+	defer func() {
+		if !success {
+			for _, p := range completed_paths {
+				_ = os.Remove(p)
+			}
+		}
+	}()
 	total := int64(0)
 	for _, file := range meta.Files {
 		if !file.IsDir {
@@ -931,6 +953,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
+		completed_paths = append(completed_paths, target_path)
 	}
 	b.state.publish(event{
 		Type: "transfer",
@@ -945,6 +968,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			"totalSizeBytes":   total,
 		},
 	})
+	success = true
 	write_json(w, map[string]any{"ok": true})
 }
 
