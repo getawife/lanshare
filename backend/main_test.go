@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func test_identity() device_identity {
@@ -427,5 +428,103 @@ func TestCancelTransfer(t *testing.T) {
 	}
 	if code := cancel(); code != http.StatusNotFound {
 		t.Errorf("second cancel returned %d, want 404", code)
+	}
+}
+
+func TestSanitizeComponent(t *testing.T) {
+	long := strings.Repeat("a", 300) + ".txt"
+	tests := []struct {
+		name    string
+		in      string
+		windows bool
+		want    string
+	}{
+		{"windows illegal characters", `report: final?.txt`, true, "report_ final_.txt"},
+		{"windows reserved name", "CON.txt", true, "_CON.txt"},
+		{"windows reserved with spaces", "nul .log", true, "_nul .log"},
+		{"windows com port", "com3", true, "_com3"},
+		{"windows com10 is allowed", "COM10.txt", true, "COM10.txt"},
+		{"windows trailing dot and space", "notes. .", true, "notes"},
+		{"windows backslash", `a\b.txt`, true, "a_b.txt"},
+		{"windows drive prefix", "C:", true, "C_"},
+		{"windows only dots", "...", true, "_"},
+		{"control characters", "a\x00b\x1f.txt", false, "a_b_.txt"},
+		{"unix keeps colon and question mark", "a:b?.txt", false, "a:b?.txt"},
+		{"unix keeps trailing dot", "notes.", false, "notes."},
+		{"unix keeps reserved name", "CON.txt", false, "CON.txt"},
+		{"dot dot untouched", "..", true, ".."},
+		{"empty becomes underscore", "", false, "_"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitize_component(tt.in, tt.windows); got != tt.want {
+				t.Errorf("sanitize_component(%q, %v) = %q, want %q", tt.in, tt.windows, got, tt.want)
+			}
+		})
+	}
+	got := sanitize_component(long, false)
+	if len(got) != max_component_bytes || !strings.HasSuffix(got, ".txt") {
+		t.Errorf("long name not truncated correctly: len=%d suffix=%q", len(got), got[len(got)-4:])
+	}
+	multibyte := strings.Repeat("é", 200) + ".pdf"
+	got = sanitize_component(multibyte, false)
+	if len(got) > max_component_bytes || !strings.HasSuffix(got, ".pdf") || !utf8.ValidString(got) {
+		t.Errorf("multibyte name truncated badly: len=%d valid=%v", len(got), utf8.ValidString(got))
+	}
+}
+
+func TestSanitizeRelativePath(t *testing.T) {
+	tests := []struct {
+		in      string
+		windows bool
+		want    string
+	}{
+		{"photos/trip: day 1/IMG?.jpg", true, "photos/trip_ day 1/IMG_.jpg"},
+		{"photos/trip: day 1/IMG?.jpg", false, "photos/trip: day 1/IMG?.jpg"},
+		{"a//b/./c.txt", false, "a/b/c.txt"},
+		{"../x.txt", true, "../x.txt"},
+		{"aux/prn/file.txt", true, "_aux/_prn/file.txt"},
+		{"", true, ""},
+	}
+	for _, tt := range tests {
+		if got := sanitize_relative_path(tt.in, tt.windows); got != tt.want {
+			t.Errorf("sanitize_relative_path(%q, %v) = %q, want %q", tt.in, tt.windows, got, tt.want)
+		}
+	}
+}
+
+func TestReceiveSanitizesNames(t *testing.T) {
+	recv_state, recv_backend := test_state(t)
+	downloads := t.TempDir()
+	recv_state.update_settings(backend_settings{AskBeforeAccepting: false, DownloadFolder: downloads})
+	srv := httptest.NewUnstartedServer(recv_backend.lan_server.Handler)
+	srv.TLS = recv_state.tls_config()
+	srv.StartTLS()
+	defer srv.Close()
+	host, port_text, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "https://"))
+	port, _ := strconv.Atoi(port_text)
+
+	send_state, _ := test_state(t)
+	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: recv_state.cert_fp}
+	src := t.TempDir()
+	bad := "weird\x01name.txt"
+	if err := os.WriteFile(filepath.Join(src, bad), []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	req := transfer_request{
+		TransferID: "s1",
+		PeerID:     "r",
+		Files:      []file_item{{Path: filepath.Join(src, bad), Name: bad, Size: 4}},
+	}
+	if err := send_state.send_files(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(downloads, "weird_name.txt")); err != nil {
+		entries, _ := os.ReadDir(downloads)
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("sanitised file missing: %v (found %v)", err, names)
 	}
 }

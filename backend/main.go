@@ -745,6 +745,10 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	is_windows := runtime.GOOS == "windows"
+	for i := range meta.Files {
+		meta.Files[i].RelativePath = sanitize_relative_path(meta.Files[i].RelativePath, is_windows)
+	}
 	uploaded := int64(0)
 	var completed_paths []string
 	success := false
