@@ -106,12 +106,18 @@ pnpm lint
 - Describe the change, why it's needed and how you tested it.
 - Push follow-up commits to the same branch in response to review. Don't force-push over review comments.
 
+For more information, see [CONTRIBUTING.md](./CONTRIBUTING.md)
+
 ### Issues
 
 - Search existing issues first
 - Check you're on the latest release, and include your OS and version, the Lanshare version (Settings, About), what you expected, what happened, reproduction steps and any error shown in the app.
 
 Security reports should not go in public issues. See [SECURITY.md](./SECURITY.md). Accessibility problems are welcome as regular issues. See [ACCESSIBILITY.md](./ACCESSIBILITY.md).
+
+## Contributions & Credits
+
+[![Contributors](https://contrib.rocks/image?repo=getawife/lanshare)](https://github.com/getawife/lanshare/graphs/contributors)
 
 ## License
 
