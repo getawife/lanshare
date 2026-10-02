@@ -1,6 +1,8 @@
 import React from "react";
 import { ShieldCheck, FileText } from "lucide-react";
 import { transfer_record } from "../../shared/types";
+import { format_bytes } from "../../shared/format.ts";
+import { use_dialog_focus } from "../../shared/use_dialog_focus.ts";
 import styles from "./IncomingTransfer.module.css";
 
 interface incoming_transfer_props {
@@ -16,14 +18,18 @@ export const IncomingTransfer: React.FC<incoming_transfer_props> = ({
   on_accept,
   on_decline,
 }) => {
-  const format_size = (bytes: number) =>
-    `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const dialog_ref = use_dialog_focus<HTMLDivElement>({
+    initial_focus: "[data-initial-focus]",
+  });
 
   const file_name = transfer.files[0]?.name || "Unknown File";
-  const additional_files_count = transfer.files.length - 1;
+  const file_count = transfer.files.length;
+  const additional_files_count = file_count - 1;
 
   return (
     <div
+      ref={dialog_ref}
+      tabIndex={-1}
       className={styles.overlay}
       role="alertdialog"
       aria-modal="true"
@@ -33,12 +39,12 @@ export const IncomingTransfer: React.FC<incoming_transfer_props> = ({
       <div className={styles.card}>
         <div className={styles.titleRow}>
           <span className={styles.sender} id="incoming-transfer-title">
-            <strong>{transfer.device_name}</strong>
-            wants to share a file
+            <strong>{transfer.device_name}</strong> wants to share{" "}
+            {file_count > 1 ? `${file_count} files` : "a file"}
           </span>
           {is_trusted && (
             <span className={styles.trusted} title="Verified local device">
-              <ShieldCheck size={12} strokeWidth={2.5} />
+              <ShieldCheck size={12} strokeWidth={2.5} aria-hidden="true" />
               Trusted
             </span>
           )}
@@ -55,13 +61,15 @@ export const IncomingTransfer: React.FC<incoming_transfer_props> = ({
                 ` + ${additional_files_count} more`}
             </span>
             <span className={styles.fileSize}>
-              {format_size(transfer.total_size_bytes)}
+              {format_bytes(transfer.total_size_bytes)}
             </span>
           </div>
         </div>
 
         <div className={styles.actions}>
           <button
+            type="button"
+            data-initial-focus
             className={styles.declineBtn}
             onClick={on_decline}
             aria-label={`Decline transfer from ${transfer.device_name}`}
@@ -69,6 +77,7 @@ export const IncomingTransfer: React.FC<incoming_transfer_props> = ({
             Decline
           </button>
           <button
+            type="button"
             className={styles.acceptBtn}
             onClick={on_accept}
             aria-label={`Accept transfer from ${transfer.device_name}`}

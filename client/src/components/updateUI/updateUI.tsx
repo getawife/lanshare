@@ -132,6 +132,11 @@ export default function UpdateUI() {
               Looking for a newer version of Lanshare
             </span>
           </div>
+
+          <span className={styles.status}>
+            <span className={styles.statusDot} />
+            Checking
+          </span>
         </div>
       </section>
     );
@@ -139,7 +144,7 @@ export default function UpdateUI() {
 
   if (state.status === "downloading") {
     return (
-      <section className={styles.card} aria-live="polite">
+      <section className={styles.card}>
         <div className={styles.header}>
           <div className={styles.titleGroup}>
             <span className={styles.title}>Updating Lanshare</span>
@@ -171,7 +176,14 @@ export default function UpdateUI() {
             </span>
           </div>
 
-          <div className={styles.progressTrack}>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-label="Update download progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(state.percent)}
+          >
             <div
               className={styles.progressBar}
               style={{
@@ -184,7 +196,19 @@ export default function UpdateUI() {
             <span>
               {state.speed ? format_speed(state.speed) : "Preparing download"}
             </span>
+
+            <span>{Math.round(state.percent)}%</span>
           </div>
+        </div>
+
+        <div className={styles.footer}>
+          <div className={styles.metrics}>
+            <span className={styles.statusDot} />
+
+            <span>Update in progress</span>
+          </div>
+
+          <span className={styles.backgroundCopy}>Background download</span>
         </div>
       </section>
     );
@@ -201,11 +225,15 @@ export default function UpdateUI() {
               Lanshare {state.version} is ready to install
             </span>
           </div>
+
+          <span className={styles.readyStatus}>Ready</span>
         </div>
 
         <div className={styles.detailContainer}>
           <div className={styles.detailRow}>
-            <span className={styles.readyIcon}>✓</span>
+            <span className={styles.readyIcon} aria-hidden="true">
+              ✓
+            </span>
 
             <span>
               The update has been downloaded and will install when Lanshare
@@ -215,6 +243,12 @@ export default function UpdateUI() {
         </div>
 
         <div className={styles.footer}>
+          <div className={styles.metrics}>
+            <span className={`${styles.statusDot} ${styles.readyDot}`} />
+
+            <span>Lanshare {state.version}</span>
+          </div>
+
           <button
             type="button"
             className={styles.updateBtn}
@@ -237,6 +271,8 @@ export default function UpdateUI() {
             Lanshare couldn't download the latest update
           </span>
         </div>
+
+        <span className={styles.errorStatus}>Failed</span>
       </div>
 
       <div className={styles.detailContainer}>

@@ -625,6 +625,33 @@ ipcMain.on("window:close", () => {
   main_window?.close();
 });
 
+async function folder_size(root: string): Promise<number> {
+  let total = 0;
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop() as string;
+    let entries: fsSync.Dirent[];
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full_path = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        pending.push(full_path);
+      } else if (entry.isFile()) {
+        try {
+          total += (await fs.stat(full_path)).size;
+        } catch {
+          void 0;
+        }
+      }
+    }
+  }
+  return total;
+}
+
 ipcMain.handle("files:select", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openFile", "multiSelections"],
@@ -638,8 +665,8 @@ ipcMain.handle("files:select", async () => {
     return {
       name: path.basename(file_path),
       path: file_path,
-      sizeBytes: stats.size,
-      isDirectory: stats.isDirectory(),
+      size: stats.size,
+      is_dir: stats.isDirectory(),
     };
   });
 });
@@ -658,8 +685,8 @@ ipcMain.handle("folder:select", async () => {
   return {
     name: path.basename(folder_path),
     path: folder_path,
-    sizeBytes: 0,
-    isDirectory: true,
+    size: await folder_size(folder_path),
+    is_dir: true,
   };
 });
 

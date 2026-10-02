@@ -1,17 +1,13 @@
-import React from "react";
-import {
-  CheckCircle2,
-  Clock,
-  FileText,
-  ShieldAlert,
-  FolderTree,
-} from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { CheckCircle2, Clock, FileText, ShieldAlert } from "lucide-react";
 import { transfer_record } from "../../shared/types";
+import { format_bytes, format_speed } from "../../shared/format.ts";
+import { visually_hidden } from "../../shared/a11y.ts";
 import styles from "./TransferProgress.module.css";
 
 interface transfer_progress_props {
   transfer: transfer_record;
-  on_cancel: () => void;
+  on_cancel?: (() => void) | undefined;
 }
 
 export const TransferProgress: React.FC<transfer_progress_props> = ({
@@ -26,13 +22,36 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
     ) || 0,
   );
 
-  const format_size = (bytes: number) =>
-    bytes < 1024 * 1024
-      ? `${(bytes / 1024).toFixed(1)} KB`
-      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-
-  const speed_mb = (transfer.speed_bytes_per_sec / (1024 * 1024)).toFixed(1);
+  const is_incoming = transfer.direction === "incoming";
   const file_count = transfer.files.length;
+  const file_word = file_count === 1 ? "file" : "files";
+  const is_finished = transfer.state === "completed";
+  const is_ended =
+    is_finished ||
+    transfer.state === "failed" ||
+    transfer.state === "cancelled";
+  const summary = is_incoming
+    ? `Receiving ${file_count} ${file_word} from ${transfer.device_name}`
+    : `Sending ${file_count} ${file_word} to ${transfer.device_name}`;
+
+  const [announcement, set_announcement] = useState("");
+  const last_bucket = useRef(0);
+
+  useEffect(() => {
+    set_announcement(summary);
+    last_bucket.current = 0;
+  }, [transfer.id]);
+
+  useEffect(() => {
+    if (is_ended) return;
+    const bucket = Math.floor(percentage / 25);
+    if (bucket > last_bucket.current) {
+      last_bucket.current = bucket;
+      set_announcement(
+        `${percentage} percent ${is_incoming ? "received" : "sent"}`,
+      );
+    }
+  }, [percentage, is_ended, is_incoming]);
 
   return (
     <div
@@ -43,12 +62,10 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
       <div className={styles.header}>
         <div className={styles.titleGroup}>
           <span className={styles.title}>
-            {transfer.state === "completed"
-              ? "Transfer complete"
-              : `Sending ${file_count} file${file_count === 1 ? "" : "s"} to ${transfer.device_name}`}
+            {is_finished ? "Transfer complete" : summary}
           </span>
           <span className={styles.subtitle}>
-            {transfer.state === "completed"
+            {is_finished
               ? "Ready for the next transfer"
               : "Keep Lanshare open until the transfer finishes."}
           </span>
@@ -60,7 +77,7 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
 
       <div className={styles.detailContainer}>
         <div className={styles.detailRow}>
-          <FileText size={16} className={styles.fileIcon} />
+          <FileText size={16} className={styles.fileIcon} aria-hidden="true" />
           <span className={styles.fileTarget}>
             {transfer.files[0]?.name || "Files"}
             {transfer.files.length > 1 &&
@@ -69,30 +86,49 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
         </div>
       </div>
 
-      <div className={styles.progressTrack} aria-hidden="true">
+      <div
+        className={styles.progressTrack}
+        role="progressbar"
+        aria-label="Transfer progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+        aria-valuetext={`${percentage} percent, ${format_bytes(transfer.bytes_transferred)} of ${format_bytes(transfer.total_size_bytes)}`}
+      >
         <div
           className={styles.progressBar}
           style={{ width: `${percentage}%` }}
         />
       </div>
 
-      <div className={styles.progressCopy} aria-label="Transfer status details">
+      <div className={styles.progressCopy}>
         <span>
-          <Clock size={13} /> {format_size(transfer.bytes_transferred)} /{" "}
-          {format_size(transfer.total_size_bytes)}
+          <Clock size={13} aria-hidden="true" />{" "}
+          {format_bytes(transfer.bytes_transferred)} /{" "}
+          {format_bytes(transfer.total_size_bytes)}
         </span>
-        <span>{speed_mb} MB/s</span>
+        <span>{format_speed(transfer.speed_bytes_per_sec)}</span>
       </div>
 
       <div className={styles.footer}>
         <span className={styles.metrics}>
-          {transfer.state === "completed" ? (
+          {is_finished ? (
             <>
-              <CheckCircle2 size={16} style={{ color: "#32d74b" }} /> Complete
+              <CheckCircle2
+                size={16}
+                style={{ color: "#32d74b" }}
+                aria-hidden="true"
+              />{" "}
+              Complete
             </>
           ) : transfer.state === "failed" ? (
             <>
-              <ShieldAlert size={16} style={{ color: "#ff453a" }} /> Interrupted
+              <ShieldAlert
+                size={16}
+                style={{ color: "#ff453a" }}
+                aria-hidden="true"
+              />{" "}
+              Interrupted
             </>
           ) : (
             <>
@@ -101,8 +137,9 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
             </>
           )}
         </span>
-        {transfer.state !== "completed" && (
+        {!is_finished && on_cancel && (
           <button
+            type="button"
             className={styles.cancelBtn}
             onClick={on_cancel}
             aria-label="Cancel active transfer"
@@ -110,6 +147,15 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
             Cancel
           </button>
         )}
+      </div>
+
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={visually_hidden}
+      >
+        {announcement}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { File, Folder, X, CircleDashed } from "lucide-react";
 import { device, file_item } from "../../shared/types";
+import { use_dialog_focus } from "../../shared/use_dialog_focus.ts";
 import styles from "./SendConfirmation.module.css";
 
 interface send_confirmation_props {
@@ -17,6 +18,10 @@ export const SendConfirmation: React.FC<send_confirmation_props> = ({
   on_send,
 }) => {
   const [is_sending, set_is_sending] = useState(false);
+  const dialog_ref = use_dialog_focus<HTMLDivElement>({
+    on_escape: is_sending ? undefined : on_cancel,
+    initial_focus: "[data-initial-focus]",
+  });
 
   const total_size_bytes = files.reduce(
     (acc, f) => acc + (Number(f.size) || 0),
@@ -43,6 +48,8 @@ export const SendConfirmation: React.FC<send_confirmation_props> = ({
 
   return (
     <div
+      ref={dialog_ref}
+      tabIndex={-1}
       className={styles.overlay}
       role="dialog"
       aria-modal="true"
@@ -102,6 +109,8 @@ export const SendConfirmation: React.FC<send_confirmation_props> = ({
             )}
           </button>
           <button
+            type="button"
+            data-initial-focus
             className={styles.cancelBtn}
             onClick={on_cancel}
             disabled={is_sending}

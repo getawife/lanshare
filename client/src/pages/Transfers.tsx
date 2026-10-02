@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowUp, ArrowDown, Folder, RotateCcw, Star, X } from "lucide-react";
 import { device, transfer_record } from "../shared/types";
+import { format_bytes } from "../shared/format.ts";
 import styles from "./Transfers.module.css";
 
 type transfers_tab = "history" | "trusted";
@@ -21,11 +22,6 @@ export const Transfers: React.FC<transfers_props> = ({
   on_toggle_trust,
 }) => {
   const [active_tab, set_active_tab] = useState<transfers_tab>("history");
-
-  const format_size = (bytes: number) => {
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <div
@@ -112,7 +108,7 @@ export const Transfers: React.FC<transfers_props> = ({
                         {record.direction === "outgoing"
                           ? `To ${record.device_name}`
                           : `From ${record.device_name}`}{" "}
-                        · {format_size(record.total_size_bytes)}
+                        · {format_bytes(record.total_size_bytes)}
                       </div>
                     </div>
 

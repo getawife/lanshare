@@ -52,15 +52,31 @@ export const DeviceCard: React.FC<device_card_props> = ({
     : `Add ${device.name} to trusted devices`;
 
   return (
-    <button
-      type="button"
-      className={`${styles.card} ${is_selected ? styles.selected : ""} ${
-        device.is_trusted ? styles.trusted : ""
-      }`}
-      onClick={() => on_select(device)}
-      aria-label={`${action_label} to ${device.name}. Status: ${get_status_text()}`}
-      aria-pressed={is_selected}
-    >
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={`${styles.card} ${is_selected ? styles.selected : ""} ${
+          device.is_trusted ? styles.trusted : ""
+        }`}
+        style={{ width: "100%", height: "100%" }}
+        onClick={() => on_select(device)}
+        aria-label={`${action_label}: ${device.name}. Status: ${get_status_text()}`}
+        aria-pressed={is_selected}
+      >
+        <div className={styles.avatarContainer}>
+          <div className={styles.iconWrapper} aria-hidden="true">
+            {get_device_icon()}
+          </div>
+        </div>
+
+        <div className={styles.info}>
+          <span className={styles.name}>{device.name}</span>
+          <span className={styles.os}>
+            {device.os} • {get_status_text()}
+          </span>
+        </div>
+      </button>
+
       <span
         role="button"
         tabIndex={0}
@@ -83,21 +99,9 @@ export const DeviceCard: React.FC<device_card_props> = ({
           size={14}
           strokeWidth={2}
           fill={device.is_trusted ? "currentColor" : "none"}
+          aria-hidden="true"
         />
       </span>
-
-      <div className={styles.avatarContainer}>
-        <div className={styles.iconWrapper} aria-hidden="true">
-          {get_device_icon()}
-        </div>
-      </div>
-
-      <div className={styles.info}>
-        <span className={styles.name}>{device.name}</span>
-        <span className={styles.os}>
-          {device.os} • {get_status_text()}
-        </span>
-      </div>
-    </button>
+    </div>
   );
 };

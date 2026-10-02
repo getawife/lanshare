@@ -3,6 +3,8 @@ import { TitleBar } from "./components/TitleBar/TitleBar.js";
 import { Navigation, view_tab } from "./components/Navigation/Navigation.js";
 import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
 import UpdateUI from "./components/updateUI/updateUI.js";
+import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.js";
+import { visually_hidden } from "./shared/a11y.ts";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
@@ -37,6 +39,7 @@ export const App: React.FC = () => {
     "discovering" | "found" | "empty"
   >("discovering");
   const [active_transfer, set_active_transfer] = useState<transfer_record>();
+  const [announcement, set_announcement] = useState("");
   const [transfer_history, set_transfer_history] = useState<transfer_record[]>(
     [],
   );
@@ -312,6 +315,10 @@ export const App: React.FC = () => {
             const file_count = record.files.length;
             const file_word = file_count === 1 ? "file" : "files";
 
+            if (record.state === "cancelled") {
+              set_announcement(`Transfer with ${record.device_name} cancelled`);
+            }
+
             if (record.state === "completed") {
               const title =
                 record.direction === "outgoing"
@@ -322,7 +329,9 @@ export const App: React.FC = () => {
                   ? `Sent ${file_count} ${file_word} to ${record.device_name}`
                   : `Received ${file_count} ${file_word} from ${record.device_name}`;
               void window.electronAPI?.notify?.(title, body);
+              set_announcement(body);
             } else if (record.state === "failed") {
+              set_announcement(`Transfer with ${record.device_name} failed`);
               void window.electronAPI?.notify?.(
                 "Transfer failed",
                 `Could not transfer ${file_word} with ${record.device_name}`,
@@ -364,7 +373,6 @@ export const App: React.FC = () => {
           };
           upsert_transfer_record(record);
           set_active_transfer(record);
-          set_active_tab("devices");
 
           const sender_id =
             typeof payload.peerId === "string" ? payload.peerId : "";
@@ -506,6 +514,27 @@ export const App: React.FC = () => {
     }
   };
 
+  const handle_incoming_response = async (accept: boolean) => {
+    const current = active_transfer;
+    if (!current || current.direction !== "incoming") return;
+    const response = await window.electronAPI?.transferRespond?.(
+      current.id,
+      accept,
+    );
+    if (accept && response?.ok) return;
+    if (!response?.ok && (accept || response)) {
+      const parsed = await parse_error_body(response);
+      push_notice({
+        title: accept
+          ? "Failed to accept transfer"
+          : "Failed to decline transfer",
+        details: parsed.message,
+        code: parsed.code,
+      });
+    }
+    set_active_transfer(undefined);
+  };
+
   const handle_retry_transfer = (record: transfer_record) => {
     if (record.direction !== "outgoing" || !record.files.length) {
       push_notice({
@@ -559,9 +588,6 @@ export const App: React.FC = () => {
               on_toggle_trust={handle_toggle_trust}
               discovery_status={discovery_status}
               is_connected={is_connected}
-              on_notify={(title, details, code) =>
-                push_notice({ title, details, code: code ?? undefined })
-              }
             />
           )}
           {active_tab === "transfers" && (
@@ -584,6 +610,22 @@ export const App: React.FC = () => {
             />
           )}
         </main>
+      </div>
+      {active_transfer?.direction === "incoming" &&
+        active_transfer.state === "pending" && (
+          <IncomingTransfer
+            transfer={active_transfer}
+            on_accept={() => void handle_incoming_response(true)}
+            on_decline={() => void handle_incoming_response(false)}
+          />
+        )}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={visually_hidden}
+      >
+        {announcement}
       </div>
       <div
         className="notice-stack"

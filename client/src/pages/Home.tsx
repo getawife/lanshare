@@ -5,7 +5,6 @@ import { DeviceCard } from "../components/DeviceCard/DeviceCard";
 import { DropZone } from "../components/DropZone/DropZone";
 import { SendConfirmation } from "../components/SendConfirmation/SendConfirmation";
 import { TransferProgress } from "../components/TransferProgress/TransferProgress";
-import { IncomingTransfer } from "../components/IncomingTransfer/IncomingTransfer";
 import styles from "./Home.module.css";
 
 interface home_props {
@@ -19,7 +18,6 @@ interface home_props {
   discovery_status: "discovering" | "found" | "empty";
   is_connected: boolean;
   network_warnings?: string[];
-  on_notify?: (title: string, details: string, code?: string) => void;
 }
 
 export const Home: React.FC<home_props> = ({
@@ -32,7 +30,6 @@ export const Home: React.FC<home_props> = ({
   on_toggle_trust,
   discovery_status,
   network_warnings = [],
-  on_notify,
 }) => {
   const [selected_device_id, set_selected_device_id] = useState<string | null>(
     null,
@@ -280,73 +277,24 @@ export const Home: React.FC<home_props> = ({
       {(has_devices || active_transfer) && (
         <section className={styles.transferArea}>
           {active_transfer ? (
-            active_transfer.direction === "incoming" ? (
-              <IncomingTransfer
-                transfer={active_transfer}
-                on_accept={async () => {
-                  if (!active_transfer) return;
-                  const resp = await window.electronAPI?.transferRespond?.(
-                    active_transfer.id,
-                    true,
-                  );
-                  if (resp?.ok) {
-                  } else {
-                    try {
-                      const body = resp?.body || "";
-                      let parsed = null as any;
-                      try {
-                        parsed = JSON.parse(body);
-                      } catch {}
-                      const code = parsed?.code ?? undefined;
-                      const message =
-                        parsed?.message ??
-                        (body ? String(body) : "Failed to accept transfer");
-                      if (on_notify)
-                        on_notify("Failed to accept transfer", message, code);
-                    } catch (e) {
-                      if (on_notify)
-                        on_notify(
-                          "Failed to accept transfer",
-                          "An unknown error occurred",
-                        );
-                    }
-                    on_cancel_transfer();
-                  }
-                }}
-                on_decline={async () => {
-                  if (!active_transfer) return;
-                  const resp = await window.electronAPI?.transferRespond?.(
-                    active_transfer.id,
-                    false,
-                  );
-                  if (resp && !resp.ok) {
-                    try {
-                      const body = resp?.body || "";
-                      let parsed = null as any;
-                      try {
-                        parsed = JSON.parse(body);
-                      } catch {}
-                      const code = parsed?.code ?? undefined;
-                      const message =
-                        parsed?.message ??
-                        (body ? String(body) : "Failed to decline transfer");
-                      if (on_notify)
-                        on_notify("Failed to decline transfer", message, code);
-                    } catch (e) {
-                      if (on_notify)
-                        on_notify(
-                          "Failed to decline transfer",
-                          "An unknown error occurred",
-                        );
-                    }
-                  }
-                  on_cancel_transfer();
-                }}
-              />
+            active_transfer.direction === "incoming" &&
+            active_transfer.state === "pending" ? (
+              <div className={styles.guidanceState} role="status">
+                <div className={styles.guidanceTitle}>
+                  Incoming transfer waiting
+                </div>
+                <div className={styles.guidanceText}>
+                  Respond to the request to continue.
+                </div>
+              </div>
             ) : (
               <TransferProgress
                 transfer={active_transfer}
-                on_cancel={on_cancel_transfer}
+                on_cancel={
+                  active_transfer.direction === "outgoing"
+                    ? on_cancel_transfer
+                    : undefined
+                }
               />
             )
           ) : has_recipient ? (
