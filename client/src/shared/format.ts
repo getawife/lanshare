@@ -16,3 +16,9 @@ export function format_bytes(bytes: number): string {
 export function format_speed(bytes_per_second: number): string {
   return `${format_bytes(bytes_per_second)}/s`;
 }
+
+export function format_fingerprint(fingerprint: string | undefined): string {
+  const hex = (fingerprint ?? "").replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+  if (hex.length < 20) return "";
+  return hex.slice(0, 20).match(/.{4}/g)?.join(" ") ?? "";
+}

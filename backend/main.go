@@ -252,6 +252,10 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		write_error_json(w, http.StatusMethodNotAllowed, "B-P000", "method not allowed")
 		return
 	}
+	if !b.state.limiter.allow("prepare:"+remote_ip(r), prepare_rate_limit, time.Minute) {
+		write_error_json(w, http.StatusTooManyRequests, "B-P009", "too many transfer requests")
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req transfer_request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -262,10 +266,20 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		write_error_json(w, http.StatusBadRequest, "B-P002", "missing peer or files")
 		return
 	}
+	if len(req.Files) > max_files_per_transfer {
+		write_error_json(w, http.StatusRequestEntityTooLarge, "B-P007", "too many files in one transfer")
+		return
+	}
+	if err := validate_prepare_files(req.Files); err != nil {
+		write_error_json(w, http.StatusBadRequest, "B-P005", err.Error())
+		return
+	}
 	transfer_id := req.TransferID
 	if transfer_id == "" {
 		transfer_id = random_token(8)
 	}
+	sender_fp := sender_fingerprint(r)
+	approved := manifest_from_files(req.Files)
 	settings := b.state.get_settings()
 	if !settings.AskBeforeAccepting {
 		token := random_token(16)
@@ -273,6 +287,8 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		b.state.allowed_transfer_tokens[token] = allowed_token{
 			transfer_id: transfer_id,
 			expires_at:  time.Now().Add(30 * time.Second),
+			sender_fp:   sender_fp,
+			manifest:    approved,
 		}
 		b.state.mu.Unlock()
 		write_json(w, map[string]any{
@@ -288,6 +304,8 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		b.state.allowed_transfer_tokens[token] = allowed_token{
 			transfer_id: transfer_id,
 			expires_at:  time.Now().Add(30 * time.Second),
+			sender_fp:   sender_fp,
+			manifest:    approved,
 		}
 		b.state.mu.Unlock()
 		write_json(w, map[string]any{
@@ -296,16 +314,26 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	device_name := req.DeviceName
-	if device_name == "" {
-		if peer.ID != "" && peer.Name != "" {
-			device_name = peer.Name
-		} else {
+	verified := peer.ID != "" && peer.CertFP != "" && peer.CertFP == sender_fp
+	device_name := clean_peer_name(req.DeviceName)
+	if verified && peer.Name != "" {
+		device_name = peer.Name
+	} else {
+		if device_name == "" {
 			device_name = "Nearby device"
+		}
+		device_name += " (unverified)"
+		if peer.ID != "" {
+			b.state.security_warning("impersonation:"+peer.ID, "impersonation", peer.ID, peer.Name, "A device used the identity of "+peer.Name+" without its certificate. It is shown as unverified.")
 		}
 	}
 	ch := make(chan transfer_decision, 1)
 	b.state.mu.Lock()
+	if _, exists := b.state.pending_transfers[transfer_id]; exists || len(b.state.pending_transfers) >= max_pending_transfers {
+		b.state.mu.Unlock()
+		write_error_json(w, http.StatusTooManyRequests, "B-P006", "too many pending transfer requests")
+		return
+	}
 	b.state.pending_transfers[transfer_id] = ch
 	b.state.mu.Unlock()
 	b.state.publish(event{
@@ -314,6 +342,7 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 			"transferId": transfer_id,
 			"peerId":     req.PeerID,
 			"deviceName": device_name,
+			"verified":   verified,
 			"files":      req.Files,
 		},
 	})
@@ -324,6 +353,8 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 			b.state.allowed_transfer_tokens[dec.token] = allowed_token{
 				transfer_id: transfer_id,
 				expires_at:  time.Now().Add(30 * time.Second),
+				sender_fp:   sender_fp,
+				manifest:    approved,
 			}
 			b.state.mu.Unlock()
 			write_json(w, map[string]any{
@@ -453,6 +484,12 @@ func (b *backend) settings_handler(w http.ResponseWriter, r *http.Request) {
 				"invalid settings payload",
 			)
 			return
+		}
+		if cfg.DownloadFolder != "" {
+			if err := validate_download_folder(cfg.DownloadFolder); err != nil {
+				write_error_json(w, http.StatusBadRequest, "B-S010", err.Error())
+				return
+			}
 		}
 		b.state.update_settings(cfg)
 		write_json(w, map[string]any{"ok": true})
@@ -745,6 +782,18 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if at.sender_fp != sender_fingerprint(r) {
+		write_error_json(w, http.StatusForbidden, "B-R023", "sender certificate does not match the approved request")
+		return
+	}
+	got := make([]approved_file, 0, len(meta.Files))
+	for _, f := range meta.Files {
+		got = append(got, approved_file{RelativePath: f.RelativePath, IsDir: f.IsDir, Size: f.Size, Checksum: strings.ToLower(f.Checksum)})
+	}
+	if !manifest_matches(at.manifest, got) {
+		write_error_json(w, http.StatusForbidden, "B-R022", "transfer does not match the approved request")
+		return
+	}
 	is_windows := runtime.GOOS == "windows"
 	for i := range meta.Files {
 		meta.Files[i].RelativePath = sanitize_relative_path(meta.Files[i].RelativePath, is_windows)
@@ -789,6 +838,22 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			"B-R006",
 			"unable to prepare download folder",
 		)
+		return
+	}
+	if free, err := free_disk_bytes(downloads); err == nil && free < uint64(total)+disk_headroom_bytes {
+		b.state.publish(event{
+			Type: "transfer",
+			Data: map[string]any{
+				"id":           meta.TransferID,
+				"peerId":       meta.PeerID,
+				"deviceName":   meta.PeerName,
+				"state":        "failed",
+				"direction":    "incoming",
+				"files":        meta.Files,
+				"errorMessage": "not enough free disk space",
+			},
+		})
+		write_error_json(w, http.StatusInsufficientStorage, "B-R030", "not enough free disk space")
 		return
 	}
 	for idx, file := range meta.Files {
@@ -882,8 +947,11 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		hasher := sha256.New()
 		multi_writer := io.MultiWriter(dst, hasher)
-		written, copy_err := io.Copy(multi_writer, part)
+		written, copy_err := io.Copy(multi_writer, io.LimitReader(part, file.Size+1))
 		_ = dst.Close()
+		if copy_err == nil && written != file.Size {
+			copy_err = fmt.Errorf("file size does not match the approved size")
+		}
 		if copy_err != nil {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
@@ -1067,6 +1135,9 @@ func safe_download_path(
 	if target_abs != base_abs &&
 		!strings.HasPrefix(target_abs, prefix) {
 		return "", fmt.Errorf("unsafe path rejected")
+	}
+	if err := ensure_no_symlink_escape(base_abs, target_abs); err != nil {
+		return "", err
 	}
 	return target, nil
 }

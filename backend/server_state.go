@@ -47,6 +47,8 @@ type server_state struct {
 	cert                    tls.Certificate
 	cert_fp                 string
 	active_sends            map[string]context.CancelFunc
+	limiter                 *rate_limiter
+	security_warned         map[string]time.Time
 	lan_port                int
 	udp_discovery_bound     bool
 	user_data_dir           string
@@ -70,6 +72,8 @@ type transfer_decision struct {
 type allowed_token struct {
 	transfer_id string
 	expires_at  time.Time
+	sender_fp   string
+	manifest    []approved_file
 }
 
 func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
@@ -89,8 +93,10 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		cert:                cert,
 		cert_fp:             cert_fp,
 		active_sends:        map[string]context.CancelFunc{},
+		limiter:             new_rate_limiter(),
+		security_warned:     map[string]time.Time{},
 		device_name:         name,
-		version:             "1.0.5",
+		version:             "1.0.6",
 		udp_discovery_bound: false,
 		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},
@@ -268,6 +274,7 @@ func (s *server_state) self_device() device {
 		Capabilities: []string{"files", "clipboard", "web"},
 		LastSeen:     time.Now(),
 		DeviceHash:   s.device_id,
+		CertFP:       s.cert_fp,
 		Settings:     s.settings,
 	}
 }
@@ -439,60 +446,76 @@ func (s *server_state) run_discovery_listener(ctx context.Context, conn net.Pack
 		if json.Unmarshal(buf[:n], &packet) != nil {
 			continue
 		}
-		id, _ := packet["id"].(string)
-		name, _ := packet["name"].(string)
-
-		name = strings.TrimSpace(name)
-		name = strings.Trim(name, "\x00")
-
-		ip := strings.Split(addr.String(), ":")[0]
-		port := int_from(packet["port"])
-		http_port := int_from(packet["httpPort"])
-		if http_port == 0 {
-			http_port = port
-		}
-
-		if id == "" || id == s.device_id {
-			continue
-		}
-		if name == "" {
-			name = "Nearby device"
-		}
-
-		var peer_settings backend_settings
-		if raw_settings, ok := packet["settings"]; ok {
-			if b, err := json.Marshal(raw_settings); err == nil {
-				_ = json.Unmarshal(b, &peer_settings)
-			}
-		}
-
-		s.mu.Lock()
-		_, is_trusted := s.trusted_ids[trust_key(id, string_from(packet["certFp"]))]
-		s.mu.Unlock()
-
-		peer := device{
-			ID:           id,
-			Name:         name,
-			OS:           format_os_name(string_from(packet["os"])),
-			Type:         device_type(string_from(packet["os"])),
-			IP:           ip,
-			Port:         port,
-			HTTPPort:     http_port,
-			Status:       "available",
-			Trusted:      is_trusted,
-			CertFP:       string_from(packet["certFp"]),
-			Protocol:     int_from(packet["protocol"]),
-			Version:      string_from(packet["version"]),
-			Capabilities: string_slice(packet["capabilities"]),
-			LastSeen:     time.Now(),
-			Settings:     peer_settings,
-		}
-
-		s.mu.Lock()
-		s.peers[id] = peer
-		s.mu.Unlock()
-		s.publish(event{Type: "peer", Data: peer})
+		s.handle_announcement(packet, strings.Split(addr.String(), ":")[0])
 	}
+}
+
+func (s *server_state) handle_announcement(packet map[string]any, ip string) {
+	id, _ := packet["id"].(string)
+	name, _ := packet["name"].(string)
+
+	name = clean_peer_name(strings.Trim(name, "\x00"))
+
+	port := int_from(packet["port"])
+	http_port := int_from(packet["httpPort"])
+	if http_port == 0 {
+		http_port = port
+	}
+
+	if id == "" || id == s.device_id {
+		return
+	}
+	if name == "" {
+		name = "Nearby device"
+	}
+
+	var peer_settings backend_settings
+	if raw_settings, ok := packet["settings"]; ok {
+		if b, err := json.Marshal(raw_settings); err == nil {
+			_ = json.Unmarshal(b, &peer_settings)
+		}
+	}
+
+	s.mu.Lock()
+	_, is_trusted := s.trusted_ids[trust_key(id, string_from(packet["certFp"]))]
+	s.mu.Unlock()
+
+	peer := device{
+		ID:           id,
+		Name:         name,
+		OS:           format_os_name(string_from(packet["os"])),
+		Type:         device_type(string_from(packet["os"])),
+		IP:           ip,
+		Port:         port,
+		HTTPPort:     http_port,
+		Status:       "available",
+		Trusted:      is_trusted,
+		CertFP:       string_from(packet["certFp"]),
+		Protocol:     int_from(packet["protocol"]),
+		Version:      string_from(packet["version"]),
+		Capabilities: string_slice(packet["capabilities"]),
+		LastSeen:     time.Now(),
+		Settings:     peer_settings,
+	}
+
+	s.mu.Lock()
+	existing, known := s.peers[id]
+	conflict := known && existing.CertFP != "" && peer.CertFP != "" && existing.CertFP != peer.CertFP
+	if conflict && existing.Status != "offline" && time.Since(existing.LastSeen) < 12*time.Second {
+		s.mu.Unlock()
+		s.security_warning("conflict:"+id, "certificate-conflict", id, existing.Name, "Another device on your network is announcing itself as "+existing.Name+" with a different certificate. It was ignored.")
+		return
+	}
+	if !known && len(s.peers) >= max_known_peers {
+		s.mu.Unlock()
+		return
+	}
+	s.peers[id] = peer
+	s.mu.Unlock()
+	if conflict {
+		s.security_warning("changed:"+id, "certificate-changed", id, name, name+" is now using a different certificate. Verify it before trusting it again.")
+	}
+	s.publish(event{Type: "peer", Data: peer})
 }
 
 func (s *server_state) run_expired_peer_sweep(ctx context.Context) {
@@ -741,6 +764,9 @@ func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_tran
 					return err
 				}
 				rel = filepath.ToSlash(filepath.Join(base, rel))
+				if !d.IsDir() && !d.Type().IsRegular() {
+					return nil
+				}
 				info, err := d.Info()
 				if err != nil {
 					return err
@@ -753,7 +779,10 @@ func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_tran
 					})
 					return nil
 				}
-				cs, _ := compute_file_sha256(path)
+				cs, err := compute_file_sha256(path)
+				if err != nil {
+					return err
+				}
 				out = append(out, expanded_transfer_file{
 					source_path:   path,
 					relative_path: rel,
@@ -767,7 +796,10 @@ func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_tran
 			}
 			continue
 		}
-		cs, _ := compute_file_sha256(file.Path)
+		cs, err := compute_file_sha256(file.Path)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, expanded_transfer_file{
 			source_path:   file.Path,
 			relative_path: file.Name,
@@ -901,12 +933,18 @@ func (s *server_state) serve_share(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	share_key := "share:" + remote_ip(r)
 	if share.password != "" {
+		if s.limiter.exceeded(share_key, share_failure_limit, share_failure_window) {
+			http.Error(w, "too many attempts", http.StatusTooManyRequests)
+			return
+		}
 		_, given, has := r.BasicAuth()
 		want := sha256.Sum256([]byte(share.password))
 		got := sha256.Sum256([]byte(given))
 		if !has || subtle.ConstantTimeCompare(want[:], got[:]) != 1 {
-			time.Sleep(time.Second)
+			time.Sleep(share_failure_delay)
+			s.limiter.hit(share_key)
 			w.Header().Set("WWW-Authenticate", `Basic realm="Lanshare"`)
 			http.Error(w, "password required", http.StatusUnauthorized)
 			return

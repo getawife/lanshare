@@ -16,6 +16,7 @@ export interface device {
   status: device_status;
   ip: string;
   is_trusted?: boolean;
+  certFp?: string;
 }
 
 export interface file_item {

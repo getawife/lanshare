@@ -1,15 +1,18 @@
 import React from "react";
 import { app_settings } from "../shared/types";
+import { format_fingerprint } from "../shared/format.ts";
 import styles from "./Settings.module.css";
 
 interface settings_props {
   settings: app_settings;
   on_update_settings: (updates: Partial<app_settings>) => void;
+  device_fingerprint?: string | undefined;
 }
 
 export const SettingsPage: React.FC<settings_props> = ({
   settings,
   on_update_settings,
+  device_fingerprint,
 }) => {
   const handle_browse = async () => {
     const folder = await window.electronAPI?.selectFolder();
@@ -102,6 +105,15 @@ export const SettingsPage: React.FC<settings_props> = ({
           <div className={styles.aboutRow}>
             <span>Lanshare Desktop</span>
             <span className={styles.version}>v1.0.5</span>
+          </div>
+          <div className={styles.aboutRow}>
+            <span>Device fingerprint</span>
+            <span
+              className={styles.version}
+              title="Compare this with the fingerprint shown on the other device when you trust it"
+            >
+              {format_fingerprint(device_fingerprint) || "Unavailable"}
+            </span>
           </div>
         </div>
       </div>

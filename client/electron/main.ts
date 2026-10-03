@@ -5,13 +5,15 @@ import {
   ipcMain,
   nativeTheme,
   Notification,
+  session,
   shell,
 } from "electron";
+import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import crypto from "node:crypto";
 import electronUpdater from "electron-updater";
 const { autoUpdater } = electronUpdater;
@@ -79,7 +81,78 @@ autoUpdater.on("error", (error) => {
   });
 });
 
-ipcMain.on("update:install", () => {
+const dev_server_origin = "http://127.0.0.1:5173";
+
+function is_app_url(url: string): boolean {
+  if (!app.isPackaged) return url.startsWith(dev_server_origin);
+  return url.startsWith(pathToFileURL(path.join(__dirname, "../dist")).href);
+}
+
+function is_trusted_sender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  if (!main_window || event.sender !== main_window.webContents) return false;
+  return is_app_url(event.senderFrame?.url ?? "");
+}
+
+function secure_handle(
+  channel: string,
+  listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown,
+) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!is_trusted_sender(event)) throw new Error("Untrusted IPC sender");
+    return listener(event, ...args);
+  });
+}
+
+function secure_on(
+  channel: string,
+  listener: (event: IpcMainEvent, ...args: any[]) => void,
+) {
+  ipcMain.on(channel, (event, ...args) => {
+    if (!is_trusted_sender(event)) return;
+    listener(event, ...args);
+  });
+}
+
+const allowed_backend_routes = new Set([
+  "/api/transfer",
+  "/api/cancel-transfer",
+]);
+
+const allowed_themes = ["system", "light", "dark"];
+
+function sanitize_settings(
+  input: unknown,
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const raw = (input && typeof input === "object" ? input : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: Record<string, unknown> = { ...base };
+  const text = (key: string, max: number) => {
+    const value = raw[key];
+    if (typeof value === "string") out[key] = value.trim().slice(0, max);
+  };
+  const flag = (key: string) => {
+    if (typeof raw[key] === "boolean") out[key] = raw[key];
+  };
+  text("deviceName", 64);
+  text("currentNetwork", 100);
+  flag("autoStart");
+  flag("showNotifications");
+  flag("askBeforeAccepting");
+  flag("autoAcceptTrusted");
+  if (typeof raw.downloadFolder === "string") {
+    const folder = raw.downloadFolder.trim();
+    if (folder === "" || path.isAbsolute(folder)) out.downloadFolder = folder;
+  }
+  if (typeof raw.theme === "string" && allowed_themes.includes(raw.theme)) {
+    out.theme = raw.theme;
+  }
+  return out;
+}
+
+secure_on("update:install", () => {
   autoUpdater.quitAndInstall();
 });
 
@@ -543,8 +616,20 @@ function create_window() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
       preload: preload_path,
     },
+  });
+
+  main_window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  main_window.webContents.on("will-navigate", (event, url) => {
+    if (!is_app_url(url)) event.preventDefault();
+  });
+  main_window.webContents.on("will-attach-webview", (event) => {
+    event.preventDefault();
   });
 
   main_window.webContents.on(
@@ -567,15 +652,15 @@ function create_window() {
   }
 }
 
-ipcMain.handle("backend:get-url", () => backend_url);
+secure_handle("backend:get-url", () => backend_url);
 
-ipcMain.handle(
+secure_handle(
   "backend:events-url",
   () =>
     `${backend_url}/api/events?token=${encodeURIComponent(admin_token ?? "")}`,
 );
 
-ipcMain.handle("backend:status", async () => {
+secure_handle("backend:status", async () => {
   if (backend_status.state === "running") {
     try {
       const response = await fetch(`${backend_url}/api/health`, {
@@ -602,16 +687,16 @@ ipcMain.handle("backend:status", async () => {
   return backend_status;
 });
 
-ipcMain.handle("backend:restart", async () => {
+secure_handle("backend:restart", async () => {
   await stop_backend();
   return await start_backend();
 });
 
-ipcMain.on("window:minimize", () => {
+secure_on("window:minimize", () => {
   main_window?.minimize();
 });
 
-ipcMain.on("window:maximize", () => {
+secure_on("window:maximize", () => {
   if (!main_window) return;
 
   if (main_window.isMaximized()) {
@@ -621,7 +706,7 @@ ipcMain.on("window:maximize", () => {
   }
 });
 
-ipcMain.on("window:close", () => {
+secure_on("window:close", () => {
   main_window?.close();
 });
 
@@ -652,7 +737,7 @@ async function folder_size(root: string): Promise<number> {
   return total;
 }
 
-ipcMain.handle("files:select", async () => {
+secure_handle("files:select", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openFile", "multiSelections"],
   });
@@ -671,7 +756,7 @@ ipcMain.handle("files:select", async () => {
   });
 });
 
-ipcMain.handle("folder:select", async () => {
+secure_handle("folder:select", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"],
   });
@@ -690,7 +775,7 @@ ipcMain.handle("folder:select", async () => {
   };
 });
 
-ipcMain.handle("settings:get", async () => {
+secure_handle("settings:get", async () => {
   return (
     (await read_settings()) ?? {
       deviceName: "Lanshare Desktop",
@@ -705,13 +790,18 @@ ipcMain.handle("settings:get", async () => {
   );
 });
 
-ipcMain.handle("settings:save", async (_event, settings) => {
-  await write_settings(settings);
+secure_handle("settings:save", async (_event, settings) => {
+  const clean = sanitize_settings(settings, (await read_settings()) ?? {});
+  await write_settings(clean);
 
-  nativeTheme.themeSource = settings.theme ?? "system";
+  const theme = clean.theme;
+  nativeTheme.themeSource =
+    typeof theme === "string" && allowed_themes.includes(theme)
+      ? (theme as "system" | "light" | "dark")
+      : "system";
 
-  if (typeof settings.autoStart === "boolean") {
-    apply_auto_start(settings.autoStart);
+  if (typeof clean.autoStart === "boolean") {
+    apply_auto_start(clean.autoStart);
   }
 
   try {
@@ -723,10 +813,13 @@ ipcMain.handle("settings:save", async (_event, settings) => {
   return true;
 });
 
-ipcMain.handle(
+secure_handle(
   "backend:fetch",
   async (_event, path_name: string, init?: RequestInit) => {
-    if (typeof path_name !== "string" || !path_name.startsWith("/api/")) {
+    if (
+      typeof path_name !== "string" ||
+      !allowed_backend_routes.has(path_name.split("?")[0] ?? "")
+    ) {
       throw new Error("Invalid backend path");
     }
 
@@ -740,9 +833,13 @@ ipcMain.handle(
       headers["X-Lanshare-Token"] = admin_token;
     }
 
+    const method = init?.method === "POST" ? "POST" : "GET";
     const response = await fetch(`${backend_url}${path_name}`, {
-      ...init,
+      method,
       headers,
+      ...(method === "POST" && typeof init?.body === "string"
+        ? { body: init.body }
+        : {}),
     });
 
     const text = await response.text();
@@ -755,7 +852,7 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
+secure_handle(
   "transfer:respond",
   async (_event, transfer_id: string, accept: boolean) => {
     const headers: Record<string, string> = {
@@ -785,7 +882,7 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("trust:list", async () => {
+secure_handle("trust:list", async () => {
   const headers: Record<string, string> = {};
   if (admin_token) {
     headers["X-Lanshare-Token"] = admin_token;
@@ -799,7 +896,7 @@ ipcMain.handle("trust:list", async () => {
   };
 });
 
-ipcMain.handle(
+secure_handle(
   "trust:set",
   async (_event, peer_id: string, trusted: boolean) => {
     const headers: Record<string, string> = {
@@ -822,14 +919,17 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("backend:state", async () => {
+secure_handle("backend:state", async () => {
   const response = await fetch(`${backend_url}/api/state`, {
     headers: auth_headers(),
   });
   return response.json();
 });
 
-ipcMain.handle("folder:open", async (_event, folder_path?: string) => {
+secure_handle("folder:open", async (_event, folder_path?: string) => {
+  if (folder_path !== undefined && typeof folder_path !== "string") {
+    return false;
+  }
   let target =
     folder_path && folder_path.trim() !== ""
       ? folder_path
@@ -850,12 +950,32 @@ ipcMain.handle("folder:open", async (_event, folder_path?: string) => {
   return true;
 });
 
-ipcMain.handle("notify", async (_event, title: string, body: string) => {
-  await show_notification(title, body);
+secure_handle("notify", async (_event, title: string, body: string) => {
+  if (typeof title !== "string" || typeof body !== "string") return false;
+  await show_notification(title.slice(0, 120), body.slice(0, 300));
   return true;
 });
 
+const has_single_instance_lock = app.requestSingleInstanceLock();
+
+if (!has_single_instance_lock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!main_window) return;
+    if (main_window.isMinimized()) main_window.restore();
+    main_window.focus();
+  });
+}
+
 app.whenReady().then(async () => {
+  if (!has_single_instance_lock) return;
+
+  session.defaultSession.setPermissionRequestHandler(
+    (_contents, _permission, callback) => callback(false),
+  );
+  session.defaultSession.setPermissionCheckHandler(() => false);
+
   await start_backend();
 
   try {

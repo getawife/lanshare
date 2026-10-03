@@ -4,7 +4,8 @@ import { Navigation, view_tab } from "./components/Navigation/Navigation.js";
 import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
 import UpdateUI from "./components/updateUI/updateUI.js";
 import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.js";
-import { visually_hidden } from "./shared/a11y.ts";
+import { visually_hidden } from "./shared/a11y.js";
+import { TrustVerification } from "./components/TrustVerification/TrustVerification.js";
 import { Home } from "./pages/Home.js";
 import { Transfers } from "./pages/Transfers.js";
 import { SettingsPage } from "./pages/Settings.js";
@@ -40,6 +41,8 @@ export const App: React.FC = () => {
   >("discovering");
   const [active_transfer, set_active_transfer] = useState<transfer_record>();
   const [announcement, set_announcement] = useState("");
+  const [self_fingerprint, set_self_fingerprint] = useState("");
+  const [pending_trust, set_pending_trust] = useState<device | null>(null);
   const [transfer_history, set_transfer_history] = useState<transfer_record[]>(
     [],
   );
@@ -169,6 +172,10 @@ export const App: React.FC = () => {
       }
       const state = await window.electronAPI?.getBackendState?.();
       const peers: any[] = state?.peers ?? [];
+      const own_fingerprint = state?.device?.certFp;
+      if (typeof own_fingerprint === "string") {
+        set_self_fingerprint(own_fingerprint);
+      }
 
       set_devices_map((prev_map) => {
         const current_ids = new Set<string>();
@@ -200,7 +207,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const handle_toggle_trust = async (peer: device, trusted: boolean) => {
+  const apply_trust_change = async (peer: device, trusted: boolean) => {
     set_devices_map((prev_map) => {
       const existing = prev_map.get(peer.id);
       if (!existing) return prev_map;
@@ -227,6 +234,14 @@ export const App: React.FC = () => {
         details,
       });
     }
+  };
+
+  const handle_toggle_trust = (peer: device, trusted: boolean) => {
+    if (trusted && !peer.is_trusted) {
+      set_pending_trust(peer);
+      return;
+    }
+    void apply_trust_change(peer, trusted);
   };
 
   const handle_restart_backend = async () => {
@@ -338,6 +353,24 @@ export const App: React.FC = () => {
               );
             }
           }
+        } catch {
+          void 0;
+        }
+      });
+
+      source.addEventListener("security-warning", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data)?.data;
+          const message =
+            typeof payload?.message === "string"
+              ? payload.message.slice(0, 300)
+              : "A device on your network behaved unexpectedly.";
+          push_notice({ title: "Security warning", details: message });
+          set_announcement(`Security warning. ${message}`);
+          void window.electronAPI?.notify?.(
+            "Lanshare security warning",
+            message,
+          );
         } catch {
           void 0;
         }
@@ -604,6 +637,7 @@ export const App: React.FC = () => {
           {active_tab === "settings" && (
             <SettingsPage
               settings={settings}
+              device_fingerprint={self_fingerprint}
               on_update_settings={(updates) =>
                 set_settings((prev) => ({ ...prev, ...updates }))
               }
@@ -611,6 +645,14 @@ export const App: React.FC = () => {
           )}
         </main>
       </div>
+      <TrustVerification
+        device={pending_trust}
+        on_cancel={() => set_pending_trust(null)}
+        on_confirm={(peer) => {
+          set_pending_trust(null);
+          void apply_trust_change(peer, true);
+        }}
+      />
       {active_transfer?.direction === "incoming" &&
         active_transfer.state === "pending" && (
           <IncomingTransfer
