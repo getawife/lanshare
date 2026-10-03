@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { ShieldCheck } from "lucide-react";
 import { device } from "../../shared/types";
 import { format_fingerprint } from "../../shared/format";
 import { use_dialog_focus } from "../../shared/use_dialog_focus";
-import styles from "./TrustVerification.module.css";
+import styles from "./Trustverification.module.css";
 
 interface trust_verification_props {
   device: device | null;
