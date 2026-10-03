@@ -104,7 +104,7 @@ export const SettingsPage: React.FC<settings_props> = ({
         <div className={styles.cardGroup}>
           <div className={styles.aboutRow}>
             <span>Lanshare Desktop</span>
-            <span className={styles.version}>v1.0.5</span>
+            <span className={styles.version}>v1.0.6</span>
           </div>
           <div className={styles.aboutRow}>
             <span>Device fingerprint</span>
