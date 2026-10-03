@@ -52,13 +52,12 @@ export const DeviceCard: React.FC<device_card_props> = ({
     : `Add ${device.name} to trusted devices`;
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className={styles.cardWrap}>
       <button
         type="button"
         className={`${styles.card} ${is_selected ? styles.selected : ""} ${
           device.is_trusted ? styles.trusted : ""
         }`}
-        style={{ width: "100%", height: "100%" }}
         onClick={() => on_select(device)}
         aria-label={`${action_label}: ${device.name}. Status: ${get_status_text()}`}
         aria-pressed={is_selected}
