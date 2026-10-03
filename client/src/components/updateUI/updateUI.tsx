@@ -132,11 +132,6 @@ export default function UpdateUI() {
               Looking for a newer version of Lanshare
             </span>
           </div>
-
-          <span className={styles.status}>
-            <span className={styles.statusDot} />
-            Checking
-          </span>
         </div>
       </section>
     );
@@ -196,19 +191,7 @@ export default function UpdateUI() {
             <span>
               {state.speed ? format_speed(state.speed) : "Preparing download"}
             </span>
-
-            <span>{Math.round(state.percent)}%</span>
           </div>
-        </div>
-
-        <div className={styles.footer}>
-          <div className={styles.metrics}>
-            <span className={styles.statusDot} />
-
-            <span>Update in progress</span>
-          </div>
-
-          <span className={styles.backgroundCopy}>Background download</span>
         </div>
       </section>
     );
@@ -225,8 +208,6 @@ export default function UpdateUI() {
               Lanshare {state.version} is ready to install
             </span>
           </div>
-
-          <span className={styles.readyStatus}>Ready</span>
         </div>
 
         <div className={styles.detailContainer}>
@@ -243,12 +224,6 @@ export default function UpdateUI() {
         </div>
 
         <div className={styles.footer}>
-          <div className={styles.metrics}>
-            <span className={`${styles.statusDot} ${styles.readyDot}`} />
-
-            <span>Lanshare {state.version}</span>
-          </div>
-
           <button
             type="button"
             className={styles.updateBtn}
