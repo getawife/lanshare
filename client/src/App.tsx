@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { TitleBar } from "./components/TitleBar/TitleBar.ts";
-import { Navigation, view_tab } from "./components/Navigation/Navigation.ts";
-import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.ts";
-import UpdateUI from "./components/updateUI/updateUI.ts";
-import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.ts";
+import { TitleBar } from "./components/TitleBar/TitleBar.tsx";
+import { Navigation, view_tab } from "./components/Navigation/Navigation.tsx";
+import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.tsx";
+import UpdateUI from "./components/updateUI/updateUI.tsx";
+import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.tsx";
 import { visually_hidden } from "./shared/a11y.ts";
-import { TrustVerification } from "./components/TrustVerification/Trustverification.ts";
+import { TrustVerification } from "./components/TrustVerification/Trustverification.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Transfers } from "./pages/Transfers.tsx";
 import { SettingsPage } from "./pages/Settings.tsx";
@@ -15,7 +15,7 @@ import {
   device,
   file_item,
   transfer_record,
-} from "./shared/types.js";
+} from "./shared/types.ts";
 
 type app_notice = {
   id: string;
