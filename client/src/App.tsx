@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { TitleBar } from "./components/TitleBar/TitleBar.js";
-import { Navigation, view_tab } from "./components/Navigation/Navigation.js";
-import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.js";
-import UpdateUI from "./components/updateUI/updateUI.js";
-import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.js";
-import { visually_hidden } from "./shared/a11y.js";
-import { TrustVerification } from "./components/TrustVerification/TrustVerification.js";
-import { Home } from "./pages/Home.js";
-import { Transfers } from "./pages/Transfers.js";
-import { SettingsPage } from "./pages/Settings.js";
+import { TitleBar } from "./components/TitleBar/TitleBar.ts";
+import { Navigation, view_tab } from "./components/Navigation/Navigation.ts";
+import { BackendStatusBanner } from "./components/BackendStatusBanner/BackendStatusBanner.ts";
+import UpdateUI from "./components/updateUI/updateUI.ts";
+import { IncomingTransfer } from "./components/IncomingTransfer/IncomingTransfer.ts";
+import { visually_hidden } from "./shared/a11y.ts";
+import { TrustVerification } from "./components/TrustVerification/Trustverification.ts";
+import { Home } from "./pages/Home.tsx";
+import { Transfers } from "./pages/Transfers.tsx";
+import { SettingsPage } from "./pages/Settings.tsx";
 import {
   app_settings,
   backend_status,
