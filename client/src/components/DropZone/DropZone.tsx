@@ -44,7 +44,7 @@ export const DropZone: React.FC<drop_zone_props> = ({
       on_paste_files(
         files.map((f) => ({
           name: f.name,
-          path: (f as File & { path: string }).path,
+          path: window.electronAPI?.getPathForFile(f) ?? "",
           size: f.size,
           is_dir: false,
         })),

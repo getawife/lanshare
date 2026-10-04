@@ -87,12 +87,9 @@ export interface backend_status {
 }
 
 declare global {
-  interface File {
-    path: string;
-  }
-
   interface Window {
     electronAPI?: {
+      getPathForFile: (file: File) => string;
       selectFiles: () => Promise<file_item[] | null>;
       selectFolder: () => Promise<file_item | null>;
       getSettings: () => Promise<app_settings>;

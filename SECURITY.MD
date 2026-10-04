@@ -25,4 +25,4 @@ Only the latest release receives security fixes. Update first, then re-test. Aut
 
 ## Credits
 
-If a report is valid, a fix is developed privately and released before public disclosure. Reporters are credited in the README's credit section unless they prefer to stay anonymous. Good-faith research on your own devices and network is welcome. Lower-severity issues that expose no user data and allow no remote code execution may be filed as regular issues.
+If a report is valid, a fix is developed privately and released before public disclosure. Reporters are credited in the README's credits & contribution section.

@@ -1,3 +1,0 @@
-interface File {
-  path: string;
-}

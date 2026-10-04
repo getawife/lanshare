@@ -51,6 +51,7 @@ export const Home: React.FC<home_props> = ({
   }, [devices, selected_device_id]);
 
   const [staged_files, set_staged_files] = useState<file_item[] | null>(null);
+  const [file_error, set_file_error] = useState<string | null>(null);
   const [is_dragging, set_is_dragging] = useState(false);
   const [show_troubleshooting, set_show_troubleshooting] = useState(false);
 
@@ -91,34 +92,42 @@ export const Home: React.FC<home_props> = ({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const files: file_item[] = Array.from(e.dataTransfer.files).map((f) => ({
         name: f.name,
-        path: f.path,
+        path: window.electronAPI?.getPathForFile(f) ?? "",
         size: f.size,
         is_dir: false,
       }));
-      set_staged_files(files);
+      handle_paste_files(files);
     }
   };
 
   const handle_select_files = async () => {
     if (!has_recipient) return;
     const files = await window.electronAPI?.selectFiles();
-    if (files) set_staged_files(files);
+    if (files) handle_paste_files(files);
   };
 
   const handle_select_folder = async () => {
     if (!has_recipient) return;
     const folder = await window.electronAPI?.selectFolder();
-    if (folder) set_staged_files([folder]);
+    if (folder) handle_paste_files([folder]);
   };
 
   const handle_paste_files = (files: file_item[]) => {
     if (!has_recipient) return;
+    if (files.some((file) => !file.path)) {
+      set_file_error(
+        "Could not access one or more files. Try selecting them with Select Files.",
+      );
+      return;
+    }
+    set_file_error(null);
     set_staged_files(files);
   };
 
   const clear_selection = () => {
     set_selected_device_id(null);
     set_staged_files(null);
+    set_file_error(null);
   };
 
   return (
@@ -276,6 +285,11 @@ export const Home: React.FC<home_props> = ({
 
       {(has_devices || active_transfer) && (
         <section className={styles.transferArea}>
+          {file_error && (
+            <div className={styles.fileError} role="alert">
+              {file_error}
+            </div>
+          )}
           {active_transfer ? (
             active_transfer.direction === "incoming" &&
             active_transfer.state === "pending" ? (

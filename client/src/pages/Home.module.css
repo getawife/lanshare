@@ -327,6 +327,12 @@
   margin-top: auto;
 }
 
+.fileError {
+  margin-bottom: 10px;
+  color: #b42318;
+  font-size: 12px;
+}
+
 .dragHint {
   position: fixed;
   right: 20px;

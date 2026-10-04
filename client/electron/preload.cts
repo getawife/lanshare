@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 type app_settings = {
   deviceName: string;
@@ -12,6 +12,8 @@ type app_settings = {
 };
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+
   selectFiles: () => ipcRenderer.invoke("files:select"),
 
   selectFolder: () => ipcRenderer.invoke("folder:select"),
