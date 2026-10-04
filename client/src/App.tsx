@@ -40,6 +40,9 @@ export const App: React.FC = () => {
     "discovering" | "found" | "empty"
   >("discovering");
   const [active_transfer, set_active_transfer] = useState<transfer_record>();
+  const [pending_incoming_transfers, set_pending_incoming_transfers] = useState<
+    transfer_record[]
+  >([]);
   const [announcement, set_announcement] = useState("");
   const [self_fingerprint, set_self_fingerprint] = useState("");
   const [pending_trust, set_pending_trust] = useState<device | null>(null);
@@ -178,6 +181,7 @@ export const App: React.FC = () => {
       }
 
       set_devices_map((prev_map) => {
+        const next_map = new Map(prev_map);
         const current_ids = new Set<string>();
         for (const peer of peers) {
           const normalized: device = {
@@ -185,16 +189,16 @@ export const App: React.FC = () => {
             is_trusted: Boolean(peer.is_trusted ?? peer.trusted),
           };
           current_ids.add(normalized.id);
-          prev_map.set(normalized.id, normalized);
+          next_map.set(normalized.id, normalized);
         }
 
-        for (const id of prev_map.keys()) {
+        for (const id of next_map.keys()) {
           if (!current_ids.has(id)) {
-            prev_map.delete(id);
+            next_map.delete(id);
           }
         }
 
-        return prev_map;
+        return next_map;
       });
 
       set_is_connected(true);
@@ -211,8 +215,9 @@ export const App: React.FC = () => {
     set_devices_map((prev_map) => {
       const existing = prev_map.get(peer.id);
       if (!existing) return prev_map;
-      prev_map.set(peer.id, { ...existing, is_trusted: trusted });
-      return prev_map;
+      const next_map = new Map(prev_map);
+      next_map.set(peer.id, { ...existing, is_trusted: trusted });
+      return next_map;
     });
 
     try {
@@ -224,8 +229,9 @@ export const App: React.FC = () => {
       set_devices_map((prev_map) => {
         const existing = prev_map.get(peer.id);
         if (!existing) return prev_map;
-        prev_map.set(peer.id, { ...existing, is_trusted: !trusted });
-        return prev_map;
+        const next_map = new Map(prev_map);
+        next_map.set(peer.id, { ...existing, is_trusted: !trusted });
+        return next_map;
       });
       const details =
         err instanceof Error ? safe_text(err.message) : "Unknown error";
@@ -296,8 +302,9 @@ export const App: React.FC = () => {
           };
 
           set_devices_map((prev_map) => {
-            prev_map.set(new_device.id, new_device);
-            return prev_map;
+            const next_map = new Map(prev_map);
+            next_map.set(new_device.id, new_device);
+            return next_map;
           });
 
           set_discovery_status("found");
@@ -323,6 +330,11 @@ export const App: React.FC = () => {
             record.state === "failed" ||
             record.state === "cancelled"
           ) {
+            if (record.direction === "incoming") {
+              set_pending_incoming_transfers((current) =>
+                current.filter((item) => item.id !== record.id),
+              );
+            }
             set_active_transfer((current) =>
               current?.id === record.id ? undefined : current,
             );
@@ -405,7 +417,11 @@ export const App: React.FC = () => {
             timestamp: new Date(),
           };
           upsert_transfer_record(record);
-          set_active_transfer(record);
+          set_pending_incoming_transfers((current) =>
+            current.some((item) => item.id === record.id)
+              ? current
+              : [...current, record],
+          );
 
           const sender_id =
             typeof payload.peerId === "string" ? payload.peerId : "";
@@ -547,25 +563,28 @@ export const App: React.FC = () => {
     }
   };
 
-  const handle_incoming_response = async (accept: boolean) => {
-    const current = active_transfer;
-    if (!current || current.direction !== "incoming") return;
+  const handle_incoming_response = async (
+    transfer_id: string,
+    accept: boolean,
+  ) => {
     const response = await window.electronAPI?.transferRespond?.(
-      current.id,
+      transfer_id,
       accept,
     );
-    if (accept && response?.ok) return;
-    if (!response?.ok && (accept || response)) {
-      const parsed = await parse_error_body(response);
-      push_notice({
-        title: accept
-          ? "Failed to accept transfer"
-          : "Failed to decline transfer",
-        details: parsed.message,
-        code: parsed.code,
-      });
+    if (response?.ok) {
+      set_pending_incoming_transfers((current) =>
+        current.filter((item) => item.id !== transfer_id),
+      );
+      return;
     }
-    set_active_transfer(undefined);
+    const parsed = await parse_error_body(response);
+    push_notice({
+      title: accept
+        ? "Failed to accept transfer"
+        : "Failed to decline transfer",
+      details: parsed.message,
+      code: parsed.code,
+    });
   };
 
   const handle_retry_transfer = (record: transfer_record) => {
@@ -591,6 +610,8 @@ export const App: React.FC = () => {
     void handle_initiate_transfer(matching_device, record.files);
   };
 
+  const pending_incoming_transfer = pending_incoming_transfers[0];
+
   return (
     <div className="app-layout">
       <TitleBar
@@ -607,7 +628,9 @@ export const App: React.FC = () => {
         <Navigation
           active_tab={active_tab}
           on_select_tab={set_active_tab}
-          active_transfers_count={active_transfer ? 1 : 0}
+          active_transfers_count={
+            Number(Boolean(active_transfer)) + pending_incoming_transfers.length
+          }
         />
         <main className="main-viewport">
           {active_tab === "devices" && (
@@ -653,14 +676,18 @@ export const App: React.FC = () => {
           void apply_trust_change(peer, true);
         }}
       />
-      {active_transfer?.direction === "incoming" &&
-        active_transfer.state === "pending" && (
-          <IncomingTransfer
-            transfer={active_transfer}
-            on_accept={() => void handle_incoming_response(true)}
-            on_decline={() => void handle_incoming_response(false)}
-          />
-        )}
+      {pending_incoming_transfer && (
+        <IncomingTransfer
+          key={pending_incoming_transfer.id}
+          transfer={pending_incoming_transfer}
+          on_accept={() =>
+            void handle_incoming_response(pending_incoming_transfer.id, true)
+          }
+          on_decline={() =>
+            void handle_incoming_response(pending_incoming_transfer.id, false)
+          }
+        />
+      )}
       <div
         role="status"
         aria-live="polite"
