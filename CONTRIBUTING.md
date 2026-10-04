@@ -1,6 +1,6 @@
 # Contributing to Lanshare
 
-Thanks for considering a contribution. This document covers what you need to know to set up the project, make a change, and submit it. All contributers will be credited unless they choose otherwise.
+Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network. Transfers go directly from device to device. No account, server or internet connection is involved. Thanks for considering a contribution. This document covers what you need to know to set up the project, make a change, and submit it. All contributers will be credited unless they choose otherwise.
 
 ## Ways to contribute
 

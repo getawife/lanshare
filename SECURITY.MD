@@ -1,6 +1,6 @@
 # Security Policy
 
-Lanshare moves files between devices on a local network. This document describes what it protects, who it protects against, what it does not protect, and how to report a problem.
+Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network. Transfers go directly from device to device. No account, server or internet connection is involved. This document outlines its security policy.
 
 ## Reporting a vulnerability
 

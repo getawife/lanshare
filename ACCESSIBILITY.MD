@@ -1,6 +1,6 @@
 # Accessibility
 
-Lanshare aims to be usable with a keyboard, a screen reader, and common OS accessibility settings.
+Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network. Transfers go directly from device to device. No account, server or internet connection is involved. It aims to be usable with a keyboard, a screen reader, and common OS accessibility settings.
 
 ## How to test
 
