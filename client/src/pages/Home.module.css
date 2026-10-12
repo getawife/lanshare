@@ -1,16 +1,16 @@
 .container {
-  --ls-surface-elevated: #ffffff;
-  --ls-border-subtle: #e5e5e5;
-  --ls-border-inset: #ededed;
-  --ls-bg-inset: #f7f7f7;
+  --ls-surface-elevated: var(--surface);
+  --ls-border-subtle: var(--border-subtle);
+  --ls-border-inset: var(--border-subtle);
+  --ls-bg-inset: var(--surface-hover);
 
-  --ls-text-primary: #111111;
-  --ls-text-secondary: #666666;
-  --ls-text-muted: #999999;
-  --ls-text-accent: #111111;
+  --ls-text-primary: var(--text);
+  --ls-text-secondary: var(--text-secondary);
+  --ls-text-muted: var(--text-muted);
+  --ls-text-accent: var(--accent);
 
-  --ls-status-warning: #8a6200;
-  --ls-status-warning-text: #6b4f00;
+  --ls-status-warning: var(--warning);
+  --ls-status-warning-text: var(--warning);
 
   --ls-radius-xl: 10px;
   --ls-radius-lg: 8px;
@@ -74,7 +74,7 @@
   align-items: center;
   justify-content: center;
 
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--ls-border-subtle);
   color: var(--ls-text-primary);
   border-radius: var(--ls-radius-md);
@@ -88,8 +88,8 @@
 }
 
 .refreshBtn:hover:not(:disabled) {
-  background: #f5f5f5;
-  border-color: #d5d5d5;
+  background: var(--surface-hover);
+  border-color: var(--border);
 }
 
 .refreshBtn:active:not(:disabled) {
@@ -165,7 +165,7 @@
   border: 1px solid transparent;
   border-radius: var(--ls-radius-md);
 
-  background: #f5f5f5;
+  background: var(--surface-hover);
   color: var(--ls-text-primary);
 
   font-size: 11px;
@@ -179,8 +179,8 @@
 }
 
 .clearSelectionBtn:hover {
-  background: #eeeeee;
-  border-color: #dddddd;
+  background: var(--surface-active);
+  border-color: var(--border);
 }
 
 .deviceGrid {
@@ -202,16 +202,16 @@
 
   padding: 28px 20px;
 
-  border: 1px dashed #cccccc;
+  border: 1px dashed var(--border);
   border-radius: var(--ls-radius-lg);
 
-  background: #fafafa;
+  background: var(--surface-hover);
 
   text-align: center;
 }
 
 .emptyIcon {
-  color: #777777;
+  color: var(--text-muted);
   opacity: 0.8;
 }
 
@@ -263,14 +263,14 @@
   justify-content: center;
   gap: 6px;
 
-  background: #111111;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-text);
 
-  border: 1px solid #111111;
+  border: 1px solid var(--accent);
 }
 
 .scanBtn:hover:not(:disabled) {
-  background: #000000;
+  background: var(--accent-hover);
 }
 
 .scanBtn:active:not(:disabled) {
@@ -288,14 +288,14 @@
   justify-content: center;
   gap: 6px;
 
-  background: #ffffff;
-  border: 1px solid #dddddd;
+  background: var(--surface);
+  border: 1px solid var(--border);
   color: var(--ls-text-primary);
 }
 
 .troubleshootBtn:hover {
-  background: #f5f5f5;
-  border-color: #cccccc;
+  background: var(--surface-hover);
+  border-color: var(--border);
 }
 
 .troubleshootBtn:active {
@@ -329,7 +329,7 @@
 
 .fileError {
   margin-bottom: 10px;
-  color: #b42318;
+  color: var(--danger);
   font-size: 12px;
 }
 
@@ -341,10 +341,10 @@
 
   padding: 10px 14px;
 
-  background: #111111;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-text);
 
-  border: 1px solid #111111;
+  border: 1px solid var(--accent);
   border-radius: var(--ls-radius-md);
 
   font-size: 12px;

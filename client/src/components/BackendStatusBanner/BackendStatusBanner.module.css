@@ -9,7 +9,7 @@
   --ls-text-warning: #a16207;
 
   --ls-surface-elevated: var(--surface);
-  --ls-surface-inset: rgba(0, 0, 0, 0.025);
+  --ls-surface-inset: var(--surface-hover);
 
   --ls-border-subtle: var(--border-subtle);
 
@@ -198,10 +198,10 @@
 
   padding: 4px 10px;
 
-  background: var(--text);
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-text);
 
-  border: 1px solid var(--text);
+  border: 1px solid var(--accent);
   border-radius: var(--ls-radius-md);
 
   font-size: 12px;
@@ -216,8 +216,8 @@
 }
 
 .restartBtn:hover:not(:disabled) {
-  background: #000000;
-  border-color: #000000;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .restartBtn:active:not(:disabled) {

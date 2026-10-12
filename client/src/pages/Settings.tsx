@@ -1,5 +1,5 @@
 import React from "react";
-import { app_settings } from "../shared/types";
+import { app_settings, app_theme } from "../shared/types";
 import { format_fingerprint } from "../shared/format.ts";
 import styles from "./Settings.module.css";
 
@@ -8,6 +8,15 @@ interface settings_props {
   on_update_settings: (updates: Partial<app_settings>) => void;
   device_fingerprint?: string | undefined;
 }
+
+const theme_options: { value: app_theme; label: string }[] = [
+  { value: "default_light", label: "Default Light" },
+  { value: "default_dark", label: "Default Dark" },
+  { value: "green_light", label: "Green Light" },
+  { value: "green_dark", label: "Green Dark" },
+  { value: "blue_light", label: "Blue Light" },
+  { value: "blue_dark", label: "Blue Dark" },
+];
 
 export const SettingsPage: React.FC<settings_props> = ({
   settings,
@@ -63,6 +72,34 @@ export const SettingsPage: React.FC<settings_props> = ({
             />
           </div>
         </div>
+      </div>
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Appearance</div>
+        <fieldset className={styles.theme_picker}>
+          <legend className={styles.theme_legend}>Color theme</legend>
+          <div className={styles.theme_choices}>
+            {theme_options.map((option) => (
+              <label className={styles.theme_choice} key={option.value}>
+                <input
+                  type="radio"
+                  name="theme"
+                  value={option.value}
+                  checked={settings.theme === option.value}
+                  onChange={() => on_update_settings({ theme: option.value })}
+                />
+                <span className={styles.theme_preview} data-theme={option.value}>
+                  <span className={styles.preview_sidebar} />
+                  <span className={styles.preview_content}>
+                    <span className={styles.preview_line} />
+                    <span className={styles.preview_card} />
+                  </span>
+                </span>
+                <span className={styles.theme_label}>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       <div className={styles.section}>

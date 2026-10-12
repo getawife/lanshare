@@ -6,9 +6,9 @@
   --ls-text-secondary: var(--text-secondary);
   --ls-text-muted: var(--text-muted);
 
-  --ls-status-online: #222222;
-  --ls-status-restricted: #555555;
-  --ls-status-offline: #111111;
+  --ls-status-online: var(--success);
+  --ls-status-restricted: var(--warning);
+  --ls-status-offline: var(--text-muted);
 
   --ls-radius-md: 5px;
   --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);

@@ -85,9 +85,9 @@
 }
 
 .trustBtn {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg, #101318);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
 }
 
 .trustBtn:disabled {

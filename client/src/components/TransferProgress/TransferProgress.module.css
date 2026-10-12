@@ -2,15 +2,15 @@
   --ls-surface-elevated: var(--surface);
   --ls-border-subtle: var(--border-subtle);
   --ls-border-inset: var(--border-subtle);
-  --ls-bg-inset: rgba(0, 0, 0, 0.035);
+  --ls-bg-inset: var(--surface-hover);
 
   --ls-text-primary: var(--text);
   --ls-text-secondary: var(--text-secondary);
   --ls-text-muted: var(--text-muted);
   --ls-text-accent: var(--accent);
 
-  --ls-status-green: #16803c;
-  --ls-status-red: #c62828;
+  --ls-status-green: var(--success);
+  --ls-status-red: var(--danger);
 
   --ls-radius-xl: 8px;
   --ls-radius-lg: 6px;

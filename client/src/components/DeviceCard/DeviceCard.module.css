@@ -9,18 +9,18 @@
 
 .card {
   --ls-card-bg-hover: var(--surface-hover);
-  --ls-card-bg-selected: var(--text);
+  --ls-card-bg-selected: var(--accent);
 
   --ls-avatar-bg: var(--surface-active);
   --ls-avatar-color: var(--text-secondary);
 
-  --ls-avatar-bg-selected: #ffffff;
-  --ls-avatar-color-selected: #111111;
+  --ls-avatar-bg-selected: var(--surface);
+  --ls-avatar-color-selected: var(--accent);
 
   --ls-text-primary: var(--text);
   --ls-text-secondary: var(--text-secondary);
   --ls-text-muted: var(--text-muted);
-  --ls-text-selected: #ffffff;
+  --ls-text-selected: var(--accent-text);
 
   --ls-status-available: #16803c;
   --ls-status-connecting: #a16207;
@@ -107,10 +107,10 @@
 }
 
 .card.selected {
-  background: var(--text);
-  border-color: var(--text);
+  background: var(--ls-card-bg-selected);
+  border-color: var(--ls-card-bg-selected);
 
-  color: var(--text-selected);
+  color: var(--ls-text-selected);
 
   box-shadow: var(--shadow-sm);
 }
@@ -148,7 +148,7 @@
 
 .card.selected .iconWrapper {
   background: var(--ls-avatar-bg-selected);
-  border-color: #ffffff;
+  border-color: var(--surface);
 
   color: var(--ls-avatar-color-selected);
 }
@@ -239,11 +239,12 @@
 }
 
 .card.selected .name {
-  color: #ffffff;
+  color: var(--ls-text-selected);
 }
 
 .card.selected .os {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--ls-text-selected);
+  opacity: 0.82;
 }
 
 .actionRow {
@@ -281,7 +282,7 @@
 
 .card.selected .actionText {
   background: transparent;
-  color: #ffffff;
+  color: var(--ls-text-selected);
 }
 
 .starBtn {

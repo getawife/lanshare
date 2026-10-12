@@ -8,7 +8,13 @@ type app_settings = {
   askBeforeAccepting: boolean;
   autoAcceptTrusted: boolean;
   currentNetwork: string;
-  theme: "system" | "light" | "dark";
+  theme:
+    | "default_light"
+    | "default_dark"
+    | "green_light"
+    | "green_dark"
+    | "blue_light"
+    | "blue_dark";
 };
 
 contextBridge.exposeInMainWorld("electronAPI", {

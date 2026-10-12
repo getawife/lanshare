@@ -35,6 +35,13 @@ export type transfer_state =
   | "cancelled";
 
 export type transfer_direction = "incoming" | "outgoing";
+export type app_theme =
+  | "default_light"
+  | "default_dark"
+  | "green_light"
+  | "green_dark"
+  | "blue_light"
+  | "blue_dark";
 
 export interface transfer_record {
   id: string;
@@ -57,7 +64,7 @@ export interface app_settings {
   askBeforeAccepting: boolean;
   autoAcceptTrusted: boolean;
   currentNetwork: string;
-  theme: "dark";
+  theme: app_theme;
 }
 
 export interface network_diagnostics {

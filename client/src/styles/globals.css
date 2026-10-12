@@ -89,13 +89,9 @@ input:focus-visible {
   outline-offset: 3px;
 }
 
-* {
-  border-radius: 7px !important;
-}
-
 .notice-card {
   background: var(--surface);
-  border-color: var(--border-strong);
+  border-color: var(--border);
   box-shadow: var(--shadow-md);
 }
 

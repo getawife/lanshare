@@ -61,7 +61,7 @@ export const App: React.FC = () => {
     askBeforeAccepting: true,
     autoAcceptTrusted: false,
     currentNetwork: "Unknown",
-    theme: "dark",
+    theme: "default_light",
   });
   const [settings_loaded, set_settings_loaded] = useState(false);
 
@@ -276,7 +276,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     window.electronAPI?.getSettings().then((saved) => {
-      if (saved) set_settings((prev) => ({ ...prev, ...saved, theme: "dark" }));
+      if (saved) set_settings((prev) => ({ ...prev, ...saved }));
       set_settings_loaded(true);
     });
   }, []);
@@ -454,8 +454,8 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = "dark";
-  }, []);
+    document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   useEffect(() => {
     if (!settings_loaded) return;

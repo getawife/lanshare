@@ -4,7 +4,7 @@
   --ls-surface-elevated: var(--surface);
   --ls-border-subtle: var(--border-subtle);
   --ls-border-inset: var(--border-subtle);
-  --ls-bg-inset: rgba(0, 0, 0, 0.035);
+  --ls-bg-inset: var(--surface-hover);
 
   --ls-text-primary: var(--text);
   --ls-text-secondary: var(--text-secondary);
@@ -294,7 +294,7 @@
 
   border: 1px solid var(--accent);
 
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .sendBtn:hover:not(:disabled) {

@@ -2,7 +2,7 @@
   --ls-border-subtle: var(--border);
   --ls-border-hover: var(--text);
   --ls-border-inset: var(--border-subtle);
-  --ls-bg-inset: rgba(0, 0, 0, 0.025);
+  --ls-bg-inset: var(--surface-hover);
 
   --ls-text-primary: var(--text);
   --ls-text-secondary: var(--text-secondary);
@@ -151,7 +151,7 @@
 .actionBtn {
   background-color: var(--accent);
 
-  color: #ffffff;
+  color: var(--accent-text);
 
   border: 1px solid var(--accent);
 }

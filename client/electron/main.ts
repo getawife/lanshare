@@ -119,7 +119,21 @@ const allowed_backend_routes = new Set([
   "/api/cancel-transfer",
 ]);
 
-const allowed_themes = ["system", "light", "dark"];
+const allowed_themes = [
+  "default_light",
+  "default_dark",
+  "green_light",
+  "green_dark",
+  "blue_light",
+  "blue_dark",
+];
+
+function normalize_theme(theme: unknown) {
+  if (typeof theme !== "string") return "default_light";
+  if (allowed_themes.includes(theme)) return theme;
+  if (theme === "dark") return "default_dark";
+  return "default_light";
+}
 
 function sanitize_settings(
   input: unknown,
@@ -147,9 +161,7 @@ function sanitize_settings(
     const folder = raw.downloadFolder.trim();
     if (folder === "" || path.isAbsolute(folder)) out.downloadFolder = folder;
   }
-  if (typeof raw.theme === "string" && allowed_themes.includes(raw.theme)) {
-    out.theme = raw.theme;
-  }
+  out.theme = normalize_theme(raw.theme ?? out.theme);
   return out;
 }
 
@@ -759,18 +771,23 @@ secure_handle("folder:select", async () => {
 });
 
 secure_handle("settings:get", async () => {
-  return (
-    (await read_settings()) ?? {
-      deviceName: "Lanshare Desktop",
-      autoStart: false,
-      showNotifications: true,
-      downloadFolder: "",
-      askBeforeAccepting: true,
-      autoAcceptTrusted: false,
-      currentNetwork: "Unknown",
-      theme: "dark",
-    }
-  );
+  const settings = sanitize_settings(await read_settings(), {
+    deviceName: "Lanshare Desktop",
+    autoStart: false,
+    showNotifications: true,
+    downloadFolder: "",
+    askBeforeAccepting: true,
+    autoAcceptTrusted: false,
+    currentNetwork: "Unknown",
+    theme: "default_light",
+  });
+  nativeTheme.themeSource =
+    settings.theme === "default_dark" ||
+    settings.theme === "green_dark" ||
+    settings.theme === "blue_dark"
+      ? "dark"
+      : "light";
+  return settings;
 });
 
 secure_handle("settings:save", async (_event, settings) => {
@@ -779,9 +796,11 @@ secure_handle("settings:save", async (_event, settings) => {
 
   const theme = clean.theme;
   nativeTheme.themeSource =
-    typeof theme === "string" && allowed_themes.includes(theme)
-      ? (theme as "system" | "light" | "dark")
-      : "system";
+    theme === "default_dark" ||
+    theme === "green_dark" ||
+    theme === "blue_dark"
+      ? "dark"
+      : "light";
 
   if (typeof clean.autoStart === "boolean") {
     apply_auto_start(clean.autoStart);
