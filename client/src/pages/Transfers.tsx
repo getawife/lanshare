@@ -141,8 +141,8 @@ export const Transfers: React.FC<transfers_props> = ({
                       {record.state === "failed" && (
                         <button
                           className={styles.actionBtn}
-                          title="Retry transfer"
-                          aria-label="Retry transfer"
+                          title="Resume transfer"
+                          aria-label="Resume transfer"
                           onClick={() => on_retry_transfer?.(record)}
                         >
                           <RotateCcw size={14} />

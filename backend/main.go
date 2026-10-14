@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/hex"
@@ -281,37 +280,47 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 	sender_fp := sender_fingerprint(r)
 	approved := manifest_from_files(req.Files)
 	settings := b.state.get_settings()
-	if !settings.AskBeforeAccepting {
-		token := random_token(16)
+	grant_transfer := func(token string) bool {
+		downloads := default_downloads()
+		if settings.DownloadFolder != "" {
+			downloads = settings.DownloadFolder
+		}
+		key, _, offsets, err := b.state.prepare_resume_session(
+			transfer_id,
+			req.PeerID,
+			sender_fp,
+			approved,
+			downloads,
+		)
+		if err != nil {
+			write_error_json(w, http.StatusInternalServerError, "B-P010", err.Error())
+			return false
+		}
 		b.state.mu.Lock()
 		b.state.allowed_transfer_tokens[token] = allowed_token{
 			transfer_id: transfer_id,
+			peer_id:     req.PeerID,
 			expires_at:  time.Now().Add(30 * time.Second),
 			sender_fp:   sender_fp,
 			manifest:    approved,
+			resume_key:  key,
+			offsets:     offsets,
 		}
 		b.state.mu.Unlock()
 		write_json(w, map[string]any{
-			"ok":    true,
-			"token": token,
+			"ok":      true,
+			"token":   token,
+			"offsets": offsets,
 		})
+		return true
+	}
+	if !settings.AskBeforeAccepting {
+		grant_transfer(random_token(16))
 		return
 	}
 	peer := b.state.find_peer(req.PeerID)
 	if settings.AutoAcceptTrusted && peer.ID != "" && peer.Trusted && peer.CertFP != "" && peer.CertFP == sender_fingerprint(r) {
-		token := random_token(16)
-		b.state.mu.Lock()
-		b.state.allowed_transfer_tokens[token] = allowed_token{
-			transfer_id: transfer_id,
-			expires_at:  time.Now().Add(30 * time.Second),
-			sender_fp:   sender_fp,
-			manifest:    approved,
-		}
-		b.state.mu.Unlock()
-		write_json(w, map[string]any{
-			"ok":    true,
-			"token": token,
-		})
+		grant_transfer(random_token(16))
 		return
 	}
 	verified := peer.ID != "" && peer.CertFP != "" && peer.CertFP == sender_fp
@@ -349,18 +358,7 @@ func (b *backend) prepare_transfer(w http.ResponseWriter, r *http.Request) {
 	select {
 	case dec := <-ch:
 		if dec.accepted {
-			b.state.mu.Lock()
-			b.state.allowed_transfer_tokens[dec.token] = allowed_token{
-				transfer_id: transfer_id,
-				expires_at:  time.Now().Add(30 * time.Second),
-				sender_fp:   sender_fp,
-				manifest:    approved,
-			}
-			b.state.mu.Unlock()
-			write_json(w, map[string]any{
-				"ok":    true,
-				"token": dec.token,
-			})
+			grant_transfer(dec.token)
 			return
 		}
 		write_error_json(
@@ -763,6 +761,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			Size         int64  `json:"size"`
 			Checksum     string `json:"checksum"`
 		} `json:"files"`
+		Offsets []int64 `json:"offsets"`
 	}
 	if err := json.NewDecoder(meta_part).Decode(&meta); err != nil {
 		write_error_json(
@@ -794,20 +793,46 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		write_error_json(w, http.StatusForbidden, "B-R022", "transfer does not match the approved request")
 		return
 	}
+	if len(meta.Offsets) == 0 && len(at.offsets) == len(meta.Files) {
+		all_offsets_zero := true
+		for _, offset := range at.offsets {
+			if offset != 0 {
+				all_offsets_zero = false
+				break
+			}
+		}
+		if all_offsets_zero {
+			meta.Offsets = make([]int64, len(meta.Files))
+		}
+	}
+	if meta.TransferID != at.transfer_id || meta.PeerID != at.peer_id || len(meta.Offsets) != len(meta.Files) || len(at.offsets) != len(meta.Files) {
+		write_error_json(w, http.StatusForbidden, "B-R024", "transfer resume metadata does not match the approved request")
+		return
+	}
+	for index, offset := range meta.Offsets {
+		if offset != at.offsets[index] {
+			write_error_json(w, http.StatusForbidden, "B-R025", "transfer resume offset does not match the approved request")
+			return
+		}
+	}
+	session, started, err := b.state.begin_resume(at.resume_key, meta.TransferID, meta.PeerID, got)
+	if err != nil || !started {
+		message := "unable to resume transfer"
+		if err != nil {
+			message = err.Error()
+		}
+		write_error_json(w, http.StatusConflict, "B-R026", message)
+		return
+	}
+	defer b.state.end_resume(at.resume_key)
 	is_windows := runtime.GOOS == "windows"
 	for i := range meta.Files {
 		meta.Files[i].RelativePath = sanitize_relative_path(meta.Files[i].RelativePath, is_windows)
 	}
-	uploaded := int64(0)
-	var completed_paths []string
-	success := false
-	defer func() {
-		if !success {
-			for _, p := range completed_paths {
-				_ = os.Remove(p)
-			}
-		}
-	}()
+	var uploaded int64
+	for _, offset := range meta.Offsets {
+		uploaded += offset
+	}
 	total := int64(0)
 	for _, file := range meta.Files {
 		if !file.IsDir {
@@ -827,10 +852,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			"totalSizeBytes":   total,
 		},
 	})
-	downloads := default_downloads()
-	if custom := b.state.get_settings().DownloadFolder; custom != "" {
-		downloads = custom
-	}
+	downloads := session.DownloadFolder
 	if err := os.MkdirAll(downloads, 0o755); err != nil {
 		write_error_json(
 			w,
@@ -840,7 +862,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if free, err := free_disk_bytes(downloads); err == nil && free < uint64(total)+disk_headroom_bytes {
+	remaining := total - uploaded
+	if free, err := free_disk_bytes(downloads); err == nil && free < uint64(remaining)+disk_headroom_bytes {
 		b.state.publish(event{
 			Type: "transfer",
 			Data: map[string]any{
@@ -858,11 +881,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 	}
 	for idx, file := range meta.Files {
 		if file.IsDir {
-			target_dir, err := safe_download_path(
-				downloads,
-				file.RelativePath,
-			)
-			if err != nil {
+			target_dir := session.TargetPaths[idx]
+			if err := validate_resume_target(downloads, target_dir); err != nil {
 				write_error_json(
 					w,
 					http.StatusBadRequest,
@@ -911,11 +931,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		target_path, err := safe_download_path(
-			downloads,
-			file.RelativePath,
-		)
-		if err != nil {
+		target_path := session.TargetPaths[idx]
+		if err := validate_resume_target(downloads, target_path); err != nil {
 			write_error_json(
 				w,
 				http.StatusBadRequest,
@@ -924,7 +941,6 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		target_path = get_unique_file_path(target_path)
 		if err := os.MkdirAll(filepath.Dir(target_path), 0o755); err != nil {
 			write_error_json(
 				w,
@@ -934,8 +950,8 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		tmp := target_path + ".part"
-		dst, err := os.Create(tmp)
+		tmp := b.state.resume_part_path(session, at.resume_key, idx)
+		dst, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY, 0o600)
 		if err != nil {
 			write_error_json(
 				w,
@@ -945,15 +961,29 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		hasher := sha256.New()
-		multi_writer := io.MultiWriter(dst, hasher)
-		written, copy_err := io.Copy(multi_writer, io.LimitReader(part, file.Size+1))
+		offset := meta.Offsets[idx]
+		info, stat_err := dst.Stat()
+		if stat_err != nil || info.Size() != offset {
+			_ = dst.Close()
+			write_error_json(w, http.StatusConflict, "B-R027", "partial file changed while preparing transfer")
+			return
+		}
+		if _, err := dst.Seek(offset, io.SeekStart); err != nil {
+			_ = dst.Close()
+			write_error_json(w, http.StatusInternalServerError, "B-R013", "unable to resume destination file")
+			return
+		}
+		written, copy_err := io.Copy(dst, io.LimitReader(part, file.Size-offset+1))
 		_ = dst.Close()
-		if copy_err == nil && written != file.Size {
+		if copy_err == nil && offset+written != file.Size {
 			copy_err = fmt.Errorf("file size does not match the approved size")
 		}
 		if copy_err != nil {
-			_ = os.Remove(tmp)
+			if offset+written > file.Size {
+				if err := os.Remove(tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
+					copy_err = fmt.Errorf("%v; unable to reset oversized partial file: %w", copy_err, err)
+				}
+			}
 			b.state.publish(event{
 				Type: "transfer",
 				Data: map[string]any{
@@ -964,7 +994,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 					"direction":        "incoming",
 					"files":            meta.Files,
 					"errorMessage":     copy_err.Error(),
-					"bytesTransferred": uploaded,
+					"bytesTransferred": uploaded + written,
 					"totalSizeBytes":   total,
 				},
 			})
@@ -976,7 +1006,11 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		computed_checksum := hex.EncodeToString(hasher.Sum(nil))
+		computed_checksum, checksum_err := compute_file_sha256(tmp)
+		if checksum_err != nil {
+			write_error_json(w, http.StatusInternalServerError, "B-R028", "unable to verify partial file")
+			return
+		}
 		if file.Checksum != "" && computed_checksum != file.Checksum {
 			_ = os.Remove(tmp)
 			b.state.publish(event{
@@ -989,7 +1023,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 					"direction":        "incoming",
 					"files":            meta.Files,
 					"errorMessage":     "checksum mismatch (corrupted download)",
-					"bytesTransferred": uploaded,
+					"bytesTransferred": uploaded + written,
 					"totalSizeBytes":   total,
 				},
 			})
@@ -1015,17 +1049,10 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 				"totalSizeBytes":   total,
 			},
 		})
-		if err := os.Rename(tmp, target_path); err != nil {
-			_ = os.Remove(tmp)
-			write_error_json(
-				w,
-				http.StatusInternalServerError,
-				"B-R015",
-				"unable to finalize file",
-			)
-			return
-		}
-		completed_paths = append(completed_paths, target_path)
+	}
+	if err := b.state.finalize_resume_session(at.resume_key, &session); err != nil {
+		write_error_json(w, http.StatusInternalServerError, "B-R015", err.Error())
+		return
 	}
 	b.state.publish(event{
 		Type: "transfer",
@@ -1040,7 +1067,7 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			"totalSizeBytes":   total,
 		},
 	})
-	success = true
+	b.state.finish_resume_session(at.resume_key, session)
 	write_json(w, map[string]any{"ok": true})
 }
 

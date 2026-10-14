@@ -9,6 +9,7 @@ import electronUpdater from "electron-updater";
 const { autoUpdater } = electronUpdater;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const default_backend_port = 43821;
+const backend_port_count = 10;
 const settings_path = path.join(app.getPath("userData"), "lanshare-settings.json");
 let backend_process = null;
 let backend_url = `http://127.0.0.1:${default_backend_port}`;
@@ -353,47 +354,35 @@ async function start_backend() {
     return await wait_for_backend();
 }
 async function wait_for_backend() {
-    const initial_url = `http://127.0.0.1:${default_backend_port}`;
     for (let i = 0; i < 60; i += 1) {
         if (backend_status.state === "error") {
             return backend_status;
         }
-        try {
-            const response = await fetch(`${initial_url}/api/health`, {
-                headers: auth_headers(),
-            });
-            if (response.ok) {
-                const health_data = await response.json().catch(() => ({}));
-                let actual_port = default_backend_port;
-                try {
-                    const state_response = await fetch(`${initial_url}/api/state`, {
-                        headers: auth_headers(),
-                    });
-                    if (state_response.ok) {
-                        const state = await state_response.json();
-                        if (Number.isInteger(state.httpPort) &&
-                            state.httpPort > 0 &&
-                            state.httpPort <= 65535) {
-                            actual_port = state.httpPort;
-                        }
-                    }
-                }
-                catch {
-                    actual_port = default_backend_port;
-                }
-                set_backend_port(actual_port);
-                backend_status = {
-                    state: "running",
-                    url: backend_url,
-                    diagnostics: health_data.diagnostics,
-                    networkWarnings: health_data.diagnostics?.warnings ?? [],
-                };
-                return backend_status;
+        const probes = await Promise.all(Array.from({ length: backend_port_count }, async (_, offset) => {
+            const port = default_backend_port + offset;
+            try {
+                const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
+                    headers: auth_headers(),
+                    signal: AbortSignal.timeout(500),
+                });
+                if (!response.ok)
+                    return null;
+                return { port, health_data: await response.json() };
             }
-        }
-        catch {
-            await new Promise((resolve) => setTimeout(resolve, 250));
-            continue;
+            catch {
+                return null;
+            }
+        }));
+        const backend = probes.find((probe) => probe !== null);
+        if (backend) {
+            set_backend_port(backend.port);
+            backend_status = {
+                state: "running",
+                url: backend_url,
+                diagnostics: backend.health_data.diagnostics,
+                networkWarnings: backend.health_data.diagnostics?.warnings ?? [],
+            };
+            return backend_status;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
@@ -404,7 +393,7 @@ async function wait_for_backend() {
             code: "HEALTHCHECK_TIMEOUT",
             error: "Backend service did not respond to local health checks.",
             errorDetails: backend_logs.join("\n") ||
-                `No response received on 127.0.0.1:${default_backend_port} within timeout.`,
+                `No response received on 127.0.0.1 ports ${default_backend_port}-${default_backend_port + backend_port_count - 1} within timeout.`,
         };
     }
     return backend_status;

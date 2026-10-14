@@ -77,7 +77,6 @@ export const SettingsPage: React.FC<settings_props> = ({
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Appearance</div>
         <fieldset className={styles.theme_picker}>
-          <legend className={styles.theme_legend}>Color theme</legend>
           <div className={styles.theme_choices}>
             {theme_options.map((option) => (
               <label className={styles.theme_choice} key={option.value}>
@@ -88,7 +87,10 @@ export const SettingsPage: React.FC<settings_props> = ({
                   checked={settings.theme === option.value}
                   onChange={() => on_update_settings({ theme: option.value })}
                 />
-                <span className={styles.theme_preview} data-theme={option.value}>
+                <span
+                  className={styles.theme_preview}
+                  data-theme={option.value}
+                >
                   <span className={styles.preview_sidebar} />
                   <span className={styles.preview_content}>
                     <span className={styles.preview_line} />
@@ -141,7 +143,7 @@ export const SettingsPage: React.FC<settings_props> = ({
         <div className={styles.cardGroup}>
           <div className={styles.aboutRow}>
             <span>Lanshare Desktop</span>
-            <span className={styles.version}>v1.0.6</span>
+            <span className={styles.version}>v1.0.7</span>
           </div>
           <div className={styles.aboutRow}>
             <span>Device fingerprint</span>

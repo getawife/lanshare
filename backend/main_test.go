@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -32,6 +34,7 @@ func test_state(t *testing.T) (*server_state, *backend) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	state.user_data_dir = t.TempDir()
 	return state, new_backend(state)
 }
 
@@ -332,6 +335,7 @@ func TestPinnedTLSTransfer(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(src, "dir", "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -360,6 +364,98 @@ func TestPinnedTLSTransfer(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(downloads, name)); err != nil {
 			t.Errorf("missing %s: %v", name, err)
 		}
+	}
+}
+
+func TestResumeTransferFromPartialFile(t *testing.T) {
+	recv_state, recv_backend := test_state(t)
+	downloads := t.TempDir()
+	recv_state.update_settings(backend_settings{AskBeforeAccepting: false, DownloadFolder: downloads})
+	srv := httptest.NewUnstartedServer(recv_backend.lan_server.Handler)
+	srv.TLS = recv_state.tls_config()
+	srv.StartTLS()
+	defer srv.Close()
+	host, port_text, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "https://"))
+	port, _ := strconv.Atoi(port_text)
+
+	send_state, _ := test_state(t)
+	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: recv_state.cert_fp}
+	content := []byte(strings.Repeat("resume this transfer ", 4096))
+	source := filepath.Join(t.TempDir(), "large.txt")
+	if err := os.WriteFile(source, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	request := transfer_request{
+		TransferID: "resume-1",
+		PeerID:     "r",
+		Files:      []file_item{{Path: source, Name: "large.txt", Size: int64(len(content))}},
+	}
+	expanded, err := send_state.expand_transfer_files(request.Files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := make([]approved_file, len(expanded))
+	for index, entry := range expanded {
+		manifest[index] = approved_file{
+			RelativePath: entry.relative_path,
+			Size:         entry.size_bytes,
+			Checksum:     entry.checksum,
+		}
+	}
+	key, session, _, err := recv_state.prepare_resume_session(
+		request.TransferID,
+		send_state.device_id,
+		send_state.cert_fp,
+		manifest,
+		downloads,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix_size := int64(len(content) / 3)
+	part_path := recv_state.resume_part_path(session, key, 0)
+	if err := os.WriteFile(part_path, content[:prefix_size], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	offsets, err := recv_state.resume_offsets(key, session, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offsets[0] != prefix_size {
+		t.Fatalf("resume offset = %d, want %d", offsets[0], prefix_size)
+	}
+
+	if err := send_state.send_files(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	received, err := os.ReadFile(session.TargetPaths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(received, content) {
+		t.Fatalf("resumed file does not match original: got %d bytes, want %d", len(received), len(content))
+	}
+	if _, err := os.Stat(recv_state.resume_session_path(key)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("completed transfer resume state was not removed: %v", err)
+	}
+}
+
+func TestResumeSessionAssignsUniqueTargets(t *testing.T) {
+	downloads := t.TempDir()
+	session, err := new_transfer_resume_session(
+		"duplicate-names",
+		"peer",
+		[]approved_file{
+			{RelativePath: "photo.jpg", Size: 1, Checksum: hello_sha256},
+			{RelativePath: "photo.jpg", Size: 1, Checksum: hello_sha256},
+		},
+		downloads,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.TargetPaths[0] == session.TargetPaths[1] {
+		t.Fatalf("duplicate names were assigned the same destination: %v", session.TargetPaths)
 	}
 }
 
@@ -511,13 +607,14 @@ func TestReceiveSanitizesNames(t *testing.T) {
 	send_state.peers["r"] = device{ID: "r", IP: host, HTTPPort: port, CertFP: recv_state.cert_fp}
 	src := t.TempDir()
 	bad := "weird\x01name.txt"
-	if err := os.WriteFile(filepath.Join(src, bad), []byte("data"), 0o644); err != nil {
+	source := filepath.Join(src, "source.txt")
+	if err := os.WriteFile(source, []byte("data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	req := transfer_request{
 		TransferID: "s1",
 		PeerID:     "r",
-		Files:      []file_item{{Path: filepath.Join(src, bad), Name: bad, Size: 4}},
+		Files:      []file_item{{Path: source, Name: bad, Size: 4}},
 	}
 	if err := send_state.send_files(context.Background(), req); err != nil {
 		t.Fatal(err)
@@ -552,11 +649,15 @@ func prepare_for(t *testing.T, backend *backend, files string) string {
 }
 
 func upload(t *testing.T, backend *backend, token string, files string, payload string) *httptest.ResponseRecorder {
+	return upload_with_offset(t, backend, token, files, payload, 0)
+}
+
+func upload_with_offset(t *testing.T, backend *backend, token string, files string, payload string, offset int64) *httptest.ResponseRecorder {
 	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	meta, _ := mw.CreateFormField("metadata")
-	_, _ = meta.Write([]byte(`{"transferId":"t1","peerId":"p","deviceName":"n","files":` + files + `}`))
+	_, _ = meta.Write([]byte(fmt.Sprintf(`{"transferId":"t1","peerId":"p","deviceName":"n","files":%s,"offsets":[%d]}`, files, offset)))
 	part, _ := mw.CreateFormField("file-0")
 	_, _ = part.Write([]byte(payload))
 	_ = mw.Close()
@@ -617,6 +718,43 @@ func TestReceiveBoundToApprovedManifest(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(downloads, "a.txt")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInterruptedReceiveCanResume(t *testing.T) {
+	state, backend := test_state(t)
+	downloads := t.TempDir()
+	state.update_settings(backend_settings{AskBeforeAccepting: false, DownloadFolder: downloads})
+	approved := `[{"relativePath":"resume.txt","isDir":false,"size":5,"checksum":"` + hello_sha256 + `"}]`
+
+	token := prepare_for(t, backend, approved)
+	rec := upload(t, backend, token, approved, "hel")
+	if rec.Code == http.StatusOK {
+		t.Fatal("incomplete payload should fail")
+	}
+
+	token = prepare_for(t, backend, approved)
+	state.mu.Lock()
+	var offsets []int64
+	for _, allowed := range state.allowed_transfer_tokens {
+		if allowed.transfer_id == "t1" {
+			offsets = allowed.offsets
+		}
+	}
+	state.mu.Unlock()
+	if len(offsets) != 1 || offsets[0] != 3 {
+		t.Fatalf("resume offsets = %v, want [3]", offsets)
+	}
+	rec = upload_with_offset(t, backend, token, approved, "lo", offsets[0])
+	if rec.Code != http.StatusOK {
+		t.Fatalf("resumed upload failed: %d %s", rec.Code, rec.Body.String())
+	}
+	received, err := os.ReadFile(filepath.Join(downloads, "resume.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(received) != "hello" {
+		t.Fatalf("resumed file = %q, want %q", received, "hello")
 	}
 }
 

@@ -37,6 +37,14 @@ type approved_file struct {
 	Checksum     string
 }
 
+type transfer_resume_session struct {
+	TransferID     string          `json:"transferId"`
+	PeerID         string          `json:"peerId"`
+	Manifest       []approved_file `json:"manifest"`
+	DownloadFolder string          `json:"downloadFolder"`
+	TargetPaths    []string        `json:"targetPaths"`
+}
+
 type rate_limiter struct {
 	mu   sync.Mutex
 	hits map[string][]time.Time

@@ -46,6 +46,7 @@ export type app_theme =
 export interface transfer_record {
   id: string;
   direction: transfer_direction;
+  peer_id?: string;
   device_name: string;
   files: file_item[];
   total_size_bytes: number;

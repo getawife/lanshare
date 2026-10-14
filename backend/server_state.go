@@ -62,6 +62,8 @@ type server_state struct {
 	pending_transfers       map[string]chan transfer_decision
 	allowed_transfer_tokens map[string]allowed_token
 	trusted_ids             map[string]struct{}
+	resume_mu               sync.Mutex
+	active_resumes          map[string]struct{}
 }
 
 type transfer_decision struct {
@@ -71,9 +73,12 @@ type transfer_decision struct {
 
 type allowed_token struct {
 	transfer_id string
+	peer_id     string
 	expires_at  time.Time
 	sender_fp   string
 	manifest    []approved_file
+	resume_key  string
+	offsets     []int64
 }
 
 func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
@@ -96,7 +101,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		limiter:             new_rate_limiter(),
 		security_warned:     map[string]time.Time{},
 		device_name:         name,
-		version:             "1.0.6",
+		version:             "1.0.7",
 		udp_discovery_bound: false,
 		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},
@@ -111,6 +116,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		pending_transfers:       map[string]chan transfer_decision{},
 		allowed_transfer_tokens: map[string]allowed_token{},
 		trusted_ids:             trusted_ids,
+		active_resumes:          map[string]struct{}{},
 	}, nil
 }
 
@@ -675,11 +681,23 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	}
 
 	var prep_result struct {
-		OK    bool   `json:"ok"`
-		Token string `json:"token"`
+		OK      bool    `json:"ok"`
+		Token   string  `json:"token"`
+		Offsets []int64 `json:"offsets"`
 	}
 	if err := json.NewDecoder(prep_resp.Body).Decode(&prep_result); err != nil || !prep_result.OK || prep_result.Token == "" {
 		return fmt.Errorf("invalid response from peer prepare endpoint")
+	}
+	if len(prep_result.Offsets) == 0 {
+		prep_result.Offsets = make([]int64, len(manifest))
+	}
+	if len(prep_result.Offsets) != len(manifest) {
+		return fmt.Errorf("peer returned an invalid transfer resume offset list")
+	}
+	for index, offset := range prep_result.Offsets {
+		if offset < 0 || offset > manifest[index].size_bytes || (manifest[index].is_directory && offset != 0) {
+			return fmt.Errorf("peer returned an invalid transfer resume offset")
+		}
 	}
 
 	pr, pw := io.Pipe()
@@ -707,7 +725,7 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	go func() {
 		defer pw.Close()
 		defer mw.Close()
-		if err := s.write_transfer_multipart(mw, req.TransferID, manifest, progress_path); err != nil {
+		if err := s.write_transfer_multipart(mw, req.TransferID, manifest, prep_result.Offsets, progress_path); err != nil {
 			_ = pw.CloseWithError(err)
 		}
 	}()
@@ -810,18 +828,29 @@ func (s *server_state) expand_transfer_files(files []file_item) ([]expanded_tran
 	return out, nil
 }
 
-func (s *server_state) write_transfer_multipart(mw *multipart.Writer, transfer_id string, manifest []expanded_transfer_file, progress func(int64, int64)) error {
+func (s *server_state) write_transfer_multipart(mw *multipart.Writer, transfer_id string, manifest []expanded_transfer_file, offsets []int64, progress func(int64, int64)) error {
+	if len(offsets) != len(manifest) {
+		return fmt.Errorf("invalid transfer resume offsets")
+	}
 	total := int64(0)
 	for _, entry := range manifest {
 		if !entry.is_directory {
 			total += entry.size_bytes
 		}
 	}
+	var copied int64
+	for index, offset := range offsets {
+		if offset < 0 || offset > manifest[index].size_bytes || (manifest[index].is_directory && offset != 0) {
+			return fmt.Errorf("invalid transfer resume offset")
+		}
+		copied += offset
+	}
 	meta := map[string]any{
 		"transferId": transfer_id,
 		"peerId":     s.device_id,
 		"deviceName": s.device_name,
 		"files":      manifest_to_meta(manifest),
+		"offsets":    offsets,
 	}
 	meta_part, err := mw.CreateFormField("metadata")
 	if err != nil {
@@ -830,7 +859,6 @@ func (s *server_state) write_transfer_multipart(mw *multipart.Writer, transfer_i
 	if err := json.NewEncoder(meta_part).Encode(meta); err != nil {
 		return err
 	}
-	var copied int64
 	for idx, entry := range manifest {
 		part, err := mw.CreateFormField(fmt.Sprintf("file-%d", idx))
 		if err != nil {
@@ -840,7 +868,7 @@ func (s *server_state) write_transfer_multipart(mw *multipart.Writer, transfer_i
 			progress(copied, total)
 			continue
 		}
-		if err := copy_file_with_progress(part, entry.source_path, func(n int64) {
+		if err := copy_file_with_progress_from(part, entry.source_path, offsets[idx], func(n int64) {
 			copied += n
 			progress(copied, total)
 		}); err != nil {
@@ -864,11 +892,21 @@ func manifest_to_meta(manifest []expanded_transfer_file) []map[string]any {
 }
 
 func copy_file_with_progress(dst io.Writer, source_path string, on_chunk func(int64)) error {
+	return copy_file_with_progress_from(dst, source_path, 0, on_chunk)
+}
+
+func copy_file_with_progress_from(dst io.Writer, source_path string, offset int64, on_chunk func(int64)) error {
 	src, err := os.Open(source_path)
 	if err != nil {
 		return err
 	}
 	defer src.Close()
+	if offset < 0 {
+		return fmt.Errorf("invalid file resume offset")
+	}
+	if _, err := src.Seek(offset, io.SeekStart); err != nil {
+		return fmt.Errorf("unable to seek source file for resume: %w", err)
+	}
 	buf := make([]byte, 32*1024)
 	for {
 		n, read_err := src.Read(buf)

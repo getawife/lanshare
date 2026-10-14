@@ -83,7 +83,6 @@ export const BackendStatusBanner: React.FC<backend_status_banner_props> = ({
               "The backend started but did not respond to local health checks. Localhost connections may be filtered.",
             tips: [
               "Check if proxy, VPN, or firewall software blocks 127.0.0.1 HTTP requests.",
-              "Click 'Restart Service' to re-initialize the background worker.",
             ],
           };
         default:

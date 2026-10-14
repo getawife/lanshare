@@ -1,7 +1,7 @@
 {
   "name": "lanshare",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "main": "dist-electron/main.js",
   "description": "Lanshare is a free, open-source desktop app for sending files and folders between computers on the same Wi-Fi or Ethernet network.",
@@ -34,11 +34,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.4",
     "concurrently": "^9.2.1",
-    "electron": "^41.10.6",
+    "electron": "41.10.7",
     "electron-builder": "^26.15.3",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",

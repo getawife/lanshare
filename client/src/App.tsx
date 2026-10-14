@@ -145,6 +145,8 @@ export const App: React.FC = () => {
     return {
       id: String(payload.id),
       direction: payload.direction === "incoming" ? "incoming" : "outgoing",
+      peer_id:
+        typeof payload.peerId === "string" ? payload.peerId : undefined,
       device_name: payload.deviceName ?? payload.peerName ?? "Nearby device",
       files,
       total_size_bytes,
@@ -465,16 +467,17 @@ export const App: React.FC = () => {
   const handle_initiate_transfer = async (
     device: device,
     files: file_item[],
+    transfer_id = String(Date.now()),
   ) => {
     if (!files.length) return;
     const total_size = files.reduce(
       (sum: number, file: file_item) => sum + file.size,
       0,
     );
-    const transfer_id = String(Date.now());
     const record: transfer_record = {
       id: transfer_id,
       direction: "outgoing",
+      peer_id: device.id,
       device_name: device.name,
       files,
       total_size_bytes: total_size,
@@ -596,18 +599,21 @@ export const App: React.FC = () => {
       });
       return;
     }
-    const matching_device = Array.from(devices_map.values()).find(
-      (d) =>
-        d.name.toLowerCase().trim() === record.device_name.toLowerCase().trim(),
-    );
-    if (!matching_device) {
+    const matching_device = record.peer_id
+      ? devices_map.get(record.peer_id)
+      : Array.from(devices_map.values()).find(
+          (d) =>
+            d.name.toLowerCase().trim() ===
+            record.device_name.toLowerCase().trim(),
+        );
+    if (!matching_device || matching_device.status === "offline") {
       push_notice({
         title: "Device unavailable",
         details: `Cannot reach "${record.device_name}". Ensure the recipient device is powered on and connected to the network.`,
       });
       return;
     }
-    void handle_initiate_transfer(matching_device, record.files);
+    void handle_initiate_transfer(matching_device, record.files, record.id);
   };
 
   const pending_incoming_transfer = pending_incoming_transfers[0];
