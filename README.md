@@ -113,7 +113,7 @@ For more information, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 - Search existing issues first
 - Check you're on the latest release, and include your OS and version, the Lanshare version (Settings, About), what you expected, what happened, reproduction steps and any error shown in the app.
 
-Security reports should not go in public issues. See [SECURITY.md](./SECURITY.md). Accessibility problems are welcome as regular issues. See [ACCESSIBILITY.md](./ACCESSIBILITY.md).
+Security reports should not go in public issues. See [SECURITY.MD](./SECURITY.md). Accessibility problems are welcome as regular issues. See [ACCESSIBILITY.MD](./ACCESSIBILITY.MD).
 
 ## Contributions & Credits
 

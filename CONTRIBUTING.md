@@ -86,7 +86,7 @@ Use conventional commit prefixes. The most common in this project:
 - Describe the change, why it's needed and how you tested it.
 - Push follow-up commits to the same branch in response to review. Don't force-push over review comments.
 
-Security reports should not go in public issues. See [SECURITY.md](./SECURITY.md). Accessibility problems are welcome as regular issues. See [ACCESSIBILITY.md](./ACCESSIBILITY.md).
+Security reports should not go in public issues. See [SECURITY.MD](./SECURITY.MD). Accessibility problems are welcome as regular issues. See [ACCESSIBILITY.MD](./ACCESSIBILITY.MD).
 
 ## Review Expectations
 
