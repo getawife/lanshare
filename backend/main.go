@@ -83,6 +83,7 @@ func new_backend(state *server_state) *backend {
 	ui.HandleFunc("/api/transfer", b.transfer)
 	ui.HandleFunc("/api/respond-transfer", b.respond_transfer)
 	ui.HandleFunc("/api/cancel-transfer", b.cancel_transfer)
+	ui.HandleFunc("/api/cancel-receive", b.cancel_receive)
 	ui.HandleFunc("/api/share", b.share)
 	ui.HandleFunc("/api/settings", b.settings_handler)
 	ui.HandleFunc("/api/trust", b.trust_handler)
@@ -645,6 +646,11 @@ func (b *backend) transfer(w http.ResponseWriter, r *http.Request) {
 			write_error_json(w, http.StatusConflict, "B-T011", "transfer cancelled")
 			return
 		}
+		if errors.Is(err, err_peer_cancelled) {
+			transfer_event("cancelled", nil)
+			write_error_json(w, http.StatusConflict, "B-T012", "transfer cancelled by receiver")
+			return
+		}
 		transfer_event("failed", map[string]any{"errorMessage": err.Error()})
 		write_error_json(w, http.StatusBadGateway, "B-T010", err.Error())
 		return
@@ -667,6 +673,25 @@ func (b *backend) cancel_transfer(w http.ResponseWriter, r *http.Request) {
 	}
 	if !b.state.cancel_send(req.TransferID) {
 		write_error_json(w, http.StatusNotFound, "B-C002", "no active transfer")
+		return
+	}
+	write_json(w, map[string]any{"ok": true})
+}
+
+func (b *backend) cancel_receive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		write_error_json(w, http.StatusMethodNotAllowed, "B-CR000", "method not allowed")
+		return
+	}
+	var req struct {
+		TransferID string `json:"transferId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TransferID == "" {
+		write_error_json(w, http.StatusBadRequest, "B-CR001", "invalid cancel request")
+		return
+	}
+	if !b.state.cancel_receive(req.TransferID) {
+		write_error_json(w, http.StatusNotFound, "B-CR002", "no active incoming transfer")
 		return
 	}
 	write_json(w, map[string]any{"ok": true})
@@ -825,10 +850,6 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer b.state.end_resume(at.resume_key)
-	is_windows := runtime.GOOS == "windows"
-	for i := range meta.Files {
-		meta.Files[i].RelativePath = sanitize_relative_path(meta.Files[i].RelativePath, is_windows)
-	}
 	var uploaded int64
 	for _, offset := range meta.Offsets {
 		uploaded += offset
@@ -838,6 +859,43 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 		if !file.IsDir {
 			total += file.Size
 		}
+	}
+	receive_ctx, cancel_receive := context.WithCancel(r.Context())
+	if !b.state.register_receive(meta.TransferID, cancel_receive) {
+		cancel_receive()
+		write_error_json(w, http.StatusConflict, "B-R029", "incoming transfer is already active")
+		return
+	}
+	defer func() {
+		if receive_ctx.Err() != nil {
+			b.state.publish(event{Type: "transfer", Data: map[string]any{
+				"id":               meta.TransferID,
+				"peerId":           meta.PeerID,
+				"deviceName":       meta.PeerName,
+				"state":            "cancelled",
+				"direction":        "incoming",
+				"files":            meta.Files,
+				"bytesTransferred": uploaded,
+				"totalSizeBytes":   total,
+			}})
+		}
+		b.state.finish_receive(meta.TransferID)
+		cancel_receive()
+	}()
+	receive_done := make(chan struct{})
+	receive_body := r.Body
+	defer close(receive_done)
+	go func() {
+		select {
+		case <-receive_ctx.Done():
+			_ = receive_body.Close()
+		case <-receive_done:
+		}
+	}()
+	r = r.WithContext(receive_ctx)
+	is_windows := runtime.GOOS == "windows"
+	for i := range meta.Files {
+		meta.Files[i].RelativePath = sanitize_relative_path(meta.Files[i].RelativePath, is_windows)
 	}
 	b.state.publish(event{
 		Type: "transfer",
@@ -979,6 +1037,10 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 			copy_err = fmt.Errorf("file size does not match the approved size")
 		}
 		if copy_err != nil {
+			if receive_ctx.Err() != nil {
+				write_error_json(w, http.StatusConflict, "B-R030", "incoming transfer cancelled")
+				return
+			}
 			if offset+written > file.Size {
 				if err := os.Remove(tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
 					copy_err = fmt.Errorf("%v; unable to reset oversized partial file: %w", copy_err, err)
@@ -1049,6 +1111,10 @@ func (b *backend) receive(w http.ResponseWriter, r *http.Request) {
 				"totalSizeBytes":   total,
 			},
 		})
+	}
+	if receive_ctx.Err() != nil {
+		write_error_json(w, http.StatusConflict, "B-R030", "incoming transfer cancelled")
+		return
 	}
 	if err := b.state.finalize_resume_session(at.resume_key, &session); err != nil {
 		write_error_json(w, http.StatusInternalServerError, "B-R015", err.Error())

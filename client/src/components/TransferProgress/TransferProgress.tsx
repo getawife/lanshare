@@ -137,12 +137,12 @@ export const TransferProgress: React.FC<transfer_progress_props> = ({
             </>
           )}
         </span>
-        {!is_finished && on_cancel && (
+        {!is_ended && on_cancel && (
           <button
             type="button"
             className={styles.cancelBtn}
             onClick={on_cancel}
-            aria-label="Cancel active transfer"
+            aria-label={`Cancel ${is_incoming ? "incoming" : "outgoing"} transfer`}
           >
             Cancel
           </button>

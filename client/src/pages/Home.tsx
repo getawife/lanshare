@@ -304,11 +304,7 @@ export const Home: React.FC<home_props> = ({
             ) : (
               <TransferProgress
                 transfer={active_transfer}
-                on_cancel={
-                  active_transfer.direction === "outgoing"
-                    ? on_cancel_transfer
-                    : undefined
-                }
+                on_cancel={on_cancel_transfer}
               />
             )
           ) : has_recipient ? (

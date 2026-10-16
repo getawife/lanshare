@@ -545,13 +545,14 @@ export const App: React.FC = () => {
 
   const handle_cancel_transfer = async () => {
     const current = active_transfer;
-    if (!current || current.direction !== "outgoing") {
-      set_active_transfer(undefined);
-      return;
-    }
+    if (!current) return;
+    const route =
+      current.direction === "outgoing"
+        ? "/api/cancel-transfer"
+        : "/api/cancel-receive";
     try {
       const response = await window.electronAPI?.fetchBackend?.(
-        "/api/cancel-transfer",
+        route,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -559,10 +560,19 @@ export const App: React.FC = () => {
         },
       );
       if (!response?.ok) {
-        set_active_transfer(undefined);
+        const parsed = await parse_error_body(response);
+        push_notice({
+          title: "Could not cancel transfer",
+          details: parsed.message,
+          code: parsed.code,
+        });
       }
-    } catch {
-      set_active_transfer(undefined);
+    } catch (error) {
+      push_notice({
+        title: "Could not cancel transfer",
+        details:
+          error instanceof Error ? safe_text(error.message) : "Unknown error",
+      });
     }
   };
 
@@ -616,6 +626,18 @@ export const App: React.FC = () => {
     void handle_initiate_transfer(matching_device, record.files, record.id);
   };
 
+  const handle_open_folder = async (file_path: string) => {
+    try {
+      await window.electronAPI?.openFolder?.(file_path);
+    } catch (error) {
+      push_notice({
+        title: "Unable to open location",
+        details:
+          error instanceof Error ? error.message : "The location could not be opened.",
+      });
+    }
+  };
+
   const pending_incoming_transfer = pending_incoming_transfers[0];
 
   return (
@@ -659,6 +681,7 @@ export const App: React.FC = () => {
                 (d) => d.is_trusted,
               )}
               on_clear_history={() => set_transfer_history([])}
+              on_open_folder={handle_open_folder}
               on_retry_transfer={handle_retry_transfer}
               on_toggle_trust={handle_toggle_trust}
             />

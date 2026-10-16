@@ -10,6 +10,7 @@ interface transfers_props {
   records: transfer_record[];
   trusted_devices: device[];
   on_clear_history: () => void;
+  on_open_folder: (path: string) => void;
   on_retry_transfer?: (record: transfer_record) => void;
   on_toggle_trust: (device: device, trusted: boolean) => void;
 }
@@ -18,6 +19,7 @@ export const Transfers: React.FC<transfers_props> = ({
   records,
   trusted_devices,
   on_clear_history,
+  on_open_folder,
   on_retry_transfer,
   on_toggle_trust,
 }) => {
@@ -130,9 +132,7 @@ export const Transfers: React.FC<transfers_props> = ({
                             title="Open in folder"
                             aria-label="Open in folder"
                             onClick={() =>
-                              window.electronAPI?.openFolder?.(
-                                record.files[0]!.path,
-                              )
+                              on_open_folder(record.files[0]!.path)
                             }
                           >
                             <Folder size={14} />
@@ -182,9 +182,7 @@ export const Transfers: React.FC<transfers_props> = ({
 
                 <div className={styles.infoCol}>
                   <div className={styles.fileName}>{device.name}</div>
-                  <div className={styles.meta}>
-                    {device.os} · {device.ip}
-                  </div>
+                  <div className={styles.meta}>{device.ip}</div>
                 </div>
 
                 <div className={styles.actionsCol}>

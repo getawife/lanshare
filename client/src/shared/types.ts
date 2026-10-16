@@ -112,7 +112,7 @@ declare global {
       getBackendState?: () => Promise<any>;
       fetchBackend?: (path: string, init?: RequestInit) => Promise<any>;
       transferRespond?: (transfer_id: string, accept: boolean) => Promise<any>;
-      openFolder?: (path: string) => Promise<void>;
+      openFolder?: (path: string) => Promise<boolean>;
       notify?: (title: string, body: string) => Promise<boolean>;
       listTrusted?: () => Promise<{
         ok: boolean;

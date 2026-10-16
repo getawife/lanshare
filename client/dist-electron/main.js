@@ -84,6 +84,7 @@ function secure_on(channel, listener) {
 const allowed_backend_routes = new Set([
     "/api/transfer",
     "/api/cancel-transfer",
+    "/api/cancel-receive",
 ]);
 const allowed_themes = [
     "default_light",
@@ -101,6 +102,63 @@ function normalize_theme(theme) {
     if (theme === "dark")
         return "default_dark";
     return "default_light";
+}
+const windows_executable_extensions = new Set([
+    ".bat",
+    ".cmd",
+    ".com",
+    ".cpl",
+    ".exe",
+    ".hta",
+    ".js",
+    ".jse",
+    ".lnk",
+    ".msi",
+    ".msp",
+    ".pif",
+    ".ps1",
+    ".psm1",
+    ".scr",
+    ".vbe",
+    ".vbs",
+    ".wsf",
+    ".wsh",
+]);
+function is_executable_file(file_path, mode) {
+    if (process.platform === "win32") {
+        return windows_executable_extensions.has(path.extname(file_path).toLowerCase());
+    }
+    return (mode & 0o111) !== 0;
+}
+async function validate_folder_open_target(target) {
+    if (!path.isAbsolute(target)) {
+        throw new Error("Only absolute paths can be opened.");
+    }
+    const resolved = path.resolve(target);
+    const parsed = path.parse(resolved);
+    const components = resolved.slice(parsed.root.length).split(path.sep).filter(Boolean);
+    let current = parsed.root;
+    let stats = await fs.lstat(parsed.root);
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+        throw new Error("The selected path has an invalid root.");
+    }
+    for (let index = 0; index < components.length; index += 1) {
+        current = path.join(current, components[index]);
+        stats = await fs.lstat(current);
+        if (stats.isSymbolicLink()) {
+            throw new Error("Cannot open a symbolic link.");
+        }
+        if (index < components.length - 1 && !stats.isDirectory()) {
+            throw new Error("The selected path is not a directory.");
+        }
+    }
+    if (!stats || (!stats.isDirectory() && !stats.isFile())) {
+        throw new Error("The selected path is not a regular file or directory.");
+    }
+    if (stats.isFile() && is_executable_file(resolved, stats.mode)) {
+        throw new Error("Cannot open an executable file.");
+    }
+    return { path: resolved, is_directory: stats.isDirectory() };
 }
 function sanitize_settings(input, base) {
     const raw = (input && typeof input === "object" ? input : {});
@@ -738,22 +796,19 @@ secure_handle("backend:state", async () => {
 });
 secure_handle("folder:open", async (_event, folder_path) => {
     if (folder_path !== undefined && typeof folder_path !== "string") {
-        return false;
+        throw new Error("Invalid folder path.");
     }
-    let target = folder_path && folder_path.trim() !== ""
-        ? folder_path
-        : app.getPath("downloads");
-    try {
-        const stats = await fs.stat(target);
-        if (!stats.isDirectory()) {
-            shell.showItemInFolder(target);
-            return true;
-        }
+    const target = folder_path === undefined || folder_path === ""
+        ? app.getPath("downloads")
+        : folder_path;
+    const validated = await validate_folder_open_target(target);
+    if (!validated.is_directory) {
+        shell.showItemInFolder(validated.path);
+        return true;
     }
-    catch {
-        target = app.getPath("downloads");
-    }
-    await shell.openPath(target);
+    const error = await shell.openPath(validated.path);
+    if (error)
+        throw new Error(`Unable to open folder: ${error}`);
     return true;
 });
 secure_handle("notify", async (_event, title, body) => {

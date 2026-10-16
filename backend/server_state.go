@@ -62,6 +62,7 @@ type server_state struct {
 	pending_transfers       map[string]chan transfer_decision
 	allowed_transfer_tokens map[string]allowed_token
 	trusted_ids             map[string]struct{}
+	active_receives         map[string]context.CancelFunc
 	resume_mu               sync.Mutex
 	active_resumes          map[string]struct{}
 }
@@ -80,6 +81,8 @@ type allowed_token struct {
 	resume_key  string
 	offsets     []int64
 }
+
+var err_peer_cancelled = errors.New("transfer cancelled by receiver")
 
 func new_server_state(identity device_identity, user_data_dir string, trusted_ids map[string]struct{}) (*server_state, error) {
 	cert, cert_fp, err := load_or_create_cert(user_data_dir)
@@ -101,7 +104,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		limiter:             new_rate_limiter(),
 		security_warned:     map[string]time.Time{},
 		device_name:         name,
-		version:             "1.0.7",
+		version:             "1.0.8",
 		udp_discovery_bound: false,
 		user_data_dir:       user_data_dir,
 		peers:               map[string]device{},
@@ -116,6 +119,7 @@ func new_server_state(identity device_identity, user_data_dir string, trusted_id
 		pending_transfers:       map[string]chan transfer_decision{},
 		allowed_transfer_tokens: map[string]allowed_token{},
 		trusted_ids:             trusted_ids,
+		active_receives:         map[string]context.CancelFunc{},
 		active_resumes:          map[string]struct{}{},
 	}, nil
 }
@@ -739,8 +743,13 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 			Code    string `json:"code"`
 			Message string `json:"message"`
 		}
-		if json.NewDecoder(resp.Body).Decode(&err_data) == nil && err_data.Message != "" {
-			return fmt.Errorf("peer rejected upload: %s (%s)", err_data.Message, err_data.Code)
+		if json.NewDecoder(resp.Body).Decode(&err_data) == nil {
+			if err_data.Code == "B-R030" {
+				return err_peer_cancelled
+			}
+			if err_data.Message != "" {
+				return fmt.Errorf("peer rejected upload: %s (%s)", err_data.Message, err_data.Code)
+			}
 		}
 		return fmt.Errorf("peer rejected transfer: %s", resp.Status)
 	}
@@ -1123,6 +1132,32 @@ func (s *server_state) finish_send(id string) {
 func (s *server_state) cancel_send(id string) bool {
 	s.mu.Lock()
 	cancel, ok := s.active_sends[id]
+	s.mu.Unlock()
+	if ok {
+		cancel()
+	}
+	return ok
+}
+
+func (s *server_state) register_receive(id string, cancel context.CancelFunc) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.active_receives[id]; exists {
+		return false
+	}
+	s.active_receives[id] = cancel
+	return true
+}
+
+func (s *server_state) finish_receive(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.active_receives, id)
+}
+
+func (s *server_state) cancel_receive(id string) bool {
+	s.mu.Lock()
+	cancel, ok := s.active_receives[id]
 	s.mu.Unlock()
 	if ok {
 		cancel()

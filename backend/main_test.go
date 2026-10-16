@@ -530,6 +530,39 @@ func TestCancelTransfer(t *testing.T) {
 	}
 }
 
+func TestCancelReceive(t *testing.T) {
+	state, backend := test_state(t)
+	receive_ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if !state.register_receive("incoming-1", cancel) {
+		t.Fatal("failed to register incoming transfer")
+	}
+
+	cancel_request := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/cancel-receive", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		backend.cancel_receive(rec, req)
+		return rec
+	}
+
+	if rec := cancel_request(`{`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid request returned %d, want 400", rec.Code)
+	}
+	rec := cancel_request(`{"transferId":"incoming-1"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cancel returned %d: %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-receive_ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("receiver context was not cancelled")
+	}
+	state.finish_receive("incoming-1")
+	if rec := cancel_request(`{"transferId":"incoming-1"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("second cancel returned %d, want 404", rec.Code)
+	}
+}
+
 func TestSanitizeComponent(t *testing.T) {
 	long := strings.Repeat("a", 300) + ".txt"
 	tests := []struct {
