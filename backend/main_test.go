@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -224,14 +225,37 @@ func TestUpdateSettingsDeviceName(t *testing.T) {
 		DownloadFolder:     "C:/Downloads",
 	})
 
-	if state.device_name != "My Custom Laptop" {
-		t.Errorf("Expected state.device_name to be 'My Custom Laptop', got '%s'", state.device_name)
+	device_name, _ := state.get_device_settings()
+	if device_name != "My Custom Laptop" {
+		t.Errorf("Expected state device name to be 'My Custom Laptop', got '%s'", device_name)
 	}
 
 	snap := state.snapshot()
 	if snap.Device.Name != "My Custom Laptop" {
 		t.Errorf("Expected snapshot device name to be 'My Custom Laptop', got '%s'", snap.Device.Name)
 	}
+}
+
+func TestConcurrentSettingsAccess(t *testing.T) {
+	state, _ := test_state(t)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			state.update_settings(backend_settings{DeviceName: fmt.Sprintf("Device %d", i)})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			state.get_settings()
+			state.get_device_settings()
+			state.self_device()
+		}
+	}()
+	wg.Wait()
 }
 
 func TestIsAllowedOrigin(t *testing.T) {

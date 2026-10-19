@@ -145,6 +145,12 @@ func (s *server_state) get_settings() backend_settings {
 	return s.settings
 }
 
+func (s *server_state) get_device_settings() (string, backend_settings) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.device_name, s.settings
+}
+
 func (s *server_state) set_trusted(peer_id string, trusted bool) error {
 	if peer_id == "" {
 		return fmt.Errorf("peer id required")
@@ -269,9 +275,10 @@ func (s *server_state) snapshot() app_state {
 }
 
 func (s *server_state) self_device() device {
+	device_name, settings := s.get_device_settings()
 	return device{
 		ID:           s.device_id,
-		Name:         s.device_name,
+		Name:         device_name,
 		OS:           format_os_name(runtime.GOOS),
 		Type:         device_type(runtime.GOOS),
 		IP:           "127.0.0.1",
@@ -285,7 +292,7 @@ func (s *server_state) self_device() device {
 		LastSeen:     time.Now(),
 		DeviceHash:   s.device_id,
 		CertFP:       s.cert_fp,
-		Settings:     s.settings,
+		Settings:     settings,
 	}
 }
 
@@ -329,9 +336,10 @@ func (s *server_state) run_discovery(ctx context.Context, conn net.PacketConn) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
+		device_name, settings := s.get_device_settings()
 		payload, _ := json.Marshal(map[string]any{
 			"id":           s.device_id,
-			"name":         s.device_name,
+			"name":         device_name,
 			"os":           runtime.GOOS,
 			"type":         device_type(runtime.GOOS),
 			"version":      s.version,
@@ -341,8 +349,8 @@ func (s *server_state) run_discovery(ctx context.Context, conn net.PacketConn) {
 			"protocol":     1,
 			"capabilities": []string{"files", "clipboard", "web"},
 			"settings": map[string]any{
-				"askBeforeAccepting": s.settings.AskBeforeAccepting,
-				"autoAcceptTrusted":  s.settings.AutoAcceptTrusted,
+				"askBeforeAccepting": settings.AskBeforeAccepting,
+				"autoAcceptTrusted":  settings.AutoAcceptTrusted,
 			},
 		})
 
@@ -643,10 +651,11 @@ func (s *server_state) send_files(ctx context.Context, req transfer_request) err
 	}
 
 	prep_url := fmt.Sprintf("https://%s:%d/api/prepare-transfer", peer.IP, target_port)
+	device_name, _ := s.get_device_settings()
 	prep_payload, err := json.Marshal(map[string]any{
 		"transferId": req.TransferID,
 		"peerId":     s.device_id,
-		"deviceName": s.device_name,
+		"deviceName": device_name,
 		"files":      manifest_to_meta(manifest),
 	})
 	if err != nil {
@@ -854,10 +863,11 @@ func (s *server_state) write_transfer_multipart(mw *multipart.Writer, transfer_i
 		}
 		copied += offset
 	}
+	device_name, _ := s.get_device_settings()
 	meta := map[string]any{
 		"transferId": transfer_id,
 		"peerId":     s.device_id,
-		"deviceName": s.device_name,
+		"deviceName": device_name,
 		"files":      manifest_to_meta(manifest),
 		"offsets":    offsets,
 	}
