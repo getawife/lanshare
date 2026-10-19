@@ -39,13 +39,6 @@ pnpm dist:mac
 pnpm dist:linux
 ```
 
-Environment variables for development:
-
-- `LANSHARE_HTTP_PORT`: local backend port (default 43821).
-- `LANSHARE_LAN_HTTP_PORT`: transfer port (default 43841).
-- `LANSHARE_ADMIN_TOKEN`: set by the desktop app when it starts the backend. Without it the local API rejects every request.
-- `LANSHARE_LOOPBACK_PEER_HTTP_PORT`: the transfer port of a second local instance, so you can test transfers on one machine.
-
 ## Tests to run
 
 Before opening a pull request, run:
@@ -64,20 +57,6 @@ pnpm lint
 ```
 
 `gofmt -l` must print nothing, and the other commands must pass with no errors. Existing warnings on `main` are fine.
-
-## Commit Messages
-
-Use conventional commit prefixes. The most common in this project:
-
-`feat(area):` — new feature.
-
-`fix(area):` — bug fix.
-
-`chore:` — non-functional change, dependency bump, version bump.
-
-`ci:` — workflow or CI change.
-
-`refactor(area):` — code change that neither fixes a bug nor adds a feature.
 
 ## Pull requests:
 

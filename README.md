@@ -28,16 +28,6 @@ Download the installer for your platform from the [latest release](https://githu
 4. Add files or a folder: drag them in, use Select Files / Select Folder, or paste a file.
 5. Confirm the transfer. The receiver sees a prompt and accepts or declines it.
 
-## Network and firewall
-
-| Purpose                | Protocol and port               | Reachable from     |
-| ---------------------- | ------------------------------- | ------------------ |
-| Device discovery       | UDP 43821                       | Local network      |
-| File transfer          | TCP 43841 (up to 43850 if busy) | Local network      |
-| App to its own backend | TCP 43821 (up to 43830 if busy) | This computer only |
-
-Allow Lanshare on Private networks in your firewall. Your network profile on Windows should be Private, not Public. The local backend port needs no firewall rule because it only listens on `127.0.0.1`.
-
 ## Troubleshooting
 
 If no devices appear:
@@ -46,9 +36,7 @@ If no devices appear:
 - Check that your router doesn't isolate clients. Guest Wi-Fi and some public networks do.
 - Check the firewall rules above.
 - Turn off VPNs or virtual adapters that might catch broadcast traffic.
-- Make sure both computers run the same Lanshare version. Older versions that used plain HTTP can't exchange files with versions 1.0.5 and above.
-
-Lanshare shows a banner when the backend fails to start, with the cause (port in use, blocked by security software, missing binary, or health-check timeout) and a Restart Service button.
+- Make sure both computers run the same Lanshare version. Older versions may not be able to communicate with newer versions due to breaking changes.
 
 ## Build from source
 
@@ -72,13 +60,6 @@ pnpm dist:win
 pnpm dist:mac
 pnpm dist:linux
 ```
-
-Environment variables for development:
-
-- `LANSHARE_HTTP_PORT`: local backend port (default 43821).
-- `LANSHARE_LAN_HTTP_PORT`: transfer port (default 43841).
-- `LANSHARE_ADMIN_TOKEN`: set by the desktop app when it starts the backend. Without it the local API rejects every request.
-- `LANSHARE_LOOPBACK_PEER_HTTP_PORT`: the transfer port of a second local instance, so you can test transfers on one machine.
 
 ## Contributing
 
