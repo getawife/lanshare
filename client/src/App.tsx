@@ -14,6 +14,7 @@ import {
   backend_status,
   device,
   file_item,
+  os_name,
   transfer_record,
 } from "./shared/types.ts";
 
@@ -119,6 +120,37 @@ export const App: React.FC = () => {
     }
   };
 
+  const resolve_device_os = (
+    peer_id?: string,
+    os_value?: unknown,
+  ): os_name | undefined => {
+    const known_os = [
+      "Windows 10",
+      "Windows 11",
+      "macOS",
+      "Linux",
+      "iOS",
+      "Android",
+    ];
+    const value =
+      typeof os_value === "string" && known_os.includes(os_value)
+        ? os_value
+        : peer_id
+          ? devices_map_ref.current.get(peer_id)?.os
+          : undefined;
+    if (
+      value === "Windows 10" ||
+      value === "Windows 11" ||
+      value === "macOS" ||
+      value === "Linux" ||
+      value === "iOS" ||
+      value === "Android"
+    ) {
+      return value;
+    }
+    return undefined;
+  };
+
   const record_from_transfer_event = (payload: any): transfer_record | null => {
     if (!payload?.id) return null;
     const files: file_item[] = Array.isArray(payload.files)
@@ -142,12 +174,18 @@ export const App: React.FC = () => {
       payload.bytesTransferred ??
         (payload.state === "completed" ? total_size_bytes : 0),
     );
+    const peer_id =
+      typeof payload.peerId === "string" ? payload.peerId : undefined;
+    const device_os = resolve_device_os(
+      peer_id,
+      payload.deviceOs ?? payload.os,
+    );
     return {
       id: String(payload.id),
       direction: payload.direction === "incoming" ? "incoming" : "outgoing",
-      peer_id:
-        typeof payload.peerId === "string" ? payload.peerId : undefined,
+      peer_id,
       device_name: payload.deviceName ?? payload.peerName ?? "Nearby device",
+      ...(device_os ? { device_os } : {}),
       files,
       total_size_bytes,
       bytes_transferred,
@@ -406,11 +444,16 @@ export const App: React.FC = () => {
                 is_dir: Boolean(f.isDir ?? false),
               }))
             : [];
+          const sender_id =
+            typeof payload.peerId === "string" ? payload.peerId : "";
+          const device_os = resolve_device_os(sender_id);
           const record: transfer_record = {
             id: String(payload.transferId),
             direction: "incoming",
+            peer_id: sender_id || undefined,
             device_name:
               payload.deviceName ?? payload.peerId ?? "Nearby device",
+            ...(device_os ? { device_os } : {}),
             files,
             total_size_bytes: files.reduce((s, f) => s + f.size, 0),
             bytes_transferred: 0,
@@ -425,8 +468,6 @@ export const App: React.FC = () => {
               : [...current, record],
           );
 
-          const sender_id =
-            typeof payload.peerId === "string" ? payload.peerId : "";
           let sender_is_trusted = false;
           if (sender_id) {
             sender_is_trusted = Boolean(
@@ -479,6 +520,7 @@ export const App: React.FC = () => {
       direction: "outgoing",
       peer_id: device.id,
       device_name: device.name,
+      device_os: device.os,
       files,
       total_size_bytes: total_size,
       bytes_transferred: 0,

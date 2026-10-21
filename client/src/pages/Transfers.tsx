@@ -24,6 +24,50 @@ export const Transfers: React.FC<transfers_props> = ({
   on_toggle_trust,
 }) => {
   const [active_tab, set_active_tab] = useState<transfers_tab>("history");
+  const [device_filter, set_device_filter] = useState("");
+  const [status_filter, set_status_filter] = useState("");
+  const [direction_filter, set_direction_filter] = useState("");
+  const [date_filter, set_date_filter] = useState("");
+
+  const filters_active = Boolean(
+    device_filter || status_filter || direction_filter || date_filter,
+  );
+  const filtered_records = records.filter((record) => {
+    if (device_filter === "macOS" && record.device_os !== "macOS") {
+      return false;
+    }
+    if (device_filter === "Linux" && record.device_os !== "Linux") {
+      return false;
+    }
+    if (
+      device_filter === "Windows" &&
+      record.device_os !== "Windows 10" &&
+      record.device_os !== "Windows 11"
+    ) {
+      return false;
+    }
+    if (status_filter === "failed" && record.state !== "failed") return false;
+    if (status_filter === "completed" && record.state !== "completed")
+      return false;
+    if (direction_filter && record.direction !== direction_filter) return false;
+    if (date_filter) {
+      const date = record.timestamp;
+      const local_date = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
+      if (local_date !== date_filter) return false;
+    }
+    return true;
+  });
+
+  const clear_filters = () => {
+    set_device_filter("");
+    set_status_filter("");
+    set_direction_filter("");
+    set_date_filter("");
+  };
 
   return (
     <div
@@ -69,21 +113,90 @@ export const Transfers: React.FC<transfers_props> = ({
       {active_tab === "history" ? (
         <>
           {records.length > 0 && (
-            <div className={styles.historyActions}>
-              <button
-                className={styles.clearBtn}
-                onClick={on_clear_history}
-                aria-label="Clear transfer history"
-              >
-                Clear History
-              </button>
-            </div>
+            <>
+              <div className={styles.historyActions}>
+                <div
+                  className={styles.filters}
+                  role="group"
+                  aria-label="Filter transfer history"
+                >
+                  <label className={styles.filterField}>
+                    <span>Device</span>
+                    <select
+                      value={device_filter}
+                      onChange={(event) => set_device_filter(event.target.value)}
+                    >
+                      <option value="">All devices</option>
+                      <option value="macOS">Mac</option>
+                      <option value="Linux">Linux</option>
+                      <option value="Windows">Windows</option>
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Status</span>
+                    <select
+                      value={status_filter}
+                      onChange={(event) => set_status_filter(event.target.value)}
+                    >
+                      <option value="">All statuses</option>
+                      <option value="failed">Failed</option>
+                      <option value="completed">Successful</option>
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Direction</span>
+                    <select
+                      value={direction_filter}
+                      onChange={(event) =>
+                        set_direction_filter(event.target.value)
+                      }
+                    >
+                      <option value="">Both directions</option>
+                      <option value="outgoing">Sent</option>
+                      <option value="incoming">Received</option>
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Date</span>
+                    <input
+                      type="date"
+                      value={date_filter}
+                      onChange={(event) => set_date_filter(event.target.value)}
+                    />
+                  </label>
+                  {filters_active && (
+                    <button
+                      type="button"
+                      className={styles.clearFiltersBtn}
+                      onClick={clear_filters}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+                <button
+                  className={styles.clearBtn}
+                  onClick={on_clear_history}
+                  aria-label="Clear transfer history"
+                >
+                  Clear History
+                </button>
+              </div>
+              <p className={styles.resultCount} aria-live="polite">
+                Showing {filtered_records.length} of {records.length} transfers
+              </p>
+            </>
           )}
 
           {records.length === 0 ? (
             <div className={styles.emptyState}>
               <b>No recent file transfers</b>
               <p>Transfers you send or receive will appear here.</p>
+            </div>
+          ) : filtered_records.length === 0 ? (
+            <div className={styles.emptyState}>
+              <b>No transfers match these filters</b>
+              <p>Clear filters to see all transfer history.</p>
             </div>
           ) : (
             <div className={styles.listWrapper}>
@@ -92,7 +205,7 @@ export const Transfers: React.FC<transfers_props> = ({
                 role="feed"
                 aria-label="Transfer history list"
               >
-                {records.map((record) => (
+                {filtered_records.map((record) => (
                   <div key={record.id} className={styles.row}>
                     <div className={styles.iconCol} aria-hidden="true">
                       {record.direction === "outgoing" ? (

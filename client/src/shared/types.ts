@@ -48,6 +48,7 @@ export interface transfer_record {
   direction: transfer_direction;
   peer_id?: string;
   device_name: string;
+  device_os?: os_name;
   files: file_item[];
   total_size_bytes: number;
   bytes_transferred: number;

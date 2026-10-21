@@ -277,10 +277,102 @@
 
 .historyActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 8px;
+}
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.filterField select,
+.filterField input {
+  min-width: 116px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: 11px var(--font-mono);
+}
+
+.filterField input {
+  min-width: 136px;
+}
+
+.filterField select:focus-visible,
+.filterField input:focus-visible,
+.clearFiltersBtn:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.clearFiltersBtn {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.clearFiltersBtn:hover {
+  background: var(--surface-hover);
+}
+
+.resultCount {
+  margin-top: -18px;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.historyActions > .clearBtn {
+  flex-shrink: 0;
+  padding: 7px 0;
 }
 
 .trustedStar {
   color: var(--accent, #4f8cff);
+}
+
+@media (max-width: 640px) {
+  .historyActions {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filterField {
+    flex: 1 1 130px;
+  }
+
+  .filterField select,
+  .filterField input {
+    width: 100%;
+  }
+
+  .resultCount {
+    margin-top: -16px;
+    text-align: left;
+  }
 }
