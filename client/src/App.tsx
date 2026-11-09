@@ -9,6 +9,7 @@ import { TrustVerification } from "./components/TrustVerification/Trustverificat
 import { Home } from "./pages/Home.tsx";
 import { Transfers } from "./pages/Transfers.tsx";
 import { SettingsPage } from "./pages/Settings.tsx";
+import { get_error_code_help } from "./shared/error_code_help.ts";
 import {
   app_settings,
   backend_status,
@@ -777,6 +778,7 @@ export const App: React.FC = () => {
             key={notice.id}
             type="button"
             className="notice-card"
+            aria-expanded={expanded_notice_id === notice.id}
             onClick={() => {
               set_expanded_notice_id((current) =>
                 current === notice.id ? null : notice.id,
@@ -787,11 +789,21 @@ export const App: React.FC = () => {
             <div className="notice-title">{notice.title}</div>
             <div className="notice-details">
               {expanded_notice_id === notice.id
-                ? notice.details
+                ? notice.code
+                  ? `Error code: ${notice.code}\n${notice.details}`
+                  : notice.details
                 : notice.code
                   ? `Error code: ${notice.code}`
                   : "Click to view details"}
             </div>
+            {expanded_notice_id === notice.id && notice.code && (
+              <div className="notice-code-help">
+                <strong>What this means</strong>
+                <span>{get_error_code_help(notice.code).meaning}</span>
+                <strong>Try this</strong>
+                <span>{get_error_code_help(notice.code).next_step}</span>
+              </div>
+            )}
           </button>
         ))}
       </div>

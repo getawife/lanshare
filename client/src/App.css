@@ -224,4 +224,22 @@
   font-size: 12px;
   line-height: 1.45;
   word-break: break-word;
+  white-space: pre-line;
+}
+
+.notice-code-help {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.notice-code-help strong {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 11px;
 }
